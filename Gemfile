@@ -2,9 +2,15 @@
 
 source 'https://rubygems.org'
 
+gem 'dry-system'
 gem 'falcon'
 gem 'sinatra'
 
 group :development, :test do
   gem 'rubocop', require: false
+end
+
+group :test do
+  gem 'rack-test'
+  gem 'rspec'
 end

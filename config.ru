@@ -2,4 +2,5 @@
 
 require_relative 'app'
 
+Lapidary::Container.finalize!
 run App
