@@ -4,6 +4,8 @@ require 'simplecov'
 require 'simplecov-cobertura'
 
 SimpleCov.start do
+  add_filter '/spec/'
+
   formatter SimpleCov::Formatter::MultiFormatter.new(
     [
       SimpleCov::Formatter::HTMLFormatter,
