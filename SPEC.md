@@ -166,6 +166,10 @@ After receiving a Webhook, Lapidary proactively fetches complete Issue data from
 | Ontology | A model defining domain concepts and semantic relationships |
 | Redmine | The issue tracking system used by bugs.ruby-lang.org |
 
+## Architecture
+
+See [Architecture](docs/architecture.md) for component structure, layers, and data flow design.
+
 ## Technical Decisions
 
 ### Decided
