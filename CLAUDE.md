@@ -27,7 +27,8 @@ The application uses dry-system as an IoC container. Components placed under `li
 - `falcon.rb` — Falcon server configuration (async hosting via TCP, port from `PORT` env or 9292)
 - `lib/lapidary/container.rb` — dry-system container, auto-registers from `lib/lapidary/`
 - `lib/lapidary/dependency.rb` — `Lapidary::Dependency` mixin (`Dry::AutoInject`)
-- `system/providers/` — External service providers (database, cache, etc.)
+- `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
+- `docs/architecture.md` — Detailed architecture documentation
 
 ### Adding a Component
 
@@ -43,6 +44,9 @@ Inject into other classes with `include Lapidary::Dependency['greeter']`.
 - `spec_helper.rb` loads `lib/lapidary/container` — the container is available in all specs
 - `rack-test` is available for HTTP integration tests
 - RSpec runs in random order with `--format documentation`
+- SimpleCov is configured with HTML + Cobertura formatters (output in `coverage/`)
+- dry-system stubs are enabled via `Lapidary::Container.enable_stubs!` — use `Container.stub('key', mock)` in tests
+- Integration tests should finalize the container in `before(:all) { Lapidary::Container.finalize! }`
 
 ## Conventions
 
