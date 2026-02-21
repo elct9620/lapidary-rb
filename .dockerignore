@@ -1,0 +1,9 @@
+.git
+spec/
+coverage/
+tmp/
+.bundle/
+vendor/bundle
+docs/
+.rubocop.yml
+.rspec
