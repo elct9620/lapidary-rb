@@ -22,12 +22,12 @@ bundle exec rubocop --autocorrect  # Lint with auto-fix
 
 The application uses dry-system as an IoC container. Components placed under `lib/lapidary/` are auto-registered and can be resolved from the container or injected via `Lapidary::Dependency`.
 
-- `config/environment.rb` — 環境載入入口，require container 和 web app
-- `config/web.rb` — `Lapidary::Web < Sinatra::Base`，主 Rack app，用 `use` 組合所有 controllers，exposes `Web.container`
-- `apps/controllers/` — Sinatra controller 模組，每個 controller 獨立一個檔案
+- `config/environment.rb` — Environment entry point, requires the container and web app
+- `config/web.rb` — `Lapidary::Web < Sinatra::Base`, the main Rack app that composes all controllers via `use`, exposes `Web.container`
+- `apps/<domain>/` — Domain-based modules, each subdirectory represents a domain (e.g., `apps/misc/`) containing its API controllers, models, etc.
 - `config.ru` — Rack entry point, finalizes the container then runs `Lapidary::Web`
 - `falcon.rb` — Falcon server configuration (async hosting via TCP, port from `PORT` env or 9292)
-- `lib/lapidary/container.rb` — dry-system container, auto-registers from `lib/lapidary/`, includes `apps/controllers` (auto_register: false)
+- `lib/lapidary/container.rb` — dry-system container with Zeitwerk plugin, auto-registers from `lib/lapidary/`, includes `apps/` (auto_register: false, Zeitwerk autoloaded)
 - `lib/lapidary/dependency.rb` — `Lapidary::Dependency` mixin (`Dry::AutoInject`)
 - `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
 - `docs/architecture.md` — Detailed architecture documentation
@@ -41,17 +41,17 @@ Place a class under `lib/lapidary/` and it auto-registers with the container. Th
 
 Inject into other classes with `include Lapidary::Dependency['greeter']`.
 
-### Adding a Controller
+### Adding an API Module
 
-Place a controller under `apps/controllers/`, inheriting from `Lapidary::BaseController`:
+Create a domain directory under `apps/` and add an `api.rb`. Zeitwerk autoloads the constant — no `require_relative` needed:
 
 ```ruby
-# apps/controllers/example_controller.rb
-require_relative '../../lib/lapidary/base_controller'
-
-class ExampleController < Lapidary::BaseController
-  get '/example' do
-    'OK'
+# apps/billing/api.rb
+module Billing
+  class API < Lapidary::BaseController
+    get '/billing' do
+      'OK'
+    end
   end
 end
 ```
@@ -59,14 +59,12 @@ end
 Mount it in `config/web.rb`:
 
 ```ruby
-require_relative '../apps/controllers/example_controller'
-
 class Web < Lapidary::BaseController
-  use ExampleController
+  use Billing::API
 end
 ```
 
-Controllers are under `apps/controllers/` which is registered in `container.rb` with `auto_register: false` — they are loaded via manual `require`, not resolved through the container.
+`apps/` is registered in `container.rb` with `auto_register: false` and loaded via Zeitwerk autoloading (dry-system `:zeitwerk` plugin).
 
 ## Testing
 

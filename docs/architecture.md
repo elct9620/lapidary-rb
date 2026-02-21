@@ -10,7 +10,7 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 
 ```
 ┌─────────────────────────────────┐
-│  Application (apps/)            │  Controllers, domain components (manual require)
+│  Application (apps/)            │  Domain modules (Zeitwerk autoloaded)
 ├─────────────────────────────────┤
 │  Infrastructure (lib/lapidary/) │  Auto-registered shared components
 ├─────────────────────────────────┤
@@ -20,9 +20,9 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 
 ### Application Layer
 
-`apps/` contains application-level components organized by type (e.g., `apps/controllers/`). Each subdirectory is registered as a `component_dirs` entry in the dry-system container with `auto_register: false`. Components are loaded via manual `require`, not resolved through the container.
+`apps/` contains application-level components organized by domain. Each subdirectory represents a domain (e.g., `apps/misc/`) and contains that domain's API controllers, models, jobs, and other objects. The directory is registered as a `component_dirs` entry in the dry-system container with `auto_register: false` and autoloaded via Zeitwerk (dry-system `:zeitwerk` plugin) — no manual `require` is needed.
 
-`config/web.rb` defines `Lapidary::Web`, the main Rack application that composes all controllers via Sinatra's `use` middleware mechanism. Each controller under `apps/controllers/` inherits from `Lapidary::BaseController` and handles specific routes. `Lapidary::Web` exposes `Web.container` for accessing the DI container.
+`config/web.rb` defines `Lapidary::Web`, the main Rack application that composes all API controllers via Sinatra's `use` middleware mechanism. Each API class inherits from `Lapidary::BaseController` and handles specific routes. `Lapidary::Web` exposes `Web.container` for accessing the DI container.
 
 ### Infrastructure Layer
 
@@ -34,15 +34,18 @@ Components under `lib/lapidary/` are auto-registered by dry-system. This layer c
 
 ### Application Layer Convention
 
-`apps/` follows a Rails-like convention where each subdirectory represents a component type:
+`apps/` follows a domain-based convention where each subdirectory represents a domain:
 
-- `apps/controllers/` — Sinatra controllers
-- Additional types (e.g., `apps/models/`, `apps/jobs/`) use the same pattern
+- `apps/misc/` — Miscellaneous routes (root endpoint)
+- Additional domains (e.g., `apps/billing/`, `apps/webhooks/`) use the same pattern
 
-All `apps/` subdirectories are registered in `container.rb` as `component_dirs` with `auto_register: false`. To add a new component type:
+Each domain directory can contain multiple layer types:
 
-1. Create the `apps/{type}/` subdirectory
-2. Add a corresponding `component_dirs.add` entry in `lib/lapidary/container.rb` with `auto_register: false`
+- `api.rb` — Sinatra API controller
+- `models/` — Domain models (future)
+- `jobs/` — Background jobs (future)
+
+Zeitwerk autoloads all constants under `apps/` — no manual `require` is needed. The directory structure maps to Ruby module namespaces (e.g., `apps/misc/api.rb` → `Misc::API`).
 
 ## V1 Data Flow
 
@@ -75,7 +78,8 @@ config/
   environment.rb       # Environment loader (container + web app)
   web.rb               # Lapidary::Web — main Rack app, composes controllers
 apps/
-  controllers/         # Sinatra controllers (auto_register: false)
+  misc/                # Domain: miscellaneous routes (Zeitwerk autoloaded)
+    api.rb             # Misc::API controller
 lib/lapidary/          # Auto-registered components
 system/providers/      # External service providers (database, HTTP client, etc.)
 config.ru              # Rack entry point
