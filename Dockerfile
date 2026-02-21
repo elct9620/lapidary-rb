@@ -22,6 +22,10 @@ COPY . .
 # Runtime stage
 FROM ruby:3.4-slim
 
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y curl && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system --gid 1000 app && \
     useradd --system --uid 1000 --gid app --create-home app
 
@@ -38,6 +42,6 @@ USER app:app
 EXPOSE 9292
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD ruby -e "require 'net/http'; Net::HTTP.get_response(URI('http://localhost:9292/')).is_a?(Net::HTTPSuccess) || exit(1)"
+  CMD curl -f http://localhost:9292/ || exit 1
 
 CMD ["bundle", "exec", "falcon", "host"]
