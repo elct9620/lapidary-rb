@@ -10,26 +10,39 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 
 ```
 ┌─────────────────────────────────┐
-│  HTTP Layer (config/web.rb)     │  Sinatra controllers, request/response handling
-│  (apps/controllers/)            │
+│  Application (apps/)            │  Controllers, domain components (manual require)
 ├─────────────────────────────────┤
-│  Domain Layer (lib/lapidary/)   │  Auto-registered business components
+│  Infrastructure (lib/lapidary/) │  Auto-registered shared components
 ├─────────────────────────────────┤
-│  Infrastructure (providers/)    │  Database, HTTP client, external services
+│  Providers (system/providers/)  │  External services (database, HTTP client)
 └─────────────────────────────────┘
 ```
 
-### HTTP Layer
+### Application Layer
 
-`config/web.rb` defines `Lapidary::Web`, the main Rack application that composes all controllers via Sinatra's `use` middleware mechanism. Each controller under `apps/controllers/` is a standalone `Sinatra::Base` subclass handling specific routes. `Lapidary::Web` exposes `Web.container` for accessing the DI container.
+`apps/` contains application-level components organized by type (e.g., `apps/controllers/`). Each subdirectory is registered as a `component_dirs` entry in the dry-system container with `auto_register: false`. Components are loaded via manual `require`, not resolved through the container.
 
-### Domain Layer
-
-Components under `lib/lapidary/` are auto-registered by dry-system. This layer contains business logic such as fetching issue data and persisting records. Components are resolved by container key with the `lapidary` namespace stripped (e.g., `lib/lapidary/services/foo.rb` → `Container['services.foo']`).
+`config/web.rb` defines `Lapidary::Web`, the main Rack application that composes all controllers via Sinatra's `use` middleware mechanism. Each controller under `apps/controllers/` inherits from `Lapidary::BaseController` and handles specific routes. `Lapidary::Web` exposes `Web.container` for accessing the DI container.
 
 ### Infrastructure Layer
 
+Components under `lib/lapidary/` are auto-registered by dry-system. This layer contains shared infrastructure such as fetching issue data and persisting records. Components are resolved by container key with the `lapidary` namespace stripped (e.g., `lib/lapidary/services/foo.rb` → `Container['services.foo']`).
+
+### Providers
+
 `system/providers/` hosts dry-system providers that register external services (database connections, HTTP clients) into the container. These are resolved at container finalization time.
+
+### Application Layer Convention
+
+`apps/` follows a Rails-like convention where each subdirectory represents a component type:
+
+- `apps/controllers/` — Sinatra controllers
+- Additional types (e.g., `apps/models/`, `apps/jobs/`) use the same pattern
+
+All `apps/` subdirectories are registered in `container.rb` as `component_dirs` with `auto_register: false`. To add a new component type:
+
+1. Create the `apps/{type}/` subdirectory
+2. Add a corresponding `component_dirs.add` entry in `lib/lapidary/container.rb` with `auto_register: false`
 
 ## V1 Data Flow
 
@@ -62,7 +75,7 @@ config/
   environment.rb       # Environment loader (container + web app)
   web.rb               # Lapidary::Web — main Rack app, composes controllers
 apps/
-  controllers/         # Sinatra controller modules (auto_register: false)
+  controllers/         # Sinatra controllers (auto_register: false)
 lib/lapidary/          # Auto-registered components
 system/providers/      # External service providers (database, HTTP client, etc.)
 config.ru              # Rack entry point

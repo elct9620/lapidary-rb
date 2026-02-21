@@ -41,6 +41,33 @@ Place a class under `lib/lapidary/` and it auto-registers with the container. Th
 
 Inject into other classes with `include Lapidary::Dependency['greeter']`.
 
+### Adding a Controller
+
+Place a controller under `apps/controllers/`, inheriting from `Lapidary::BaseController`:
+
+```ruby
+# apps/controllers/example_controller.rb
+require_relative '../../lib/lapidary/base_controller'
+
+class ExampleController < Lapidary::BaseController
+  get '/example' do
+    'OK'
+  end
+end
+```
+
+Mount it in `config/web.rb`:
+
+```ruby
+require_relative '../apps/controllers/example_controller'
+
+class Web < Lapidary::BaseController
+  use ExampleController
+end
+```
+
+Controllers are under `apps/controllers/` which is registered in `container.rb` with `auto_register: false` — they are loaded via manual `require`, not resolved through the container.
+
 ## Testing
 
 - `spec_helper.rb` loads `lib/lapidary/container` — the container is available in all specs
