@@ -1,11 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Build stage
-FROM ruby:3.4-slim AS builder
-
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential libssl-dev && \
-    rm -rf /var/lib/apt/lists/*
+FROM ruby:3.4 AS builder
 
 WORKDIR /app
 
