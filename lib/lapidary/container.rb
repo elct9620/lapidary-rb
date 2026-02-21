@@ -10,6 +10,9 @@ module Lapidary
       config.component_dirs.add 'lib' do |dir|
         dir.namespaces.add 'lapidary', key: nil
       end
+      config.component_dirs.add 'apps/controllers' do |dir|
+        dir.auto_register = false
+      end
     end
   end
 end

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'app'
+require_relative 'config/environment'
 
 Lapidary::Container.finalize!
-run App
+run Lapidary::Web

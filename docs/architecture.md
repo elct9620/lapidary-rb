@@ -10,7 +10,8 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 
 ```
 ┌─────────────────────────────────┐
-│  HTTP Layer (app.rb)            │  Sinatra routes, request/response handling
+│  HTTP Layer (config/web.rb)     │  Sinatra controllers, request/response handling
+│  (apps/controllers/)            │
 ├─────────────────────────────────┤
 │  Domain Layer (lib/lapidary/)   │  Auto-registered business components
 ├─────────────────────────────────┤
@@ -20,7 +21,7 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 
 ### HTTP Layer
 
-`app.rb` defines Sinatra routes that receive HTTP requests, validate input, and delegate to domain components. It exposes `App.container` for accessing the DI container.
+`config/web.rb` defines `Lapidary::Web`, the main Rack application that composes all controllers via Sinatra's `use` middleware mechanism. Each controller under `apps/controllers/` is a standalone `Sinatra::Base` subclass handling specific routes. `Lapidary::Web` exposes `Web.container` for accessing the DI container.
 
 ### Domain Layer
 
@@ -57,9 +58,13 @@ Respond 200 (ok)
 ## Directory Structure
 
 ```
+config/
+  environment.rb       # Environment loader (container + web app)
+  web.rb               # Lapidary::Web — main Rack app, composes controllers
+apps/
+  controllers/         # Sinatra controller modules (auto_register: false)
 lib/lapidary/          # Auto-registered components
 system/providers/      # External service providers (database, HTTP client, etc.)
-app.rb                 # Sinatra application (HTTP layer)
 config.ru              # Rack entry point
 falcon.rb              # Falcon server configuration
 ```

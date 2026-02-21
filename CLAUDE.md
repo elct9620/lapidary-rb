@@ -22,10 +22,12 @@ bundle exec rubocop --autocorrect  # Lint with auto-fix
 
 The application uses dry-system as an IoC container. Components placed under `lib/lapidary/` are auto-registered and can be resolved from the container or injected via `Lapidary::Dependency`.
 
-- `app.rb` — Sinatra application (`App < Sinatra::Base`), exposes `App.container`
-- `config.ru` — Rack entry point, finalizes the container then runs `App`
+- `config/environment.rb` — 環境載入入口，require container 和 web app
+- `config/web.rb` — `Lapidary::Web < Sinatra::Base`，主 Rack app，用 `use` 組合所有 controllers，exposes `Web.container`
+- `apps/controllers/` — Sinatra controller 模組，每個 controller 獨立一個檔案
+- `config.ru` — Rack entry point, finalizes the container then runs `Lapidary::Web`
 - `falcon.rb` — Falcon server configuration (async hosting via TCP, port from `PORT` env or 9292)
-- `lib/lapidary/container.rb` — dry-system container, auto-registers from `lib/lapidary/`
+- `lib/lapidary/container.rb` — dry-system container, auto-registers from `lib/lapidary/`, includes `apps/controllers` (auto_register: false)
 - `lib/lapidary/dependency.rb` — `Lapidary::Dependency` mixin (`Dry::AutoInject`)
 - `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
 - `docs/architecture.md` — Detailed architecture documentation

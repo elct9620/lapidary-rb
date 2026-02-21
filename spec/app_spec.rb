@@ -2,13 +2,12 @@
 
 require 'spec_helper'
 require 'rack/test'
-require_relative '../app'
+require_relative '../config/web'
 
-RSpec.describe App do
+RSpec.describe Lapidary::Web do
   include Rack::Test::Methods
 
   def app
-    described_class.set :environment, :test
     described_class
   end
 
