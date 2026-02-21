@@ -46,6 +46,7 @@ V1 implements only the first phase.
 1. **Webhook endpoint** — Receive Issue ID notifications sent by external systems
 2. **Issue data fetching** — Retrieve complete Issue data from the Redmine JSON API
 3. **Issue data storage** — Store data in SQLite after validating completeness
+4. **Health check endpoint** — Report application availability status
 
 ## User Journeys
 
@@ -58,6 +59,18 @@ V1 implements only the first phase.
 ---
 
 ## Behavior
+
+### Health Check Endpoint
+
+**Endpoint**: `GET /`
+
+**Responses**:
+
+| Condition | Status Code | Body |
+|-----------|-------------|------|
+| Application is running | `200 OK` | `{ "status": "ok" }` |
+
+Content-Type: `application/json`
 
 ### Webhook Endpoint
 
