@@ -37,13 +37,9 @@ Components under `lib/lapidary/` are auto-registered by dry-system. This layer c
 `apps/` follows a domain-based convention where each subdirectory represents a domain:
 
 - `apps/misc/` — Miscellaneous routes (root endpoint)
-- Additional domains (e.g., `apps/billing/`, `apps/webhooks/`) use the same pattern
+- Additional domains (e.g., `apps/webhooks/`, `apps/issues/`) use the same pattern
 
-Each domain directory can contain multiple layer types:
-
-- `api.rb` — Sinatra API controller
-- `models/` — Domain models (future)
-- `jobs/` — Background jobs (future)
+Each domain directory contains Sinatra controllers such as `api.rb` (JSON API) or `web.rb` (HTML pages), and may include both. Additional layer types (e.g., models, services) can be added as needed.
 
 Zeitwerk autoloads all constants under `apps/` — no manual `require` is needed. The directory structure maps to Ruby module namespaces (e.g., `apps/misc/api.rb` → `Misc::API`).
 

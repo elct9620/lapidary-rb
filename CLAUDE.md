@@ -23,7 +23,7 @@ bundle exec rubocop --autocorrect  # Lint with auto-fix
 The application uses dry-system as an IoC container. Components placed under `lib/lapidary/` are auto-registered and can be resolved from the container or injected via `Lapidary::Dependency`.
 
 - `config/environment.rb` — Environment entry point, requires the container and web app
-- `config/web.rb` — `Lapidary::Web < Sinatra::Base`, the main Rack app that composes all controllers via `use`, exposes `Web.container`
+- `config/web.rb` — `Lapidary::Web < Lapidary::BaseController`, the main Rack app that composes all controllers via `use`, exposes `Web.container`
 - `apps/<domain>/` — Domain-based modules, each subdirectory represents a domain (e.g., `apps/misc/`) containing its API controllers, models, etc.
 - `config.ru` — Rack entry point, finalizes the container then runs `Lapidary::Web`
 - `falcon.rb` — Falcon server configuration (async hosting via TCP, port from `PORT` env or 9292)
@@ -41,15 +41,15 @@ Place a class under `lib/lapidary/` and it auto-registers with the container. Th
 
 Inject into other classes with `include Lapidary::Dependency['greeter']`.
 
-### Adding an API Module
+### Adding a Domain Controller
 
-Create a domain directory under `apps/` and add an `api.rb`. Zeitwerk autoloads the constant — no `require_relative` needed:
+Create a domain directory under `apps/` and add a controller — `api.rb` for JSON APIs or `web.rb` for HTML pages (both can coexist). Zeitwerk autoloads the constant — no `require_relative` needed:
 
 ```ruby
-# apps/billing/api.rb
-module Billing
+# apps/webhooks/api.rb
+module Webhooks
   class API < Lapidary::BaseController
-    get '/billing' do
+    post '/webhook' do
       'OK'
     end
   end
@@ -60,7 +60,7 @@ Mount it in `config/web.rb`:
 
 ```ruby
 class Web < Lapidary::BaseController
-  use Billing::API
+  use Webhooks::API
 end
 ```
 
