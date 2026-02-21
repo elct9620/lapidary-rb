@@ -12,3 +12,7 @@ AllCops:
   TargetRubyVersion: 3.4
   NewCops: enable
 
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*_spec.rb'
+
