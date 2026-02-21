@@ -47,6 +47,7 @@ V1 implements only the first phase.
 2. **Issue data fetching** — Retrieve complete Issue data from the Redmine JSON API
 3. **Issue data storage** — Store data in SQLite after validating completeness
 4. **Health check endpoint** — Report application availability status
+5. **Container deployment** — Package the application as a container image for deployment
 
 ## User Journeys
 
@@ -166,6 +167,37 @@ After receiving a Webhook, Lapidary proactively fetches complete Issue data from
 | Duplicate notification (same Issue notified again) | Process normally, full update of existing record |
 | Database write failure | Respond 500, log error |
 
+### Deployment
+
+#### Container Image
+
+The application is packaged as a container image using multi-stage build:
+
+- **Base image**: Ruby 3.4 (official image)
+- **Build stage**: Installs dependencies (`bundle install`)
+- **Runtime stage**: Contains only the application code and runtime dependencies
+- **Entry point**: `bundle exec falcon host`
+
+#### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT`   | No       | `9292`  | HTTP listen port |
+
+#### Port
+
+- Container exposes port `9292` by default
+
+#### Health Check
+
+- Uses the existing `GET /` endpoint as the container health check
+- Expected response: `200 OK` with `{ "status": "ok" }`
+
+#### Data Persistence
+
+- SQLite database file must be persisted via volume mount
+- Database path is determined by application configuration (to be finalized when database provider is implemented)
+
 ---
 
 ## Terminology
@@ -196,6 +228,8 @@ See [Architecture](docs/architecture.md) for component structure, layers, and da
 | Webhook format | Custom `{ "issue_id": N }` | External system sends Issue ID, Lapidary proactively fetches data from Redmine API |
 | Issue data source | Redmine JSON API | `GET /issues/{id}.json?include=journals` |
 | Redmine API access method | Public access (no authentication required) | bugs.ruby-lang.org JSON API is publicly accessible |
+| Deployment method | Container (Docker) | Portable, reproducible, consistent across environments |
+| Container build | Multi-stage build | Smaller image size, separates build and runtime dependencies |
 
 ### To Be Decided
 
