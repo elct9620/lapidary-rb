@@ -3,7 +3,7 @@
 module Lapidary
   # The main Rack application composing all controllers
   class Web < Lapidary::BaseController
-    use Misc::API
+    use Health::API
 
     def self.container
       Lapidary::Container
