@@ -11,6 +11,17 @@ RSpec.describe Webhooks::API do
     described_class
   end
 
+  shared_examples 'a validation error' do
+    it 'returns 422 Unprocessable Entity' do
+      expect(last_response.status).to eq(422)
+    end
+
+    it 'returns JSON error body' do
+      body = JSON.parse(last_response.body)
+      expect(body['errors']).to have_key('issue_id')
+    end
+  end
+
   describe 'POST /webhook' do
     context 'with a valid request' do
       before do
@@ -152,71 +163,27 @@ RSpec.describe Webhooks::API do
     end
 
     context 'with missing issue_id' do
-      before do
-        post '/webhook',
-             JSON.generate(other: 'data'),
-             'CONTENT_TYPE' => 'application/json'
-      end
+      before { post '/webhook', JSON.generate(other: 'data'), 'CONTENT_TYPE' => 'application/json' }
 
-      it 'returns 422 Unprocessable Entity' do
-        expect(last_response.status).to eq(422)
-      end
-
-      it 'returns JSON error body' do
-        body = JSON.parse(last_response.body)
-        expect(body['errors']).to have_key('issue_id')
-      end
+      include_examples 'a validation error'
     end
 
     context 'with issue_id as zero' do
-      before do
-        post '/webhook',
-             JSON.generate(issue_id: 0),
-             'CONTENT_TYPE' => 'application/json'
-      end
+      before { post '/webhook', JSON.generate(issue_id: 0), 'CONTENT_TYPE' => 'application/json' }
 
-      it 'returns 422 Unprocessable Entity' do
-        expect(last_response.status).to eq(422)
-      end
-
-      it 'returns JSON error body' do
-        body = JSON.parse(last_response.body)
-        expect(body['errors']).to have_key('issue_id')
-      end
+      include_examples 'a validation error'
     end
 
     context 'with negative issue_id' do
-      before do
-        post '/webhook',
-             JSON.generate(issue_id: -1),
-             'CONTENT_TYPE' => 'application/json'
-      end
+      before { post '/webhook', JSON.generate(issue_id: -1), 'CONTENT_TYPE' => 'application/json' }
 
-      it 'returns 422 Unprocessable Entity' do
-        expect(last_response.status).to eq(422)
-      end
-
-      it 'returns JSON error body' do
-        body = JSON.parse(last_response.body)
-        expect(body['errors']).to have_key('issue_id')
-      end
+      include_examples 'a validation error'
     end
 
     context 'with issue_id as string' do
-      before do
-        post '/webhook',
-             JSON.generate(issue_id: 'abc'),
-             'CONTENT_TYPE' => 'application/json'
-      end
+      before { post '/webhook', JSON.generate(issue_id: 'abc'), 'CONTENT_TYPE' => 'application/json' }
 
-      it 'returns 422 Unprocessable Entity' do
-        expect(last_response.status).to eq(422)
-      end
-
-      it 'returns JSON error body' do
-        body = JSON.parse(last_response.body)
-        expect(body['errors']).to have_key('issue_id')
-      end
+      include_examples 'a validation error'
     end
   end
 end

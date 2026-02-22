@@ -7,22 +7,21 @@ module Webhooks
     post '/webhook' do
       unless request.content_type&.include?('application/json')
         logger.warn(self, 'Rejected webhook with unsupported Content-Type')
-        halt 415, { 'Content-Type' => 'application/json' },
-             JSON.generate(error: 'Content-Type must be application/json')
+        halt_json 415, error: 'Content-Type must be application/json'
       end
 
       begin
         payload = JSON.parse(request.body.read)
       rescue JSON::ParserError => e
         logger.warn(self, 'Invalid JSON in webhook request', e)
-        halt 422, { 'Content-Type' => 'application/json' }, JSON.generate(error: 'invalid JSON')
+        halt_json 422, error: 'invalid JSON'
       end
 
       result = container['webhooks.contract'].call(payload)
 
       if result.failure?
         logger.warn(self, 'Webhook validation failed', result.errors.to_h)
-        halt 422, { 'Content-Type' => 'application/json' }, JSON.generate(errors: result.errors.to_h)
+        halt_json 422, errors: result.errors.to_h
       end
 
       use_case = HandleWebhook.new(analysis_record_repository: container['webhooks.analysis_record_repository'])

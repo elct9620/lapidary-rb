@@ -6,34 +6,40 @@ module Webhooks
     include Lapidary::Dependency['database']
 
     def save(record)
-      dataset.insert_conflict(target: %i[entity_type entity_id]).insert(
-        entity_type: record.entity_type,
-        entity_id: record.entity_id,
-        analyzed_at: record.analyzed_at
-      )
-    rescue Sequel::Error => e
-      raise AnalysisTrackingError, e.message
+      with_error_wrapping do
+        dataset.insert_conflict(target: %i[entity_type entity_id]).insert(
+          entity_type: record.entity_type,
+          entity_id: record.entity_id,
+          analyzed_at: record.analyzed_at
+        )
+      end
     end
 
     def exists?(record)
-      dataset.where(entity_type: record.entity_type, entity_id: record.entity_id).any?
-    rescue Sequel::Error => e
-      raise AnalysisTrackingError, e.message
+      with_error_wrapping do
+        dataset.where(entity_type: record.entity_type, entity_id: record.entity_id).any?
+      end
     end
 
     def untracked_journal_ids(journal_ids)
       return [] if journal_ids.empty?
 
-      tracked = dataset
-                .where(entity_type: 'journal', entity_id: journal_ids)
-                .select_map(:entity_id)
+      with_error_wrapping do
+        tracked = dataset
+                  .where(entity_type: 'journal', entity_id: journal_ids)
+                  .select_map(:entity_id)
 
-      journal_ids - tracked
-    rescue Sequel::Error => e
-      raise AnalysisTrackingError, e.message
+        journal_ids - tracked
+      end
     end
 
     private
+
+    def with_error_wrapping
+      yield
+    rescue Sequel::Error => e
+      raise AnalysisTrackingError, e.message
+    end
 
     def dataset
       database[:analysis_records]

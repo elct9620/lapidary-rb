@@ -21,6 +21,10 @@ module Lapidary
       container['logger']
     end
 
+    def halt_json(status_code, body)
+      halt status_code, { 'Content-Type' => 'application/json' }, JSON.generate(body)
+    end
+
     error do
       error = env['sinatra.error']
       logger.error(self, "#{error.class}: #{error.message}", error)
