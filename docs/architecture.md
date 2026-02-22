@@ -84,7 +84,6 @@ Upsert into SQLite (keyed by issue id)
   │
   ▼
 Create analysis records (issue + untracked journals)
-  │  failure does not affect response
   │
   ▼
 Respond 200 (ok)

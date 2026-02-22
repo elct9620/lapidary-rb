@@ -187,7 +187,7 @@ After receiving a Webhook, Lapidary proactively fetches complete Issue data from
 **Recording behavior**:
 
 - After Issue data is successfully stored, analysis records are created for the Issue and all of its journals that are not yet tracked. Journal IDs are obtained from the same Redmine API response used for Issue data storage.
-- This step is appended to the existing Webhook processing flow, after the Issue data storage step.
+- This step is part of the Webhook processing flow, executed after the Issue data storage step.
 
 **Query behavior**:
 
@@ -206,7 +206,42 @@ After receiving a Webhook, Lapidary proactively fetches complete Issue data from
 | Incomplete Issue data (required fields missing) | Respond 200 (`skipped`), do not write to database, log warning |
 | Duplicate notification (same Issue notified again) | Process normally, full update of existing record |
 | Database write failure | Respond 500, log error |
-| Analysis record write failure | Does not affect the successful response for Issue data storage (tracking is supplementary behavior), log warning |
+| Analysis record write failure | Respond 500, log error |
+
+### Global Error Handling
+
+**Scope**: All Controller endpoints
+
+**Behavior**: Any unhandled exception is caught and converted into a standard, safe error response.
+
+**Response format**:
+
+| Item | Value |
+|------|-------|
+| Status Code | `500 Internal Server Error` |
+| Body | `{ "error": "internal server error" }` |
+| Content-Type | `application/json` |
+
+**Security principle**: Error responses must not leak internal implementation details (class names, stack traces, database information, etc.).
+
+**Logging**: Full error information is recorded via Error Logging.
+
+### Error Logging
+
+**Log level mapping**:
+
+| Scenario | Log Level | Recorded Information |
+|----------|-----------|---------------------|
+| Unhandled exception (caught by Global Error Handler) | `error` | Error class, message, stack trace |
+| Database write failure | `error` | Operation name, error message |
+| Redmine API failure | `warn` | Request URL, HTTP status code |
+| Incomplete Issue data | `warn` | Issue ID, missing fields |
+| Invalid request (422/415) | `warn` | Request origin information, validation errors |
+
+**Principles**:
+
+- Do not log sensitive information (e.g., full request body)
+- Each error log entry must include sufficient context to trace the problem
 
 ### Deployment
 
@@ -258,7 +293,7 @@ The application is packaged as a container image using multi-stage build:
 | Pattern | Definition | Used In |
 |---------|------------|---------|
 | Upsert by ID | Insert or update a record keyed by a unique identifier; create if absent, update if present | Issue data storage, Analysis Record writing |
-| Supplementary operation | An operation executed after the main flow succeeds; its failure does not affect the main flow response | Analysis Tracking record writing |
+| Safe error response | Unhandled exceptions are converted into a generic error message, never leaking internal details | Global Error Handling |
 | Polymorphic tracking | A single table using `type` + `id` columns to track multiple entity types | Analysis Records tracking Issue and Journal |
 
 ## Architecture
@@ -282,7 +317,7 @@ See [Architecture](docs/architecture.md) for component structure, layers, and da
 | Analysis tracking table design | Single polymorphic table (`entity_type` + `entity_id`) | Simple, one table handles both Issue and Journal entities |
 | Analysis tracking state | `analyzed_at` timestamp | Provides more information than a boolean |
 | Analysis tracking uniqueness | Joint unique constraint on `(entity_type, entity_id)` | Prevents duplicate records |
-| Analysis tracking failure handling | Does not affect main flow response | Tracking is supplementary, should not block data storage |
+| Error handling strategy | All errors propagate correctly; Global Error Handler ensures safe responses | Errors should not be silently swallowed; safe responses prevent information leakage |
 | Deployment method | Container (Docker) | Portable, reproducible, consistent across environments |
 | Container build | Multi-stage build | Smaller image size, separates build and runtime dependencies |
 
