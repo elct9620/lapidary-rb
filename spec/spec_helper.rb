@@ -34,4 +34,21 @@ RSpec.configure do |config|
   config.shared_context_metadata_behavior = :apply_to_host_groups
   config.order = :random
   Kernel.srand config.seed
+
+  config.before(:suite) do
+    Lapidary::Container.finalize!
+    db = Lapidary::Container['database']
+    migrations_path = File.expand_path('../db/migrations', __dir__)
+    if Dir.glob(File.join(migrations_path, '*.rb')).any?
+      Sequel.extension :migration
+      Sequel::Migrator.run(db, migrations_path)
+    end
+  end
+
+  config.around(:each) do |example|
+    db = Lapidary::Container['database']
+    db.transaction(rollback: :always, auto_savepoint: true) do
+      example.run
+    end
+  end
 end

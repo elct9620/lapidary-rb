@@ -3,8 +3,6 @@
 require 'spec_helper'
 
 RSpec.describe 'Database provider' do
-  before(:all) { Lapidary::Container.finalize! }
-
   let(:database) { Lapidary::Container['database'] }
 
   it 'registers a Sequel::Database' do

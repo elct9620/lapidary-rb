@@ -11,10 +11,6 @@ RSpec.describe Health::API do
     described_class
   end
 
-  before(:all) do
-    Lapidary::Container.finalize!
-  end
-
   describe 'GET /' do
     before { get '/' }
 

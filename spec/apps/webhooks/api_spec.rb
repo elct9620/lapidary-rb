@@ -11,10 +11,6 @@ RSpec.describe Webhooks::API do
     described_class
   end
 
-  before(:all) do
-    Lapidary::Container.finalize!
-  end
-
   describe 'POST /webhook' do
     context 'with a valid request' do
       before do
