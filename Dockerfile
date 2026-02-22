@@ -10,7 +10,8 @@ ENV BUNDLE_DEPLOYMENT=1 \
     BUNDLE_RETRY=3
 
 COPY Gemfile Gemfile.lock ./
-RUN bundle install && \
+RUN gem install bundler -v 4.0.1 && \
+    bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
 COPY . .
