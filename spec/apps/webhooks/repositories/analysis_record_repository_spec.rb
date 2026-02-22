@@ -51,27 +51,37 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
     end
   end
 
-  describe '#untracked_journal_ids' do
-    it 'returns all IDs when none are tracked' do
-      expect(repository.untracked_journal_ids([1, 2, 3])).to contain_exactly(1, 2, 3)
+  describe '#untracked' do
+    def build_journal_records(*ids)
+      ids.map { |id| Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: id) }
     end
 
-    it 'excludes already tracked IDs' do
-      record = build_record(entity_type: 'journal', entity_id: 2)
-      repository.save(record)
+    it 'returns all records when none are tracked' do
+      records = build_journal_records(1, 2, 3)
+      result = repository.untracked(records)
 
-      expect(repository.untracked_journal_ids([1, 2, 3])).to contain_exactly(1, 3)
+      expect(result.map(&:entity_id)).to contain_exactly(1, 2, 3)
+    end
+
+    it 'excludes already tracked records' do
+      repository.save(build_record(entity_type: 'journal', entity_id: 2))
+
+      records = build_journal_records(1, 2, 3)
+      result = repository.untracked(records)
+
+      expect(result.map(&:entity_id)).to contain_exactly(1, 3)
     end
 
     it 'returns an empty array when given an empty list' do
-      expect(repository.untracked_journal_ids([])).to eq([])
+      expect(repository.untracked([])).to eq([])
     end
 
     it 'returns an empty array when all are tracked' do
       repository.save(build_record(entity_type: 'journal', entity_id: 1))
       repository.save(build_record(entity_type: 'journal', entity_id: 2))
 
-      expect(repository.untracked_journal_ids([1, 2])).to be_empty
+      records = build_journal_records(1, 2)
+      expect(repository.untracked(records)).to be_empty
     end
   end
 
@@ -92,8 +102,9 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
       expect { repository.exists?(record) }.to raise_error(Webhooks::Entities::AnalysisTrackingError)
     end
 
-    it '#untracked_journal_ids raises AnalysisTrackingError' do
-      expect { repository.untracked_journal_ids([1]) }.to raise_error(Webhooks::Entities::AnalysisTrackingError)
+    it '#untracked raises AnalysisTrackingError' do
+      records = [Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 1)]
+      expect { repository.untracked(records) }.to raise_error(Webhooks::Entities::AnalysisTrackingError)
     end
   end
 
@@ -118,11 +129,12 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
       end.to raise_error(Webhooks::Entities::AnalysisTrackingError, 'connection lost')
     end
 
-    it 'wraps Sequel::DatabaseError from #untracked_journal_ids as AnalysisTrackingError' do
+    it 'wraps Sequel::DatabaseError from #untracked as AnalysisTrackingError' do
+      records = [Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 1)]
       allow(database).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
 
       expect do
-        repository.untracked_journal_ids([1])
+        repository.untracked(records)
       end.to raise_error(Webhooks::Entities::AnalysisTrackingError, 'connection lost')
     end
   end

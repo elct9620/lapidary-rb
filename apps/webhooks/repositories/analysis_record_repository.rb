@@ -22,15 +22,17 @@ module Webhooks
         end
       end
 
-      def untracked_journal_ids(journal_ids)
-        return [] if journal_ids.empty?
+      def untracked(records)
+        return [] if records.empty?
 
         with_error_wrapping do
-          tracked = dataset
-                    .where(entity_type: 'journal', entity_id: journal_ids)
-                    .select_map(:entity_id)
+          entity_type = records.first.entity_type
+          entity_ids = records.map(&:entity_id)
+          tracked_ids = dataset
+                        .where(entity_type: entity_type, entity_id: entity_ids)
+                        .select_map(:entity_id)
 
-          journal_ids - tracked
+          records.reject { |r| tracked_ids.include?(r.entity_id) }
         end
       end
 

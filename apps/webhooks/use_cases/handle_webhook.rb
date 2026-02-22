@@ -11,29 +11,24 @@ module Webhooks
       end
 
       def call(issue)
-        track_issue(issue)
-        track_journals(issue)
+        track_records(build_issue_records(issue))
+        track_records(build_journal_records(issue))
 
         { status: 'ok' }
       end
 
       private
 
-      def track_issue(issue)
-        record = Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: issue.id)
-
-        return if @analysis_record_repository.exists?(record)
-
-        record.analyze
-        @analysis_record_repository.save(record)
+      def build_issue_records(issue)
+        [Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: issue.id)]
       end
 
-      def track_journals(issue)
-        return if issue.journal_ids.empty?
+      def build_journal_records(issue)
+        issue.journal_ids.map { |id| Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: id) }
+      end
 
-        untracked = @analysis_record_repository.untracked_journal_ids(issue.journal_ids)
-        untracked.each do |journal_id|
-          record = Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: journal_id)
+      def track_records(records)
+        @analysis_record_repository.untracked(records).each do |record|
           record.analyze
           @analysis_record_repository.save(record)
         end
