@@ -20,7 +20,7 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 
 ### Application Layer
 
-`apps/` contains application-level components organized by domain. Each subdirectory represents a domain (e.g., `apps/misc/`) and contains that domain's API controllers, models, jobs, and other objects. The directory is registered as a `component_dirs` entry in the dry-system container with `auto_register: false` and autoloaded via Zeitwerk (dry-system `:zeitwerk` plugin) — no manual `require` is needed.
+`apps/` contains application-level components organized by domain. Each subdirectory represents a domain (e.g., `apps/webhooks/`) and contains that domain's controllers, use cases, entities, repositories, and contracts. The directory is registered as a `component_dirs` entry in the dry-system container and autoloaded via Zeitwerk (dry-system `:zeitwerk` plugin) — no manual `require` is needed. Components auto-register by default; individual files use the `# auto_register: false` magic comment to opt out.
 
 `config/web.rb` defines `Lapidary::Web`, the main Rack application that composes all API controllers via Sinatra's `use` middleware mechanism. Each API class inherits from `Lapidary::BaseController` and handles specific routes. `Lapidary::Web` exposes `Web.container` for accessing the DI container.
 
@@ -36,12 +36,31 @@ Components under `lib/lapidary/` are auto-registered by dry-system. This layer c
 
 `apps/` follows a domain-based convention where each subdirectory represents a domain:
 
-- `apps/misc/` — Miscellaneous routes (root endpoint)
-- Additional domains (e.g., `apps/webhooks/`, `apps/issues/`) use the same pattern
+- `apps/health/` — Health check endpoint
+- `apps/webhooks/` — Webhook processing (issue notifications)
+- Additional domains use the same pattern
 
-Each domain directory contains Sinatra controllers such as `api.rb` (JSON API) or `web.rb` (HTML pages), and may include both. Additional layer types (e.g., models, services) can be added as needed.
+Each domain directory contains components categorized by Clean Architecture layer:
 
-Zeitwerk autoloads all constants under `apps/` — no manual `require` is needed. The directory structure maps to Ruby module namespaces (e.g., `apps/misc/api.rb` → `Misc::API`).
+| Component | Layer | `auto_register: false`? | Uses `Lapidary::Dependency`? | Description |
+|---|---|---|---|---|
+| Controller | Adapter (outer) | Yes — mounted via `use`, not resolved | Yes | Sinatra controller handling HTTP routes |
+| Use Case | Domain (inner) | Yes — assembled by controller | **No** — plain constructor injection | Business logic orchestration |
+| Entity | Domain (inner) | Yes — domain object | **No** — no DI | Domain value/data objects |
+| Repository | Adapter (outer) | No — auto-registered | Yes | Data access, bridges domain and infrastructure |
+| Contract | Adapter (outer) | No — auto-registered | N/A | Request validation via `dry-validation` |
+
+**Dependency direction rule:** Inner layers (Entity, Use Case) must never depend on outer layers (Framework, Infrastructure). Only outer-layer components (Controller, Repository) may use `Lapidary::Dependency` (`Dry::AutoInject`). Inner-layer components receive dependencies through plain Ruby constructor injection, keeping the dependency direction always pointing inward.
+
+Controllers (outer layer) resolve dependencies from the container and assemble Use Cases (inner layer):
+
+```ruby
+# Controller wires dependencies into Use Case
+use_case = HandleWebhook.new(analysis_record_repository: analysis_record_repository)
+output = use_case.call(issue_id)
+```
+
+Zeitwerk autoloads all constants under `apps/` — no manual `require` is needed. The directory structure maps to Ruby module namespaces (e.g., `apps/webhooks/api.rb` → `Webhooks::API`).
 
 ## V1 Data Flow
 
@@ -78,8 +97,14 @@ config/
   environment.rb       # Environment loader (container + web app)
   web.rb               # Lapidary::Web — main Rack app, composes controllers
 apps/
-  misc/                # Domain: miscellaneous routes (Zeitwerk autoloaded)
-    api.rb             # Misc::API controller
+  health/
+    api.rb             # Controller (adapter)
+  webhooks/
+    api.rb             # Controller (adapter)
+    handle_webhook.rb  # Use Case (domain)
+    analysis_record.rb # Entity (domain)
+    analysis_record_repository.rb  # Repository (adapter)
+    contract.rb        # Contract (adapter)
 lib/lapidary/          # Auto-registered components
 system/providers/      # External service providers (database, HTTP client, etc.)
 config.ru              # Rack entry point
