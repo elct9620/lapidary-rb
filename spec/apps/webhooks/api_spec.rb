@@ -42,7 +42,27 @@ RSpec.describe Webhooks::API do
     context 'when analysis tracking fails' do
       before do
         repository = Lapidary::Container['webhooks.analysis_record_repository']
-        allow(repository).to receive(:exists?).and_raise(StandardError)
+        allow(repository).to receive(:exists?).and_raise(Webhooks::AnalysisTrackingError, 'database error')
+
+        post '/webhook',
+             JSON.generate(issue_id: 1),
+             'CONTENT_TYPE' => 'application/json'
+      end
+
+      it 'still returns 200 OK' do
+        expect(last_response).to be_ok
+      end
+
+      it 'still returns status ok' do
+        body = JSON.parse(last_response.body)
+        expect(body).to eq('status' => 'ok')
+      end
+    end
+
+    context 'when migration has not been run' do
+      before do
+        database = Lapidary::Container['database']
+        database.drop_table(:analysis_records)
 
         post '/webhook',
              JSON.generate(issue_id: 1),
@@ -72,7 +92,11 @@ RSpec.describe Webhooks::API do
     end
 
     context 'with invalid JSON body' do
+      let(:mock_logger) { Lapidary::Container['logger'] }
+
       before do
+        allow(mock_logger).to receive(:warn)
+
         post '/webhook',
              'not valid json',
              'CONTENT_TYPE' => 'application/json'
@@ -80,6 +104,14 @@ RSpec.describe Webhooks::API do
 
       it 'returns 422 Unprocessable Entity' do
         expect(last_response.status).to eq(422)
+      end
+
+      it 'logs a warning' do
+        expect(mock_logger).to have_received(:warn).with(
+          anything,
+          'Invalid JSON in webhook request',
+          instance_of(JSON::ParserError)
+        )
       end
     end
 

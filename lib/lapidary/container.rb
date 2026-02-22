@@ -14,5 +14,9 @@ module Lapidary
       end
       config.component_dirs.add 'apps'
     end
+
+    after(:finalize) do
+      self['migration_checker'].call
+    end
   end
 end

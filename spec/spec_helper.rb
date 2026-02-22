@@ -36,6 +36,8 @@ RSpec.configure do |config|
   Kernel.srand config.seed
 
   config.before(:suite) do
+    require 'console'
+    Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
     Lapidary::Container.finalize!
     db = Lapidary::Container['database']
     migrations_path = File.expand_path('../db/migrations', __dir__)

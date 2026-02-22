@@ -11,10 +11,14 @@ module Webhooks
         entity_id: record.entity_id,
         analyzed_at: record.analyzed_at
       )
+    rescue Sequel::Error => e
+      raise AnalysisTrackingError, e.message
     end
 
     def exists?(record)
       dataset.where(entity_type: record.entity_type, entity_id: record.entity_id).any?
+    rescue Sequel::Error => e
+      raise AnalysisTrackingError, e.message
     end
 
     def untracked_journal_ids(journal_ids)
@@ -25,6 +29,8 @@ module Webhooks
                 .select_map(:entity_id)
 
       journal_ids - tracked
+    rescue Sequel::Error => e
+      raise AnalysisTrackingError, e.message
     end
 
     private

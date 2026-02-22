@@ -17,7 +17,7 @@ Lapidary::Container.register_provider(:database) do
     database = Sequel.connect(
       database_url,
       single_threaded: true,
-      connect_sqls: ['PRAGMA journal_mode=WAL']
+      connect_sqls: ['PRAGMA busy_timeout=5000', 'PRAGMA journal_mode=WAL']
     )
 
     register('database', database)

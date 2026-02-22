@@ -74,4 +74,56 @@ RSpec.describe Webhooks::AnalysisRecordRepository do
       expect(repository.untracked_journal_ids([1, 2])).to be_empty
     end
   end
+
+  describe 'when migration has not been run' do
+    before do
+      Lapidary::Container['database'].drop_table(:analysis_records)
+    end
+
+    it '#save raises AnalysisTrackingError' do
+      record = build_record(entity_type: 'issue', entity_id: 1)
+
+      expect { repository.save(record) }.to raise_error(Webhooks::AnalysisTrackingError)
+    end
+
+    it '#exists? raises AnalysisTrackingError' do
+      record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
+
+      expect { repository.exists?(record) }.to raise_error(Webhooks::AnalysisTrackingError)
+    end
+
+    it '#untracked_journal_ids raises AnalysisTrackingError' do
+      expect { repository.untracked_journal_ids([1]) }.to raise_error(Webhooks::AnalysisTrackingError)
+    end
+  end
+
+  describe 'error wrapping' do
+    let(:database) { Lapidary::Container['database'] }
+
+    it 'wraps Sequel::DatabaseError from #save as AnalysisTrackingError' do
+      record = build_record(entity_type: 'issue', entity_id: 1)
+      allow(database).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
+
+      expect do
+        repository.save(record)
+      end.to raise_error(Webhooks::AnalysisTrackingError, 'connection lost')
+    end
+
+    it 'wraps Sequel::DatabaseError from #exists? as AnalysisTrackingError' do
+      record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
+      allow(database).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
+
+      expect do
+        repository.exists?(record)
+      end.to raise_error(Webhooks::AnalysisTrackingError, 'connection lost')
+    end
+
+    it 'wraps Sequel::DatabaseError from #untracked_journal_ids as AnalysisTrackingError' do
+      allow(database).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
+
+      expect do
+        repository.untracked_journal_ids([1])
+      end.to raise_error(Webhooks::AnalysisTrackingError, 'connection lost')
+    end
+  end
 end
