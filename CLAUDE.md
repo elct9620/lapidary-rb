@@ -16,6 +16,7 @@ bundle exec rspec           # Run all tests
 bundle exec rspec spec/apps/webhooks/api_spec.rb  # Run a single test file
 bundle exec rubocop         # Lint
 bundle exec rubocop --autocorrect  # Lint with auto-fix
+bundle exec rake db:migrate # Run database migrations
 ```
 
 ## Architecture
@@ -32,6 +33,26 @@ The application uses dry-system as an IoC container. Components are auto-registe
 - `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
 - `docs/architecture.md` — Detailed architecture documentation
 - `SPEC.md` — Behavioral specification for V1
+
+### Dependency Injection Boundaries
+
+This project follows the Clean Architecture dependency rule: inner layers (Entity, Use Case) must never depend on outer layers (Framework, Infrastructure). Since `Lapidary::Dependency` (`Dry::AutoInject`) is framework infrastructure, only outer-layer components may use it. Inner-layer components receive dependencies through plain Ruby constructor injection, and outer layers are responsible for assembly — keeping the dependency direction always pointing inward. Marking `# auto_register: false` is a consequence of this rule, as inner-layer components are not managed by the container.
+
+| Layer | Uses `Lapidary::Dependency`? | `auto_register: false`? | Example |
+|---|---|---|---|
+| Controller (adapter) | Yes — outer layer, may use framework | Yes — mounted via `use`, not resolved | `Webhooks::API` |
+| Use Case (domain) | **No** — inner layer must not depend on framework | Yes — assembled by controller | `Webhooks::HandleWebhook` |
+| Entity (domain) | **No** — inner layer must not depend on framework | Yes — domain object | `Webhooks::AnalysisRecord` |
+| Repository (adapter) | Yes — outer layer, bridges domain and infrastructure | No — auto-registered | `Webhooks::AnalysisRecordRepository` |
+| Contract (adapter) | N/A | No — auto-registered | `Webhooks::Contract` |
+
+Controllers (outer layer) resolve dependencies from the container and assemble Use Cases (inner layer):
+
+```ruby
+# Controller (adapter) wires dependencies into Use Case (domain)
+use_case = HandleWebhook.new(analysis_record_repository: analysis_record_repository)
+output = use_case.call(issue_id)
+```
 
 ### Adding a Component
 
@@ -70,10 +91,12 @@ end
 
 ### Adding Domain Components
 
-Non-controller classes under `apps/` auto-register with the container. The directory name becomes the namespace:
+Outer-layer (adapter) classes under `apps/` auto-register with the container by default. The directory name becomes the namespace:
 
 - `apps/webhooks/contract.rb` → resolves as `Container['webhooks.contract']`
-- `apps/webhooks/handle_webhook.rb` → resolves as `Container['webhooks.handle_webhook']`
+- `apps/webhooks/analysis_record_repository.rb` → resolves as `Container['webhooks.analysis_record_repository']`
+
+Inner-layer (domain) Use Cases and Entities must not depend on framework infrastructure, so they are marked `# auto_register: false` to exclude them from container management.
 
 Use `dry-validation` contracts for request validation:
 
@@ -93,11 +116,12 @@ Inject domain components into controllers: `include Lapidary::Dependency['webhoo
 ## Testing
 
 - `spec_helper.rb` loads `lib/lapidary/container` — the container is available in all specs
+- Container is finalized once in `before(:suite)`, migrations run automatically
+- Each test runs inside `db.transaction(rollback: :always)` for isolation
 - `rack-test` is available for HTTP integration tests
 - RSpec runs in random order with `--format documentation`
 - SimpleCov is configured with HTML + Cobertura formatters (output in `coverage/`)
 - dry-system stubs are enabled via `Lapidary::Container.enable_stubs!` — use `Container.stub('key', mock)` in tests
-- Integration tests should finalize the container in `before(:all) { Lapidary::Container.finalize! }`
 
 ## Conventions
 
