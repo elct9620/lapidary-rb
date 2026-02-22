@@ -17,6 +17,7 @@ SimpleCov.start do
 end
 
 require_relative '../lib/lapidary/container'
+require 'webmock/rspec'
 
 require 'dry/system/stubs'
 

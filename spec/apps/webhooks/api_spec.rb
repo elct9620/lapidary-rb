@@ -11,6 +11,32 @@ RSpec.describe Webhooks::API do
     described_class
   end
 
+  let(:redmine_api_url) { 'https://bugs.ruby-lang.org/issues/1.json?include=journals' }
+
+  let(:redmine_response) do
+    {
+      issue: {
+        id: 1,
+        subject: 'Test issue',
+        journals: [
+          { id: 101, notes: 'First comment' },
+          { id: 102, notes: 'Second comment' }
+        ]
+      }
+    }
+  end
+
+  let(:redmine_success_headers) { { 'Content-Type' => 'application/json' } }
+
+  def stub_redmine_success
+    stub_request(:get, redmine_api_url)
+      .to_return(
+        status: 200,
+        body: JSON.generate(redmine_response),
+        headers: redmine_success_headers
+      )
+  end
+
   shared_examples 'a validation error' do
     it 'returns 422 Unprocessable Entity' do
       expect(last_response.status).to eq(422)
@@ -25,6 +51,8 @@ RSpec.describe Webhooks::API do
   describe 'POST /webhook' do
     context 'with a valid request' do
       before do
+        stub_redmine_success
+
         post '/webhook',
              JSON.generate(issue_id: 1),
              'CONTENT_TYPE' => 'application/json'
@@ -48,6 +76,71 @@ RSpec.describe Webhooks::API do
         record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
         expect(repository.exists?(record)).to be true
       end
+
+      it 'tracks journals as analyzed' do
+        repository = Lapidary::Container['webhooks.analysis_record_repository']
+        journal101 = Webhooks::AnalysisRecord.new(entity_type: 'journal', entity_id: 101)
+        journal102 = Webhooks::AnalysisRecord.new(entity_type: 'journal', entity_id: 102)
+        expect(repository.exists?(journal101)).to be true
+        expect(repository.exists?(journal102)).to be true
+      end
+    end
+
+    context 'with incremental journal tracking' do
+      before do
+        stub_redmine_success
+
+        # First request tracks issue + journals
+        post '/webhook',
+             JSON.generate(issue_id: 1),
+             'CONTENT_TYPE' => 'application/json'
+
+        # Second request should not duplicate
+        post '/webhook',
+             JSON.generate(issue_id: 1),
+             'CONTENT_TYPE' => 'application/json'
+      end
+
+      it 'returns 200 OK on second request' do
+        expect(last_response).to be_ok
+      end
+
+      it 'does not duplicate journal records' do
+        db = Lapidary::Container['database']
+        journal_count = db[:analysis_records].where(entity_type: 'journal').count
+        expect(journal_count).to eq(2)
+      end
+    end
+
+    context 'when Redmine API fails' do
+      let(:mock_logger) { Lapidary::Container['logger'] }
+
+      before do
+        allow(mock_logger).to receive(:warn)
+
+        stub_request(:get, redmine_api_url)
+          .to_return(status: 503, body: 'Service Unavailable')
+
+        post '/webhook',
+             JSON.generate(issue_id: 1),
+             'CONTENT_TYPE' => 'application/json'
+      end
+
+      it 'returns 502 Bad Gateway' do
+        expect(last_response.status).to eq(502)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body).to eq('error' => 'upstream service error')
+      end
+
+      it 'logs a warning' do
+        expect(mock_logger).to have_received(:warn).with(
+          anything,
+          a_string_matching(/Failed to fetch/)
+        )
+      end
     end
 
     context 'when analysis tracking fails' do
@@ -60,6 +153,9 @@ RSpec.describe Webhooks::API do
 
       before do
         allow(mock_logger).to receive(:error)
+
+        stub_redmine_success
+
         Lapidary::Container.stub('webhooks.analysis_record_repository', stubbed_repository)
 
         post '/webhook',
@@ -86,6 +182,8 @@ RSpec.describe Webhooks::API do
 
       before do
         allow(mock_logger).to receive(:error)
+
+        stub_redmine_success
 
         database = Lapidary::Container['database']
         database.drop_table(:analysis_records)

@@ -8,11 +8,18 @@ module Webhooks
       payload = parse_json_body!
       result = validate_payload!(payload)
 
-      use_case = HandleWebhook.new(analysis_record_repository: container['webhooks.analysis_record_repository'])
-      output = use_case.call(result.to_h[:issue_id])
+      issue = container['webhooks.issue_repository'].find(result.to_h[:issue_id])
+
+      use_case = HandleWebhook.new(
+        analysis_record_repository: container['webhooks.analysis_record_repository']
+      )
+      output = use_case.call(issue)
 
       content_type :json
       JSON.generate(output)
+    rescue Redmine::API::FetchError => e
+      logger.warn(self, e.message)
+      halt_json 502, error: 'upstream service error'
     end
 
     private

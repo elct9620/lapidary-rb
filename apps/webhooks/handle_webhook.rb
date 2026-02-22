@@ -9,15 +9,33 @@ module Webhooks
       @analysis_record_repository = analysis_record_repository
     end
 
-    def call(issue_id)
-      record = AnalysisRecord.new(entity_type: 'issue', entity_id: issue_id)
+    def call(issue)
+      track_issue(issue)
+      track_journals(issue)
 
-      unless @analysis_record_repository.exists?(record)
+      { status: 'ok' }
+    end
+
+    private
+
+    def track_issue(issue)
+      record = AnalysisRecord.new(entity_type: 'issue', entity_id: issue.id)
+
+      return if @analysis_record_repository.exists?(record)
+
+      record.analyze
+      @analysis_record_repository.save(record)
+    end
+
+    def track_journals(issue)
+      return if issue.journal_ids.empty?
+
+      untracked = @analysis_record_repository.untracked_journal_ids(issue.journal_ids)
+      untracked.each do |journal_id|
+        record = AnalysisRecord.new(entity_type: 'journal', entity_id: journal_id)
         record.analyze
         @analysis_record_repository.save(record)
       end
-
-      { status: 'ok' }
     end
   end
 end
