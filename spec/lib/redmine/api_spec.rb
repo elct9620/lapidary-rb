@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../../lib/redmine/api'
 
 RSpec.describe Redmine::API do
   subject(:api) { described_class.new }
