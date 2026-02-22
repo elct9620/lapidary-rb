@@ -5,7 +5,9 @@ source 'https://rubygems.org'
 gem 'dry-system'
 gem 'dry-validation'
 gem 'falcon'
+gem 'sequel'
 gem 'sinatra'
+gem 'sqlite3'
 gem 'zeitwerk'
 
 group :development, :test do

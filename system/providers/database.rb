@@ -1,0 +1,29 @@
+# frozen_string_literal: true
+
+Lapidary::Container.register_provider(:database) do
+  prepare do
+    require 'sequel'
+  end
+
+  start do
+    env = ENV.fetch('RACK_ENV', 'development')
+
+    database_url = if env == 'test'
+                     'sqlite:/'
+                   else
+                     "sqlite://db/#{env}.sqlite3"
+                   end
+
+    database = Sequel.connect(
+      database_url,
+      single_threaded: true,
+      connect_sqls: ['PRAGMA journal_mode=WAL']
+    )
+
+    register('database', database)
+  end
+
+  stop do
+    container['database'].disconnect
+  end
+end
