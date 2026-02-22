@@ -56,11 +56,11 @@ Controllers (outer layer) resolve dependencies from the container and assemble U
 
 ```ruby
 # Controller wires dependencies into Use Case
-use_case = HandleWebhook.new(analysis_record_repository: analysis_record_repository)
+use_case = UseCases::HandleWebhook.new(analysis_record_repository: analysis_record_repository)
 output = use_case.call(issue_id)
 ```
 
-Zeitwerk autoloads all constants under `apps/` — no manual `require` is needed. The directory structure maps to Ruby module namespaces (e.g., `apps/webhooks/api.rb` → `Webhooks::API`).
+Zeitwerk autoloads all constants under `apps/` — no manual `require` is needed. The directory structure maps to Ruby module namespaces (e.g., `apps/webhooks/api.rb` → `Webhooks::API`, `apps/webhooks/entities/issue.rb` → `Webhooks::Entities::Issue`).
 
 ## V1 Data Flow
 
@@ -100,10 +100,17 @@ apps/
     api.rb             # Controller (adapter)
   webhooks/
     api.rb             # Controller (adapter)
-    handle_webhook.rb  # Use Case (domain)
-    analysis_record.rb # Entity (domain)
-    analysis_record_repository.rb  # Repository (adapter)
     contract.rb        # Contract (adapter)
+    entities/
+      analysis_record.rb           # Entity (domain)
+      analysis_tracking_error.rb   # Entity (domain)
+      issue.rb                     # Entity (domain)
+      journal.rb                   # Entity (domain)
+    repositories/
+      analysis_record_repository.rb  # Repository (adapter)
+      issue_repository.rb           # Repository (adapter)
+    use_cases/
+      handle_webhook.rb            # Use Case (domain)
 lib/lapidary/          # Auto-registered components
 system/providers/      # External service providers (database, HTTP client, etc.)
 config.ru              # Rack entry point

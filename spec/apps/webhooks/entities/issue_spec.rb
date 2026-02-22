@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 
-RSpec.describe Webhooks::Issue do
+RSpec.describe Webhooks::Entities::Issue do
   describe '#id' do
     it 'returns the issue id' do
       issue = described_class.new(id: 42)
@@ -12,7 +12,7 @@ RSpec.describe Webhooks::Issue do
 
   describe '#journals' do
     it 'returns the journals' do
-      journals = [Webhooks::Journal.new(id: 101), Webhooks::Journal.new(id: 102)]
+      journals = [Webhooks::Entities::Journal.new(id: 101), Webhooks::Entities::Journal.new(id: 102)]
       issue = described_class.new(id: 42, journals: journals)
       expect(issue.journals).to eq(journals)
     end
@@ -25,7 +25,7 @@ RSpec.describe Webhooks::Issue do
 
   describe '#journal_ids' do
     it 'returns all journal ids' do
-      journals = [Webhooks::Journal.new(id: 101), Webhooks::Journal.new(id: 102)]
+      journals = [Webhooks::Entities::Journal.new(id: 101), Webhooks::Entities::Journal.new(id: 102)]
       issue = described_class.new(id: 42, journals: journals)
       expect(issue.journal_ids).to eq([101, 102])
     end

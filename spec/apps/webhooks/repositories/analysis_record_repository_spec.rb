@@ -2,11 +2,11 @@
 
 require 'spec_helper'
 
-RSpec.describe Webhooks::AnalysisRecordRepository do
-  subject(:repository) { Lapidary::Container['webhooks.analysis_record_repository'] }
+RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
+  subject(:repository) { Lapidary::Container['webhooks.repositories.analysis_record_repository'] }
 
   def build_record(entity_type:, entity_id:)
-    record = Webhooks::AnalysisRecord.new(entity_type: entity_type, entity_id: entity_id)
+    record = Webhooks::Entities::AnalysisRecord.new(entity_type: entity_type, entity_id: entity_id)
     record.analyze
     record
   end
@@ -39,7 +39,7 @@ RSpec.describe Webhooks::AnalysisRecordRepository do
 
   describe '#exists?' do
     it 'returns false when no record exists' do
-      record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 999)
+      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 999)
       expect(repository.exists?(record)).to be false
     end
 
@@ -83,17 +83,17 @@ RSpec.describe Webhooks::AnalysisRecordRepository do
     it '#save raises AnalysisTrackingError' do
       record = build_record(entity_type: 'issue', entity_id: 1)
 
-      expect { repository.save(record) }.to raise_error(Webhooks::AnalysisTrackingError)
+      expect { repository.save(record) }.to raise_error(Webhooks::Entities::AnalysisTrackingError)
     end
 
     it '#exists? raises AnalysisTrackingError' do
-      record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
+      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
 
-      expect { repository.exists?(record) }.to raise_error(Webhooks::AnalysisTrackingError)
+      expect { repository.exists?(record) }.to raise_error(Webhooks::Entities::AnalysisTrackingError)
     end
 
     it '#untracked_journal_ids raises AnalysisTrackingError' do
-      expect { repository.untracked_journal_ids([1]) }.to raise_error(Webhooks::AnalysisTrackingError)
+      expect { repository.untracked_journal_ids([1]) }.to raise_error(Webhooks::Entities::AnalysisTrackingError)
     end
   end
 
@@ -106,16 +106,16 @@ RSpec.describe Webhooks::AnalysisRecordRepository do
 
       expect do
         repository.save(record)
-      end.to raise_error(Webhooks::AnalysisTrackingError, 'connection lost')
+      end.to raise_error(Webhooks::Entities::AnalysisTrackingError, 'connection lost')
     end
 
     it 'wraps Sequel::DatabaseError from #exists? as AnalysisTrackingError' do
-      record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
+      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
       allow(database).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
 
       expect do
         repository.exists?(record)
-      end.to raise_error(Webhooks::AnalysisTrackingError, 'connection lost')
+      end.to raise_error(Webhooks::Entities::AnalysisTrackingError, 'connection lost')
     end
 
     it 'wraps Sequel::DatabaseError from #untracked_journal_ids as AnalysisTrackingError' do
@@ -123,7 +123,7 @@ RSpec.describe Webhooks::AnalysisRecordRepository do
 
       expect do
         repository.untracked_journal_ids([1])
-      end.to raise_error(Webhooks::AnalysisTrackingError, 'connection lost')
+      end.to raise_error(Webhooks::Entities::AnalysisTrackingError, 'connection lost')
     end
   end
 end

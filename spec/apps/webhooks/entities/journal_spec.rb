@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 
-RSpec.describe Webhooks::Journal do
+RSpec.describe Webhooks::Entities::Journal do
   describe '#id' do
     it 'returns the journal id' do
       journal = described_class.new(id: 101)

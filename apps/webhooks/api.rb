@@ -8,10 +8,10 @@ module Webhooks
       payload = parse_json_body!
       result = validate_payload!(payload)
 
-      issue = container['webhooks.issue_repository'].find(result.to_h[:issue_id])
+      issue = container['webhooks.repositories.issue_repository'].find(result.to_h[:issue_id])
 
-      use_case = HandleWebhook.new(
-        analysis_record_repository: container['webhooks.analysis_record_repository']
+      use_case = UseCases::HandleWebhook.new(
+        analysis_record_repository: container['webhooks.repositories.analysis_record_repository']
       )
       output = use_case.call(issue)
 

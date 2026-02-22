@@ -43,16 +43,16 @@ This project follows the Clean Architecture dependency rule: inner layers (Entit
 | Layer | Uses `Lapidary::Dependency`? | `auto_register: false`? | Example |
 |---|---|---|---|
 | Controller (adapter) | **No** — uses `container[]` for lazy resolution | Yes — mounted via `use`, not resolved | `Webhooks::API` |
-| Use Case (domain) | **No** — inner layer must not depend on framework | Yes — assembled by controller | `Webhooks::HandleWebhook` |
-| Entity (domain) | **No** — inner layer must not depend on framework | Yes — domain object | `Webhooks::AnalysisRecord` |
-| Repository (adapter) | Yes — outer layer, bridges domain and infrastructure | No — auto-registered | `Webhooks::AnalysisRecordRepository` |
+| Use Case (domain) | **No** — inner layer must not depend on framework | Yes — assembled by controller | `Webhooks::UseCases::HandleWebhook` |
+| Entity (domain) | **No** — inner layer must not depend on framework | Yes — domain object | `Webhooks::Entities::AnalysisRecord` |
+| Repository (adapter) | Yes — outer layer, bridges domain and infrastructure | No — auto-registered | `Webhooks::Repositories::AnalysisRecordRepository` |
 | Contract (adapter) | N/A | No — auto-registered | `Webhooks::Contract` |
 
 Controllers (outer layer) resolve dependencies from the container and assemble Use Cases (inner layer):
 
 ```ruby
 # Controller (adapter) resolves from container and wires into Use Case (domain)
-use_case = HandleWebhook.new(analysis_record_repository: container['webhooks.analysis_record_repository'])
+use_case = UseCases::HandleWebhook.new(analysis_record_repository: container['webhooks.repositories.analysis_record_repository'])
 output = use_case.call(issue_id)
 ```
 
@@ -109,7 +109,7 @@ end
 Outer-layer (adapter) classes under `apps/` auto-register with the container by default. The directory name becomes the namespace:
 
 - `apps/webhooks/contract.rb` → resolves as `Container['webhooks.contract']`
-- `apps/webhooks/analysis_record_repository.rb` → resolves as `Container['webhooks.analysis_record_repository']`
+- `apps/webhooks/repositories/analysis_record_repository.rb` → resolves as `Container['webhooks.repositories.analysis_record_repository']`
 
 Inner-layer (domain) Use Cases and Entities must not depend on framework infrastructure, so they are marked `# auto_register: false` to exclude them from container management.
 

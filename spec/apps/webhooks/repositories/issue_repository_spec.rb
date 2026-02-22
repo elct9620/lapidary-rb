@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 
-RSpec.describe Webhooks::IssueRepository do
+RSpec.describe Webhooks::Repositories::IssueRepository do
   subject(:repository) { described_class.new(redmine_api: Redmine::API.new) }
 
   let(:url) { 'https://bugs.ruby-lang.org/issues/42.json?include=journals' }
@@ -28,7 +28,7 @@ RSpec.describe Webhooks::IssueRepository do
 
     it 'returns an Issue entity' do
       issue = repository.find(42)
-      expect(issue).to be_a(Webhooks::Issue)
+      expect(issue).to be_a(Webhooks::Entities::Issue)
       expect(issue.id).to eq(42)
     end
 

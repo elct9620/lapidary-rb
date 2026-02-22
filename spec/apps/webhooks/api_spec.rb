@@ -72,15 +72,15 @@ RSpec.describe Webhooks::API do
       end
 
       it 'tracks the issue as analyzed' do
-        repository = Lapidary::Container['webhooks.analysis_record_repository']
-        record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
+        repository = Lapidary::Container['webhooks.repositories.analysis_record_repository']
+        record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
         expect(repository.exists?(record)).to be true
       end
 
       it 'tracks journals as analyzed' do
-        repository = Lapidary::Container['webhooks.analysis_record_repository']
-        journal101 = Webhooks::AnalysisRecord.new(entity_type: 'journal', entity_id: 101)
-        journal102 = Webhooks::AnalysisRecord.new(entity_type: 'journal', entity_id: 102)
+        repository = Lapidary::Container['webhooks.repositories.analysis_record_repository']
+        journal101 = Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 101)
+        journal102 = Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 102)
         expect(repository.exists?(journal101)).to be true
         expect(repository.exists?(journal102)).to be true
       end
