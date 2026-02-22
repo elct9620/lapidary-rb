@@ -54,6 +54,19 @@ use_case = HandleWebhook.new(analysis_record_repository: analysis_record_reposit
 output = use_case.call(issue_id)
 ```
 
+### Entity-Centric Use Case Pattern
+
+Use Cases operate through Entities, not raw data. The flow is: build Entity → query Repository with Entity → Entity mutates itself → Repository persists Entity. Repositories accept Entity objects, not keyword arguments.
+
+```ruby
+# Use Case builds Entity, delegates behavior to it
+record = AnalysisRecord.new(entity_type: 'issue', entity_id: issue_id)
+unless repository.exists?(record)
+  record.analyze          # Entity marks itself as analyzed
+  repository.save(record) # Repository accepts the Entity
+end
+```
+
 ### Adding a Component
 
 Place a class under `lib/lapidary/` and it auto-registers with the container. The `lapidary` namespace is stripped from the key:
@@ -98,7 +111,7 @@ Outer-layer (adapter) classes under `apps/` auto-register with the container by 
 
 Inner-layer (domain) Use Cases and Entities must not depend on framework infrastructure, so they are marked `# auto_register: false` to exclude them from container management.
 
-Use `dry-validation` contracts for request validation:
+Use `dry-validation` contracts for request validation (schema + rules):
 
 ```ruby
 # apps/webhooks/contract.rb
@@ -107,11 +120,22 @@ module Webhooks
     json do
       required(:issue_id).filled(:integer)
     end
+
+    rule(:issue_id) do
+      key.failure('must be positive') unless value.positive?
+    end
   end
 end
 ```
 
 Inject domain components into controllers: `include Lapidary::Dependency['webhooks.contract']`
+
+## Database
+
+- **Provider**: `system/providers/database.rb` registers a `Sequel::Database` instance as `Container['database']`
+- **Test**: in-memory SQLite (`sqlite:/`) — no file on disk, fast and isolated
+- **Development/Production**: file-based SQLite (`db/<env>.sqlite3`) with WAL journal mode
+- **Migrations**: Sequel migrations in `db/migrations/`, named `YYYYMMDDHHMMSS_description.rb`
 
 ## Testing
 
@@ -129,3 +153,10 @@ Inject domain components into controllers: `include Lapidary::Dependency['webhoo
 - All Ruby files must include `# frozen_string_literal: true`
 - RuboCop is configured with `NewCops: enable` — all new cops are opted in by default
 - A PostToolUse hook automatically runs RuboCop with `--autocorrect` on any `.rb` file after edits
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `RACK_ENV` | `development` | Affects database path and Sinatra environment |
+| `PORT` | `9292` | HTTP listen port (Falcon only, configured in `falcon.rb`) |
