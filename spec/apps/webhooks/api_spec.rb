@@ -34,14 +34,15 @@ RSpec.describe Webhooks::API do
 
       it 'tracks the issue as analyzed' do
         repository = Lapidary::Container['webhooks.analysis_record_repository']
-        expect(repository.tracked?(entity_type: 'issue', entity_id: 1)).to be true
+        record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
+        expect(repository.exists?(record)).to be true
       end
     end
 
     context 'when analysis tracking fails' do
       before do
         repository = Lapidary::Container['webhooks.analysis_record_repository']
-        allow(repository).to receive(:create_if_absent).and_raise(StandardError)
+        allow(repository).to receive(:exists?).and_raise(StandardError)
 
         post '/webhook',
              JSON.generate(issue_id: 1),

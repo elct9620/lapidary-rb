@@ -8,16 +8,31 @@ RSpec.describe Webhooks::HandleWebhook do
   let(:repository) { instance_double(Webhooks::AnalysisRecordRepository) }
 
   describe '#call' do
-    it 'creates an analysis record for the issue' do
-      allow(repository).to receive(:create_if_absent)
+    it 'saves an analysis record when the issue has not been analyzed' do
+      allow(repository).to receive(:exists?).and_return(false)
+      allow(repository).to receive(:save)
 
       use_case.call(42)
 
-      expect(repository).to have_received(:create_if_absent).with(entity_type: 'issue', entity_id: 42)
+      expect(repository).to have_received(:save) do |record|
+        expect(record.entity_type).to eq('issue')
+        expect(record.entity_id).to eq(42)
+        expect(record).to be_analyzed
+      end
+    end
+
+    it 'does not save when the issue has already been analyzed' do
+      allow(repository).to receive(:exists?).and_return(true)
+      allow(repository).to receive(:save)
+
+      use_case.call(42)
+
+      expect(repository).not_to have_received(:save)
     end
 
     it 'returns status ok' do
-      allow(repository).to receive(:create_if_absent)
+      allow(repository).to receive(:exists?).and_return(false)
+      allow(repository).to receive(:save)
 
       result = use_case.call(1)
 
@@ -25,7 +40,7 @@ RSpec.describe Webhooks::HandleWebhook do
     end
 
     it 'returns status ok even when repository raises' do
-      allow(repository).to receive(:create_if_absent).and_raise(StandardError, 'database error')
+      allow(repository).to receive(:exists?).and_raise(StandardError, 'database error')
 
       result = use_case.call(1)
 

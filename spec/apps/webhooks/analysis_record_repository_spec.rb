@@ -5,22 +5,31 @@ require 'spec_helper'
 RSpec.describe Webhooks::AnalysisRecordRepository do
   subject(:repository) { Lapidary::Container['webhooks.analysis_record_repository'] }
 
-  describe '#create_if_absent' do
-    it 'creates a new record' do
-      repository.create_if_absent(entity_type: 'issue', entity_id: 1)
+  def build_record(entity_type:, entity_id:)
+    record = Webhooks::AnalysisRecord.new(entity_type: entity_type, entity_id: entity_id)
+    record.analyze
+    record
+  end
 
-      expect(repository.tracked?(entity_type: 'issue', entity_id: 1)).to be true
+  describe '#save' do
+    it 'creates a new record' do
+      record = build_record(entity_type: 'issue', entity_id: 1)
+      repository.save(record)
+
+      expect(repository.exists?(record)).to be true
     end
 
     it 'does not raise on duplicate insert' do
-      repository.create_if_absent(entity_type: 'issue', entity_id: 1)
+      record = build_record(entity_type: 'issue', entity_id: 1)
+      repository.save(record)
 
-      expect { repository.create_if_absent(entity_type: 'issue', entity_id: 1) }.not_to raise_error
+      expect { repository.save(record) }.not_to raise_error
     end
 
     it 'does not create a duplicate record' do
-      repository.create_if_absent(entity_type: 'issue', entity_id: 1)
-      repository.create_if_absent(entity_type: 'issue', entity_id: 1)
+      record = build_record(entity_type: 'issue', entity_id: 1)
+      repository.save(record)
+      repository.save(record)
 
       db = Lapidary::Container['database']
       count = db[:analysis_records].where(entity_type: 'issue', entity_id: 1).count
@@ -28,15 +37,17 @@ RSpec.describe Webhooks::AnalysisRecordRepository do
     end
   end
 
-  describe '#tracked?' do
+  describe '#exists?' do
     it 'returns false when no record exists' do
-      expect(repository.tracked?(entity_type: 'issue', entity_id: 999)).to be false
+      record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 999)
+      expect(repository.exists?(record)).to be false
     end
 
     it 'returns true when a record exists' do
-      repository.create_if_absent(entity_type: 'issue', entity_id: 1)
+      record = build_record(entity_type: 'issue', entity_id: 1)
+      repository.save(record)
 
-      expect(repository.tracked?(entity_type: 'issue', entity_id: 1)).to be true
+      expect(repository.exists?(record)).to be true
     end
   end
 
@@ -46,7 +57,8 @@ RSpec.describe Webhooks::AnalysisRecordRepository do
     end
 
     it 'excludes already tracked IDs' do
-      repository.create_if_absent(entity_type: 'journal', entity_id: 2)
+      record = build_record(entity_type: 'journal', entity_id: 2)
+      repository.save(record)
 
       expect(repository.untracked_journal_ids([1, 2, 3])).to contain_exactly(1, 3)
     end
@@ -56,8 +68,8 @@ RSpec.describe Webhooks::AnalysisRecordRepository do
     end
 
     it 'returns an empty array when all are tracked' do
-      repository.create_if_absent(entity_type: 'journal', entity_id: 1)
-      repository.create_if_absent(entity_type: 'journal', entity_id: 2)
+      repository.save(build_record(entity_type: 'journal', entity_id: 1))
+      repository.save(build_record(entity_type: 'journal', entity_id: 2))
 
       expect(repository.untracked_journal_ids([1, 2])).to be_empty
     end

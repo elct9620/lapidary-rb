@@ -3,5 +3,21 @@
 
 module Webhooks
   # Domain entity representing a tracked analysis record.
-  AnalysisRecord = Data.define(:entity_type, :entity_id, :analyzed_at)
+  class AnalysisRecord
+    attr_reader :entity_type, :entity_id, :analyzed_at
+
+    def initialize(entity_type:, entity_id:, analyzed_at: nil)
+      @entity_type = entity_type
+      @entity_id = entity_id
+      @analyzed_at = analyzed_at
+    end
+
+    def analyze
+      @analyzed_at = Time.now
+    end
+
+    def analyzed?
+      !@analyzed_at.nil?
+    end
+  end
 end

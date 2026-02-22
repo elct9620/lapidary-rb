@@ -10,8 +10,13 @@ module Webhooks
     end
 
     def call(issue_id)
+      record = AnalysisRecord.new(entity_type: 'issue', entity_id: issue_id)
+
       begin
-        @analysis_record_repository.create_if_absent(entity_type: 'issue', entity_id: issue_id)
+        unless @analysis_record_repository.exists?(record)
+          record.analyze
+          @analysis_record_repository.save(record)
+        end
       rescue StandardError
         # Analysis tracking is supplementary; failures should not affect the response.
       end

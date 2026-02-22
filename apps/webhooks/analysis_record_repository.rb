@@ -2,20 +2,19 @@
 
 module Webhooks
   # Repository for managing analysis tracking records.
-  # Uses INSERT OR IGNORE semantics to avoid duplicate entries.
   class AnalysisRecordRepository
     include Lapidary::Dependency['database']
 
-    def create_if_absent(entity_type:, entity_id:)
+    def save(record)
       dataset.insert_conflict(target: %i[entity_type entity_id]).insert(
-        entity_type: entity_type,
-        entity_id: entity_id,
-        analyzed_at: Time.now
+        entity_type: record.entity_type,
+        entity_id: record.entity_id,
+        analyzed_at: record.analyzed_at
       )
     end
 
-    def tracked?(entity_type:, entity_id:)
-      dataset.where(entity_type: entity_type, entity_id: entity_id).any?
+    def exists?(record)
+      dataset.where(entity_type: record.entity_type, entity_id: record.entity_id).any?
     end
 
     def untracked_journal_ids(journal_ids)
