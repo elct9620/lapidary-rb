@@ -40,7 +40,7 @@ This project follows the Clean Architecture dependency rule: inner layers (Entit
 
 | Layer | Uses `Lapidary::Dependency`? | `auto_register: false`? | Example |
 |---|---|---|---|
-| Controller (adapter) | Yes — outer layer, may use framework | Yes — mounted via `use`, not resolved | `Webhooks::API` |
+| Controller (adapter) | **No** — uses `container[]` for lazy resolution | Yes — mounted via `use`, not resolved | `Webhooks::API` |
 | Use Case (domain) | **No** — inner layer must not depend on framework | Yes — assembled by controller | `Webhooks::HandleWebhook` |
 | Entity (domain) | **No** — inner layer must not depend on framework | Yes — domain object | `Webhooks::AnalysisRecord` |
 | Repository (adapter) | Yes — outer layer, bridges domain and infrastructure | No — auto-registered | `Webhooks::AnalysisRecordRepository` |
@@ -49,8 +49,8 @@ This project follows the Clean Architecture dependency rule: inner layers (Entit
 Controllers (outer layer) resolve dependencies from the container and assemble Use Cases (inner layer):
 
 ```ruby
-# Controller (adapter) wires dependencies into Use Case (domain)
-use_case = HandleWebhook.new(analysis_record_repository: analysis_record_repository)
+# Controller (adapter) resolves from container and wires into Use Case (domain)
+use_case = HandleWebhook.new(analysis_record_repository: container['webhooks.analysis_record_repository'])
 output = use_case.call(issue_id)
 ```
 

@@ -5,9 +5,8 @@ module Webhooks
   # Use case for handling webhook notifications.
   # Records the issue as analyzed and returns a success response.
   class HandleWebhook
-    def initialize(analysis_record_repository:, logger:)
+    def initialize(analysis_record_repository:)
       @analysis_record_repository = analysis_record_repository
-      @logger = logger
     end
 
     def call(issue_id)
@@ -18,9 +17,6 @@ module Webhooks
         @analysis_record_repository.save(record)
       end
 
-      { status: 'ok' }
-    rescue AnalysisTrackingError => e
-      @logger.warn(self, "Analysis tracking failed for issue #{issue_id}", e)
       { status: 'ok' }
     end
   end

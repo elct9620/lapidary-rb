@@ -3,10 +3,9 @@
 require 'spec_helper'
 
 RSpec.describe Webhooks::HandleWebhook do
-  subject(:use_case) { described_class.new(analysis_record_repository: repository, logger: logger) }
+  subject(:use_case) { described_class.new(analysis_record_repository: repository) }
 
   let(:repository) { instance_double(Webhooks::AnalysisRecordRepository) }
-  let(:logger) { instance_double(Console::Logger, warn: nil) }
 
   describe '#call' do
     it 'saves an analysis record when the issue has not been analyzed' do
@@ -40,24 +39,10 @@ RSpec.describe Webhooks::HandleWebhook do
       expect(result).to eq(status: 'ok')
     end
 
-    it 'returns status ok even when repository raises AnalysisTrackingError' do
+    it 'propagates AnalysisTrackingError' do
       allow(repository).to receive(:exists?).and_raise(Webhooks::AnalysisTrackingError, 'database error')
 
-      result = use_case.call(1)
-
-      expect(result).to eq(status: 'ok')
-    end
-
-    it 'logs a warning when AnalysisTrackingError is raised' do
-      allow(repository).to receive(:exists?).and_raise(Webhooks::AnalysisTrackingError, 'database error')
-
-      use_case.call(1)
-
-      expect(logger).to have_received(:warn).with(
-        use_case,
-        'Analysis tracking failed for issue 1',
-        instance_of(Webhooks::AnalysisTrackingError)
-      )
+      expect { use_case.call(1) }.to raise_error(Webhooks::AnalysisTrackingError, 'database error')
     end
   end
 end

@@ -40,27 +40,42 @@ RSpec.describe Webhooks::API do
     end
 
     context 'when analysis tracking fails' do
+      let(:mock_logger) { Lapidary::Container['logger'] }
+      let(:stubbed_repository) do
+        repo = instance_double(Webhooks::AnalysisRecordRepository)
+        allow(repo).to receive(:exists?).and_raise(Webhooks::AnalysisTrackingError, 'database error')
+        repo
+      end
+
       before do
-        repository = Lapidary::Container['webhooks.analysis_record_repository']
-        allow(repository).to receive(:exists?).and_raise(Webhooks::AnalysisTrackingError, 'database error')
+        allow(mock_logger).to receive(:error)
+        Lapidary::Container.stub('webhooks.analysis_record_repository', stubbed_repository)
 
         post '/webhook',
              JSON.generate(issue_id: 1),
              'CONTENT_TYPE' => 'application/json'
       end
 
-      it 'still returns 200 OK' do
-        expect(last_response).to be_ok
+      after do
+        Lapidary::Container.unstub('webhooks.analysis_record_repository')
       end
 
-      it 'still returns status ok' do
+      it 'returns 500 Internal Server Error' do
+        expect(last_response.status).to eq(500)
+      end
+
+      it 'returns JSON error body' do
         body = JSON.parse(last_response.body)
-        expect(body).to eq('status' => 'ok')
+        expect(body).to eq('error' => 'internal server error')
       end
     end
 
     context 'when migration has not been run' do
+      let(:mock_logger) { Lapidary::Container['logger'] }
+
       before do
+        allow(mock_logger).to receive(:error)
+
         database = Lapidary::Container['database']
         database.drop_table(:analysis_records)
 
@@ -69,18 +84,22 @@ RSpec.describe Webhooks::API do
              'CONTENT_TYPE' => 'application/json'
       end
 
-      it 'still returns 200 OK' do
-        expect(last_response).to be_ok
+      it 'returns 500 Internal Server Error' do
+        expect(last_response.status).to eq(500)
       end
 
-      it 'still returns status ok' do
+      it 'returns JSON error body' do
         body = JSON.parse(last_response.body)
-        expect(body).to eq('status' => 'ok')
+        expect(body).to eq('error' => 'internal server error')
       end
     end
 
     context 'with non-JSON Content-Type' do
+      let(:mock_logger) { Lapidary::Container['logger'] }
+
       before do
+        allow(mock_logger).to receive(:warn)
+
         post '/webhook',
              'issue_id=1',
              'CONTENT_TYPE' => 'application/x-www-form-urlencoded'
@@ -88,6 +107,18 @@ RSpec.describe Webhooks::API do
 
       it 'returns 415 Unsupported Media Type' do
         expect(last_response.status).to eq(415)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body).to eq('error' => 'Content-Type must be application/json')
+      end
+
+      it 'logs a warning' do
+        expect(mock_logger).to have_received(:warn).with(
+          anything,
+          'Rejected webhook with unsupported Content-Type'
+        )
       end
     end
 
@@ -104,6 +135,11 @@ RSpec.describe Webhooks::API do
 
       it 'returns 422 Unprocessable Entity' do
         expect(last_response.status).to eq(422)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body).to eq('error' => 'invalid JSON')
       end
 
       it 'logs a warning' do
