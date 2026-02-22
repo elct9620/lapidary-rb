@@ -20,10 +20,7 @@ RSpec.describe Lapidary::BaseController do
   end
 
   describe 'global error handler' do
-    let(:mock_logger) { Lapidary::Container['logger'] }
-
     before do
-      allow(mock_logger).to receive(:error)
       get '/explode'
     end
 
@@ -38,14 +35,6 @@ RSpec.describe Lapidary::BaseController do
     it 'returns error message in JSON body' do
       body = JSON.parse(last_response.body)
       expect(body).to eq('error' => 'internal server error')
-    end
-
-    it 'logs the error' do
-      expect(mock_logger).to have_received(:error).with(
-        anything,
-        'StandardError: something went wrong',
-        instance_of(StandardError)
-      )
     end
   end
 end

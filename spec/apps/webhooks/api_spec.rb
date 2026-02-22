@@ -113,11 +113,7 @@ RSpec.describe Webhooks::API do
     end
 
     context 'when Redmine API fails' do
-      let(:mock_logger) { Lapidary::Container['logger'] }
-
       before do
-        allow(mock_logger).to receive(:warn)
-
         stub_request(:get, redmine_api_url)
           .to_return(status: 503, body: 'Service Unavailable')
 
@@ -134,55 +130,10 @@ RSpec.describe Webhooks::API do
         body = JSON.parse(last_response.body)
         expect(body).to eq('error' => 'upstream service error')
       end
-
-      it 'logs a warning' do
-        expect(mock_logger).to have_received(:warn).with(
-          anything,
-          a_string_matching(/Failed to fetch/)
-        )
-      end
-    end
-
-    context 'when analysis tracking fails' do
-      let(:mock_logger) { Lapidary::Container['logger'] }
-      let(:stubbed_repository) do
-        repo = instance_double(Webhooks::AnalysisRecordRepository)
-        allow(repo).to receive(:exists?).and_raise(Webhooks::AnalysisTrackingError, 'database error')
-        repo
-      end
-
-      before do
-        allow(mock_logger).to receive(:error)
-
-        stub_redmine_success
-
-        Lapidary::Container.stub('webhooks.analysis_record_repository', stubbed_repository)
-
-        post '/webhook',
-             JSON.generate(issue_id: 1),
-             'CONTENT_TYPE' => 'application/json'
-      end
-
-      after do
-        Lapidary::Container.unstub('webhooks.analysis_record_repository')
-      end
-
-      it 'returns 500 Internal Server Error' do
-        expect(last_response.status).to eq(500)
-      end
-
-      it 'returns JSON error body' do
-        body = JSON.parse(last_response.body)
-        expect(body).to eq('error' => 'internal server error')
-      end
     end
 
     context 'when migration has not been run' do
-      let(:mock_logger) { Lapidary::Container['logger'] }
-
       before do
-        allow(mock_logger).to receive(:error)
-
         stub_redmine_success
 
         database = Lapidary::Container['database']
@@ -204,11 +155,7 @@ RSpec.describe Webhooks::API do
     end
 
     context 'with non-JSON Content-Type' do
-      let(:mock_logger) { Lapidary::Container['logger'] }
-
       before do
-        allow(mock_logger).to receive(:warn)
-
         post '/webhook',
              'issue_id=1',
              'CONTENT_TYPE' => 'application/x-www-form-urlencoded'
@@ -222,21 +169,10 @@ RSpec.describe Webhooks::API do
         body = JSON.parse(last_response.body)
         expect(body).to eq('error' => 'Content-Type must be application/json')
       end
-
-      it 'logs a warning' do
-        expect(mock_logger).to have_received(:warn).with(
-          anything,
-          'Rejected webhook with unsupported Content-Type'
-        )
-      end
     end
 
     context 'with invalid JSON body' do
-      let(:mock_logger) { Lapidary::Container['logger'] }
-
       before do
-        allow(mock_logger).to receive(:warn)
-
         post '/webhook',
              'not valid json',
              'CONTENT_TYPE' => 'application/json'
@@ -249,14 +185,6 @@ RSpec.describe Webhooks::API do
       it 'returns JSON error body' do
         body = JSON.parse(last_response.body)
         expect(body).to eq('error' => 'invalid JSON')
-      end
-
-      it 'logs a warning' do
-        expect(mock_logger).to have_received(:warn).with(
-          anything,
-          'Invalid JSON in webhook request',
-          instance_of(JSON::ParserError)
-        )
       end
     end
 

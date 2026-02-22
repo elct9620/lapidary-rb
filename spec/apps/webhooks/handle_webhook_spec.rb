@@ -5,70 +5,57 @@ require 'spec_helper'
 RSpec.describe Webhooks::HandleWebhook do
   subject(:use_case) { described_class.new(analysis_record_repository: repository) }
 
-  let(:repository) { instance_double(Webhooks::AnalysisRecordRepository) }
+  let(:repository) { Lapidary::Container['webhooks.analysis_record_repository'] }
 
   let(:journals) { [Webhooks::Journal.new(id: 101), Webhooks::Journal.new(id: 102)] }
   let(:issue) { Webhooks::Issue.new(id: 42, journals: journals) }
 
   describe '#call' do
     it 'saves an analysis record when the issue has not been analyzed' do
-      allow(repository).to receive(:exists?).and_return(false)
-      allow(repository).to receive(:save)
-      allow(repository).to receive(:untracked_journal_ids).and_return([])
-
       use_case.call(issue)
 
-      expect(repository).to have_received(:save) do |record|
-        expect(record.entity_type).to eq('issue')
-        expect(record.entity_id).to eq(42)
-        expect(record).to be_analyzed
-      end
+      record = Webhooks::AnalysisRecord.new(entity_type: 'issue', entity_id: 42)
+      expect(repository.exists?(record)).to be true
     end
 
-    it 'does not save when the issue has already been analyzed' do
-      allow(repository).to receive(:exists?).and_return(true)
-      allow(repository).to receive(:save)
-      allow(repository).to receive(:untracked_journal_ids).and_return([])
-
+    it 'does not duplicate when the issue has already been analyzed' do
+      use_case.call(issue)
       use_case.call(issue)
 
-      expect(repository).not_to have_received(:save)
+      db = Lapidary::Container['database']
+      count = db[:analysis_records].where(entity_type: 'issue', entity_id: 42).count
+      expect(count).to eq(1)
     end
 
     it 'tracks untracked journals' do
-      allow(repository).to receive(:exists?).and_return(true)
-      allow(repository).to receive(:untracked_journal_ids).with([101, 102]).and_return([101, 102])
-      allow(repository).to receive(:save)
-
       use_case.call(issue)
 
-      expect(repository).to have_received(:save).twice
+      journal101 = Webhooks::AnalysisRecord.new(entity_type: 'journal', entity_id: 101)
+      journal102 = Webhooks::AnalysisRecord.new(entity_type: 'journal', entity_id: 102)
+      expect(repository.exists?(journal101)).to be true
+      expect(repository.exists?(journal102)).to be true
     end
 
-    it 'does not track already tracked journals' do
-      allow(repository).to receive(:exists?).and_return(true)
-      allow(repository).to receive(:save)
-      allow(repository).to receive(:untracked_journal_ids).with([101, 102]).and_return([])
-
+    it 'does not duplicate already tracked journals' do
+      use_case.call(issue)
       use_case.call(issue)
 
-      expect(repository).not_to have_received(:save)
+      db = Lapidary::Container['database']
+      journal_count = db[:analysis_records].where(entity_type: 'journal').count
+      expect(journal_count).to eq(2)
     end
 
     it 'returns status ok' do
-      allow(repository).to receive(:exists?).and_return(false)
-      allow(repository).to receive(:save)
-      allow(repository).to receive(:untracked_journal_ids).and_return([])
-
       result = use_case.call(issue)
 
       expect(result).to eq(status: 'ok')
     end
 
     it 'propagates AnalysisTrackingError' do
-      allow(repository).to receive(:exists?).and_raise(Webhooks::AnalysisTrackingError, 'database error')
+      db = Lapidary::Container['database']
+      db.drop_table(:analysis_records)
 
-      expect { use_case.call(issue) }.to raise_error(Webhooks::AnalysisTrackingError, 'database error')
+      expect { use_case.call(issue) }.to raise_error(Webhooks::AnalysisTrackingError)
     end
   end
 end
