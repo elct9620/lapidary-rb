@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require 'sequel'
+require 'sequel/extensions/migration'
+
 module Lapidary
   # Manages database migration checking and execution.
   class Migrator
@@ -27,7 +30,6 @@ module Lapidary
     end
 
     def migrations_available?
-      Sequel.extension :migration
       Dir.exist?(migrations_path) && Dir.glob(File.join(migrations_path, '*.rb')).any?
     end
   end
