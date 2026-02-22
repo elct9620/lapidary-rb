@@ -75,14 +75,6 @@ Fetch issue from Redmine API
   GET /issues/{id}.json?include=journals
   │
   ▼
-Check data completeness
-  │
-  ├─ incomplete → respond 200 (skipped)
-  │
-  ▼
-Upsert into SQLite (keyed by issue id)
-  │
-  ▼
 Create analysis records (issue + untracked journals)
   │
   ▼

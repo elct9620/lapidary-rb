@@ -17,8 +17,8 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 ## Success Criteria (V1)
 
 - Webhook endpoint can receive Issue ID notifications and respond with correct status codes
-- Issue data successfully fetched from the Redmine API can be stored in a SQLite database
-- Duplicate notifications for the same Issue correctly update the database record (upsert)
+- Issue data successfully fetched from the Redmine API to identify Journals
+- Analysis records for Issue and untracked Journals are created in the database
 - Duplicate notifications for the same Issue do not re-mark already analyzed journals
 
 ## Non-goals (V1)
@@ -35,7 +35,7 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 
 The complete system is divided into four phases:
 
-1. **Webhook reception** — Receive issue change notifications, fetch data from the Redmine API, and store it
+1. **Webhook reception** — Receive issue change notifications, fetch data from the Redmine API, and track analyzed entities
 2. **Ontology processing** — Extract concepts and relationships from issue data, building a semantic model
 3. **Knowledge graph construction** — Transform the semantic model into a graph structure
 4. **Query and exploration** — Provide APIs and interfaces for querying the knowledge graph
@@ -45,19 +45,18 @@ V1 implements only the first phase.
 ## V1 Features
 
 1. **Webhook endpoint** — Receive Issue ID notifications sent by external systems
-2. **Issue data fetching** — Retrieve complete Issue data from the Redmine JSON API
-3. **Issue data storage** — Store data in SQLite after validating completeness
-4. **Health check endpoint** — Report application availability status
-5. **Container deployment** — Package the application as a container image for deployment
-6. **Analysis tracking** — Record analyzed Issues and Journals to avoid redundant processing and support incremental analysis
+2. **Issue data fetching** — Retrieve Issue data from the Redmine JSON API to identify Journals for analysis tracking
+3. **Health check endpoint** — Report application availability status
+4. **Container deployment** — Package the application as a container image for deployment
+5. **Analysis tracking** — Record analyzed Issues and Journals to avoid redundant processing and support incremental analysis
 
 ## User Journeys
 
-### Webhook Reception and Storage
+### Webhook Reception and Tracking
 
 - **Context**: An external system detects a change to an issue on bugs.ruby-lang.org
 - **Action**: The external system sends a Webhook containing the Issue ID to Lapidary
-- **Outcome**: Lapidary fetches Issue data from the Redmine JSON API, validates completeness, and stores it in the database
+- **Outcome**: Lapidary fetches Issue data from the Redmine JSON API and creates analysis records for the Issue and its untracked Journals
 
 ### Incremental Analysis
 
@@ -103,8 +102,7 @@ Content-Type: `application/json`
 
 | Condition | Status Code | Body |
 |-----------|-------------|------|
-| Successfully processed (data stored) | `200 OK` | `{ "status": "ok" }` |
-| Accepted but not stored (incomplete data) | `200 OK` | `{ "status": "skipped", "reason": "incomplete data" }` |
+| Successfully processed (analysis records created) | `200 OK` | `{ "status": "ok" }` |
 | Non-JSON request | `415 Unsupported Media Type` | `{ "error": "Content-Type must be application/json" }` |
 | Invalid payload (malformed JSON or missing `issue_id`) | `422 Unprocessable Entity` | `{ "error": "..." }` |
 | Redmine API unreachable or non-200 response | `502 Bad Gateway` | `{ "error": "failed to fetch issue from Redmine" }` |
@@ -114,7 +112,9 @@ Content-Type: `application/json`
 
 **Data source**: `https://bugs.ruby-lang.org/issues/{id}.json?include=journals`
 
-After receiving a Webhook, Lapidary proactively fetches complete Issue data from the Redmine JSON API. The request includes the `include=journals` parameter. Without journals, only the author-to-subject relationship can be analyzed. Journals track respondents whose interactions are not yet recorded, enabling analysis of participant relationships beyond just the original author and extending the knowledge graph.
+After receiving a Webhook, Lapidary fetches Issue data from the Redmine JSON API. The request includes the `include=journals` parameter. Without journals, only the author-to-subject relationship can be analyzed. Journals track respondents whose interactions are not yet recorded, enabling analysis of participant relationships beyond just the original author and extending the knowledge graph.
+
+Issue data is not persisted; it is used only to identify Journal IDs for analysis tracking.
 
 **Redmine API response structure** (relevant fields):
 
@@ -134,22 +134,6 @@ After receiving a Webhook, Lapidary proactively fetches complete Issue data from
 }
 ```
 
-**Field mapping**:
-
-| Stored Field | Source Path | Type | Description |
-|--------------|------------|------|-------------|
-| `id` | `issue.id` | Integer | Issue number (unique identifier) |
-| `subject` | `issue.subject` | String | Issue title |
-| `tracker` | `issue.tracker.name` | String | Category (Bug, Feature, etc.) |
-| `status` | `issue.status.name` | String | Status (Open, Closed, etc.) |
-| `priority` | `issue.priority.name` | String | Priority level |
-| `author` | `issue.author.name` | String | Author name |
-| `created_on` | `issue.created_on` | DateTime | Creation time |
-| `updated_on` | `issue.updated_on` | DateTime | Last updated time |
-| `journals[].user` | `issue.journals[].user.name` | String | Respondent name |
-
-> `tracker`, `status`, `priority`, and `author` are nested objects `{ "id": N, "name": "..." }` in the Redmine API; the `name` field is extracted. The same applies to `user` in journals.
-
 **Analysis Records field mapping**:
 
 | Stored Field | Source | Type | Description |
@@ -157,18 +141,6 @@ After receiving a Webhook, Lapidary proactively fetches complete Issue data from
 | `entity_type` | Derived | String | `issue` or `journal` |
 | `entity_id` | `issue.id` or `issue.journals[].id` | Integer | The ID of the tracked entity |
 | `analyzed_at` | System clock | DateTime | Timestamp when the analysis record was created |
-
-### Issue Data Storage
-
-**Completeness check**: Data is written to the database only when all fields listed above have values. If any field is missing, the data is not stored and a warning is logged.
-
-**Storage behavior**:
-
-- Upsert using `id` as the key
-- New Issue (no matching `id` in database) → create a new record
-- Existing Issue → full record update (no partial updates)
-
-**Technology choice**: Sequel + SQLite
 
 ### Analysis Tracking
 
@@ -186,8 +158,8 @@ After receiving a Webhook, Lapidary proactively fetches complete Issue data from
 
 **Recording behavior**:
 
-- After Issue data is successfully stored, analysis records are created for the Issue and all of its journals that are not yet tracked. Journal IDs are obtained from the same Redmine API response used for Issue data storage.
-- This step is part of the Webhook processing flow, executed after the Issue data storage step.
+- After Issue data is successfully fetched, analysis records are created for the Issue and all of its journals that are not yet tracked. Journal IDs are obtained from the fetched Redmine API response.
+- This step is part of the Webhook processing flow, executed after the Issue data fetching step.
 
 **Query behavior**:
 
@@ -203,8 +175,7 @@ After receiving a Webhook, Lapidary proactively fetches complete Issue data from
 | Missing `issue_id` or not a positive integer | Respond 422, do not process |
 | Redmine API unreachable | Respond 502, do not write to database |
 | Redmine API responds with non-200 | Respond 502, do not write to database |
-| Incomplete Issue data (required fields missing) | Respond 200 (`skipped`), do not write to database, log warning |
-| Duplicate notification (same Issue notified again) | Process normally, full update of existing record |
+| Duplicate notification (same Issue notified again) | Process normally, skip already tracked entities |
 | Database write failure | Respond 500, log error |
 | Analysis record write failure | Respond 500, log error |
 
@@ -235,7 +206,6 @@ After receiving a Webhook, Lapidary proactively fetches complete Issue data from
 | Unhandled exception (caught by Global Error Handler) | `error` | Error class, message, stack trace |
 | Database write failure | `error` | Operation name, error message |
 | Redmine API failure | `warn` | Request URL, HTTP status code |
-| Incomplete Issue data | `warn` | Issue ID, missing fields |
 | Invalid request (422/415) | `warn` | Request origin information, validation errors |
 
 **Principles**:
@@ -292,7 +262,7 @@ The application is packaged as a container image using multi-stage build:
 
 | Pattern | Definition | Used In |
 |---------|------------|---------|
-| Upsert by ID | Insert or update a record keyed by a unique identifier; create if absent, update if present | Issue data storage, Analysis Record writing |
+| Upsert by ID | Insert or update a record keyed by a unique identifier; create if absent, update if present | Analysis Record writing |
 | Safe error response | Unhandled exceptions are converted into a generic error message, never leaking internal details | Global Error Handling |
 | Polymorphic tracking | A single table using `type` + `id` columns to track multiple entity types | Analysis Records tracking Issue and Journal |
 
