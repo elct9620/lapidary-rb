@@ -17,6 +17,8 @@ bundle exec rspec spec/apps/webhooks/api_spec.rb  # Run a single test file
 bundle exec rubocop         # Lint
 bundle exec rubocop --autocorrect  # Lint with auto-fix
 bundle exec rake db:migrate # Run database migrations
+docker build -t lapidary .  # Build container image
+docker run -p 9292:9292 lapidary  # Run container
 ```
 
 ## Architecture
@@ -128,11 +130,19 @@ module Webhooks
 end
 ```
 
-Inject domain components into controllers: `include Lapidary::Dependency['webhooks.contract']`
+Inject dependencies into other outer-layer classes (e.g., repositories) with `include Lapidary::Dependency['webhooks.contract']`. Controllers resolve from the container directly via `container['key']` instead.
+
+### Error Handling
+
+Errors propagate naturally through the layers and are caught at the boundary:
+
+- **Repository layer**: Wraps `Sequel::Error` as domain-specific errors (e.g., `AnalysisTrackingError`) so inner layers don't depend on database details
+- **Use Case layer**: Propagates domain errors — never swallows them
+- **Controller layer**: Handles domain-specific errors with appropriate HTTP status codes; unhandled exceptions are caught by `BaseController`'s global `error` handler which logs the full error and returns a safe `500` JSON response (no internal details leaked)
 
 ## Database
 
-- **Provider**: `system/providers/database.rb` registers a `Sequel::Database` instance as `Container['database']`
+- **Providers**: `system/providers/database.rb` registers `Sequel::Database` as `Container['database']`; `system/providers/logger.rb` registers `Console.logger` as `Container['logger']`
 - **Test**: in-memory SQLite (`sqlite:/`) — no file on disk, fast and isolated
 - **Development/Production**: file-based SQLite (`db/<env>.sqlite3`) with WAL journal mode
 - **Migrations**: Sequel migrations in `db/migrations/`, named `YYYYMMDDHHMMSS_description.rb`
