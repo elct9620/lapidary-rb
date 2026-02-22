@@ -1,8 +1,11 @@
+# auto_register: false
 # frozen_string_literal: true
 
 module Webhooks
   # Webhook endpoint for receiving external issue notifications
   class API < Lapidary::BaseController
+    include Lapidary::Dependency['webhooks.contract']
+
     post '/webhook' do
       halt 415 unless request.content_type&.include?('application/json')
 
@@ -12,13 +15,14 @@ module Webhooks
         halt 422
       end
 
-      issue_id = payload['issue_id']
-      halt 422 unless issue_id.is_a?(Integer) && issue_id.positive?
+      result = contract.call(payload)
 
-      result = HandleWebhook.new.call(issue_id)
+      halt 422, { 'Content-Type' => 'application/json' }, JSON.generate(errors: result.errors.to_h) if result.failure?
+
+      output = HandleWebhook.new.call(result.to_h[:issue_id])
 
       content_type :json
-      JSON.generate(result)
+      JSON.generate(output)
     end
   end
 end

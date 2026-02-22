@@ -3,6 +3,7 @@
 source 'https://rubygems.org'
 
 gem 'dry-system'
+gem 'dry-validation'
 gem 'falcon'
 gem 'sinatra'
 gem 'zeitwerk'

@@ -71,6 +71,11 @@ RSpec.describe Webhooks::API do
       it 'returns 422 Unprocessable Entity' do
         expect(last_response.status).to eq(422)
       end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body['errors']).to have_key('issue_id')
+      end
     end
 
     context 'with issue_id as zero' do
@@ -82,6 +87,11 @@ RSpec.describe Webhooks::API do
 
       it 'returns 422 Unprocessable Entity' do
         expect(last_response.status).to eq(422)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body['errors']).to have_key('issue_id')
       end
     end
 
@@ -95,6 +105,11 @@ RSpec.describe Webhooks::API do
       it 'returns 422 Unprocessable Entity' do
         expect(last_response.status).to eq(422)
       end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body['errors']).to have_key('issue_id')
+      end
     end
 
     context 'with issue_id as string' do
@@ -106,6 +121,11 @@ RSpec.describe Webhooks::API do
 
       it 'returns 422 Unprocessable Entity' do
         expect(last_response.status).to eq(422)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body['errors']).to have_key('issue_id')
       end
     end
   end

@@ -5,9 +5,5 @@ module Lapidary
   class Web < Lapidary::BaseController
     use Health::API
     use Webhooks::API
-
-    def self.container
-      Lapidary::Container
-    end
   end
 end

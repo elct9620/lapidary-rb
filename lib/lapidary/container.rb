@@ -12,9 +12,7 @@ module Lapidary
       config.component_dirs.add 'lib' do |dir|
         dir.namespaces.add 'lapidary', key: nil
       end
-      config.component_dirs.add 'apps' do |dir|
-        dir.auto_register = false
-      end
+      config.component_dirs.add 'apps'
     end
   end
 end
