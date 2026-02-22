@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path' | grep '\\.rb$' | xargs bundle exec rubocop --autocorrect 2>&1",
+            "command": "jq -r '.tool_input.file_path' | grep '\\.rb$' | xargs bundle exec rubocop --autocorrect",
             "timeout": 60,
             "statusMessage": "Running RuboCop..."
           }
