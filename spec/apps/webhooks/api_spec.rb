@@ -31,6 +31,31 @@ RSpec.describe Webhooks::API do
         body = JSON.parse(last_response.body)
         expect(body).to eq('status' => 'ok')
       end
+
+      it 'tracks the issue as analyzed' do
+        repository = Lapidary::Container['webhooks.analysis_record_repository']
+        expect(repository.tracked?(entity_type: 'issue', entity_id: 1)).to be true
+      end
+    end
+
+    context 'when analysis tracking fails' do
+      before do
+        repository = Lapidary::Container['webhooks.analysis_record_repository']
+        allow(repository).to receive(:create_if_absent).and_raise(StandardError)
+
+        post '/webhook',
+             JSON.generate(issue_id: 1),
+             'CONTENT_TYPE' => 'application/json'
+      end
+
+      it 'still returns 200 OK' do
+        expect(last_response).to be_ok
+      end
+
+      it 'still returns status ok' do
+        body = JSON.parse(last_response.body)
+        expect(body).to eq('status' => 'ok')
+      end
     end
 
     context 'with non-JSON Content-Type' do
