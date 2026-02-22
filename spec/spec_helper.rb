@@ -22,15 +22,6 @@ require 'dry/system/stubs'
 
 Lapidary::Container.enable_stubs!
 
-def run_migrations!
-  db = Lapidary::Container['database']
-  migrations_path = File.expand_path('../db/migrations', __dir__)
-  return unless Dir.glob(File.join(migrations_path, '*.rb')).any?
-
-  Sequel.extension :migration
-  Sequel::Migrator.run(db, migrations_path)
-end
-
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
@@ -48,7 +39,7 @@ RSpec.configure do |config|
     require 'console'
     Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
     Lapidary::Container.finalize!
-    run_migrations!
+    Lapidary::Container['migrator'].migrate
   end
 
   config.around(:each) do |example|

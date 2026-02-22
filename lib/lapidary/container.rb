@@ -16,7 +16,7 @@ module Lapidary
     end
 
     after(:finalize) do
-      self['migration_checker'].call
+      self['migrator'].check
     end
   end
 end
