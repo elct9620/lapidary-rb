@@ -17,6 +17,7 @@ bundle exec rspec spec/apps/webhooks/api_spec.rb  # Run a single test file
 bundle exec rubocop         # Lint
 bundle exec rubocop --autocorrect  # Lint with auto-fix
 bundle exec rake db:migrate # Run database migrations
+bundle exec rake 'db:generate[create_foo]'  # Generate a new migration file with timestamp
 docker build -t lapidary .  # Build container image
 docker run -p 9292:9292 lapidary  # Run container
 ```
@@ -34,6 +35,7 @@ The application uses dry-system as an IoC container. Components are auto-registe
 - `lib/<domain>/` — Domain inner-layer components (entities, use cases) organized by bounded context (e.g., `lib/analysis/`, `lib/webhooks/`)
 - `apps/<domain>/` — Domain outer-layer components (controllers, contracts, repositories, adapters) organized by bounded context
 - `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
+- `falcon.rb` — Defines two Falcon services: HTTP server (Rack app) and `analysis` background worker (async polling service)
 - `docs/architecture.md` — Detailed architecture documentation
 - `SPEC.md` — Behavioral specification for V1
 
