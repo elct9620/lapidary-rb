@@ -88,4 +88,96 @@ RSpec.describe Analysis::Entities::Job do
       end
     end
   end
+
+  describe '#retry' do
+    context 'when claimed' do
+      before { job.claim }
+
+      it 'transitions back to pending status' do
+        job.retry('something failed')
+        expect(job).to be_pending
+      end
+
+      it 'increments attempts' do
+        job.retry('something failed')
+        expect(job.attempts).to eq(1)
+      end
+
+      it 'records the error message' do
+        job.retry('something failed')
+        expect(job.error).to eq('something failed')
+      end
+
+      it 'sets scheduled_at with exponential backoff' do
+        freeze_time = Time.now
+        allow(Time).to receive(:now).and_return(freeze_time)
+
+        job.retry('something failed')
+        expect(job.scheduled_at).to eq(freeze_time + (2**1))
+      end
+    end
+
+    context 'when pending' do
+      it 'raises JobError' do
+        expect { job.retry('error') }.to raise_error(Analysis::Entities::JobError, /cannot retry/)
+      end
+    end
+
+    context 'when done' do
+      before do
+        job.claim
+        job.complete
+      end
+
+      it 'raises JobError' do
+        expect { job.retry('error') }.to raise_error(Analysis::Entities::JobError, /cannot retry/)
+      end
+    end
+  end
+
+  describe '#fail' do
+    context 'when claimed' do
+      before { job.claim }
+
+      it 'transitions to failed status' do
+        job.fail('permanent failure')
+        expect(job).to be_failed
+      end
+
+      it 'records the error message' do
+        job.fail('permanent failure')
+        expect(job.error).to eq('permanent failure')
+      end
+    end
+
+    context 'when pending' do
+      it 'raises JobError' do
+        expect { job.fail('error') }.to raise_error(Analysis::Entities::JobError, /cannot fail/)
+      end
+    end
+
+    context 'when done' do
+      before do
+        job.claim
+        job.complete
+      end
+
+      it 'raises JobError' do
+        expect { job.fail('error') }.to raise_error(Analysis::Entities::JobError, /cannot fail/)
+      end
+    end
+  end
+
+  describe '#retryable?' do
+    it 'returns true when attempts have not reached max' do
+      job.claim
+      expect(job).to be_retryable
+    end
+
+    it 'returns false when next attempt would reach max_attempts' do
+      job = described_class.new(arguments: { entity_type: 'issue', entity_id: 1 }, attempts: 2, max_attempts: 3)
+      job.claim
+      expect(job).not_to be_retryable
+    end
+  end
 end

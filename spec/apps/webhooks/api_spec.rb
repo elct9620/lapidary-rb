@@ -89,7 +89,8 @@ RSpec.describe Webhooks::API do
       let(:process_job) do
         Analysis::UseCases::ProcessJob.new(
           job_repository: Lapidary::Container['analysis.repositories.job_repository'],
-          analysis_record_repository: Lapidary::Container['analysis.repositories.analysis_record_repository']
+          analysis_record_repository: Lapidary::Container['analysis.repositories.analysis_record_repository'],
+          logger: Lapidary::Container['logger']
         )
       end
 

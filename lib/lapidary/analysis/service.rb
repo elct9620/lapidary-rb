@@ -33,7 +33,8 @@ module Lapidary
         container = Lapidary::Container
         ::Analysis::UseCases::ProcessJob.new(
           job_repository: container['analysis.repositories.job_repository'],
-          analysis_record_repository: container['analysis.repositories.analysis_record_repository']
+          analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
+          logger: container['logger']
         )
       end
     end

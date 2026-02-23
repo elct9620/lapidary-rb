@@ -29,7 +29,8 @@ module Analysis
         with_error_wrapping do
           dataset.where(id: job.id).update(
             status: job.status, attempts: job.attempts,
-            error: job.error, updated_at: job.updated_at || Time.now
+            error: job.error, scheduled_at: job.scheduled_at,
+            updated_at: job.updated_at || Time.now
           )
         end
       end

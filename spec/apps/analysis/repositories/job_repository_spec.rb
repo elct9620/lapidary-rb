@@ -90,5 +90,14 @@ RSpec.describe Analysis::Repositories::JobRepository do
       row = Lapidary::Container['database'][:jobs].where(id: claimed.id).first
       expect(row[:status]).to eq('done')
     end
+
+    it 'updates scheduled_at in the database' do
+      claimed = repository.claim_next
+      claimed.retry('transient error')
+      repository.save(claimed)
+
+      row = Lapidary::Container['database'][:jobs].where(id: claimed.id).first
+      expect(row[:scheduled_at]).to be > Time.now
+    end
   end
 end

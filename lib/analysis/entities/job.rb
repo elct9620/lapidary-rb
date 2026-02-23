@@ -5,7 +5,7 @@ module Analysis
   module Entities
     # Domain entity representing an analysis job in the queue.
     class Job
-      STATUSES = %w[pending claimed done].freeze
+      STATUSES = %w[pending claimed done failed].freeze
 
       attr_reader :id, :arguments, :status, :attempts, :max_attempts,
                   :error, :scheduled_at, :created_at, :updated_at
@@ -48,6 +48,32 @@ module Analysis
 
       def done?
         @status == 'done'
+      end
+
+      def failed?
+        @status == 'failed'
+      end
+
+      def retryable?
+        @attempts + 1 < @max_attempts
+      end
+
+      def retry(error)
+        raise JobError, "cannot retry job in #{@status} status" unless claimed?
+
+        @status = 'pending'
+        @attempts += 1
+        @error = error
+        @scheduled_at = Time.now + (2**@attempts)
+        @updated_at = Time.now
+      end
+
+      def fail(error)
+        raise JobError, "cannot fail job in #{@status} status" unless claimed?
+
+        @status = 'failed'
+        @error = error
+        @updated_at = Time.now
       end
     end
   end
