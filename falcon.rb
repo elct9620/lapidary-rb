@@ -5,6 +5,9 @@ require 'falcon/environment/rack'
 require 'async/http/endpoint'
 require 'async/http/protocol'
 
+require_relative 'lib/lapidary/analysis/environment'
+require_relative 'lib/lapidary/analysis/service'
+
 hostname = File.basename(__dir__)
 
 service hostname do
@@ -17,4 +20,8 @@ service hostname do
       .parse("http://0.0.0.0:#{port}")
       .with(protocol: Async::HTTP::Protocol::HTTP11)
   end
+end
+
+service 'analysis' do
+  include Lapidary::Analysis::Environment
 end
