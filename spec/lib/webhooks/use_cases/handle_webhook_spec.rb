@@ -31,8 +31,7 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
 
     it 'excludes already tracked entities' do
       # Pre-track the issue
-      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 42)
-      record.analyze
+      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 42, analyzed_at: Time.now)
       analysis_record_repository.save(record)
 
       result = use_case.call(issue)
@@ -44,8 +43,7 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
     it 'returns an empty array when all entities are tracked' do
       # Pre-track everything
       [['issue', 42], ['journal', 101], ['journal', 102]].each do |type, id|
-        record = Webhooks::Entities::AnalysisRecord.new(entity_type: type, entity_id: id)
-        record.analyze
+        record = Webhooks::Entities::AnalysisRecord.new(entity_type: type, entity_id: id, analyzed_at: Time.now)
         analysis_record_repository.save(record)
       end
 

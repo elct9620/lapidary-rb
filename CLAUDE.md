@@ -60,6 +60,10 @@ use_case = UseCases::HandleWebhook.new(analysis_record_repository: container['we
 output = use_case.call(issue_id)
 ```
 
+### Cross-Context Entity Strategy
+
+Each bounded context owns its own entity models. Structural similarity between entities across BCs (e.g., `Webhooks::Entities::AnalysisRecord` and `Analysis::Entities::AnalysisRecord`) is **intentional by design**, not accidental duplication. Each entity reflects only the behavior its BC needs. See `docs/architecture.md` § "Cross-Context Entity Strategy" for details.
+
 ### Entity-Centric Use Case Pattern
 
 Use Cases operate through Entities, not raw data. The flow is: build Entity → query Repository with Entity → Entity mutates itself → Repository persists Entity. Repositories accept Entity objects, not keyword arguments.

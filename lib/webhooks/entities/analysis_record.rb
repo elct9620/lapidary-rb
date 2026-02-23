@@ -12,14 +12,6 @@ module Webhooks
         @entity_id = entity_id
         @analyzed_at = analyzed_at
       end
-
-      def analyze
-        @analyzed_at = Time.now
-      end
-
-      def analyzed?
-        !@analyzed_at.nil?
-      end
     end
   end
 end

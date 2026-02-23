@@ -34,6 +34,17 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 
 When one bounded context needs to interact with another, an adapter (Anti-Corruption Layer) encapsulates the boundary. For example, `Webhooks::Adapters::AnalysisScheduler` translates Webhooks domain concepts into Analysis domain operations, preventing Analysis internals from leaking into the Webhooks context. Adapters live under `apps/<domain>/adapters/` and are auto-registered with the container.
 
+### Cross-Context Entity Strategy
+
+Each bounded context owns its own entity models, even when two contexts reference the same real-world concept. Structural similarity across BCs is **expected and intentional** — it is not accidental duplication.
+
+Entities should reflect their BC's actual usage:
+
+- **Analysis `AnalysisRecord`** — full lifecycle entity. Created, mutated via `analyze` (sets `analyzed_at`), queried with `analyzed?`, and persisted. Owns the analysis state machine.
+- **Webhooks `AnalysisRecord`** — query-oriented value object. Created with `entity_type`/`entity_id`, passed to `exists?`/`untracked` for filtering. Never mutated — `analyzed_at` is accepted as a read-only constructor parameter for repository persistence only.
+
+This separation ensures each BC depends only on the behavior it needs, and can evolve its entity independently without affecting the other context.
+
 ### Infrastructure Layer
 
 Components under `lib/lapidary/` are auto-registered by dry-system. This layer contains shared infrastructure such as fetching issue data and persisting records. Components are resolved by container key with the `lapidary` namespace stripped (e.g., `lib/lapidary/services/foo.rb` → `Container['services.foo']`).

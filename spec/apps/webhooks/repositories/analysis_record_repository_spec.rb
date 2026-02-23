@@ -6,9 +6,7 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
   subject(:repository) { Lapidary::Container['webhooks.repositories.analysis_record_repository'] }
 
   def build_record(entity_type:, entity_id:)
-    record = Webhooks::Entities::AnalysisRecord.new(entity_type: entity_type, entity_id: entity_id)
-    record.analyze
-    record
+    Webhooks::Entities::AnalysisRecord.new(entity_type: entity_type, entity_id: entity_id, analyzed_at: Time.now)
   end
 
   describe '#save' do
