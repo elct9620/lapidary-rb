@@ -11,7 +11,7 @@ Lapidary::Container.register_provider(:database) do
     database_url = if env == 'test'
                      'sqlite:/'
                    else
-                     "sqlite://db/#{env}.sqlite3"
+                     "sqlite://data/#{env}.sqlite3"
                    end
 
     database = Sequel.connect(

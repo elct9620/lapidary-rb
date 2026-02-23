@@ -152,7 +152,7 @@ Errors propagate naturally through the layers and are caught at the boundary:
 
 - **Providers**: `system/providers/database.rb` registers `Sequel::Database` as `Container['database']`; `system/providers/logger.rb` registers `Console.logger` as `Container['logger']`
 - **Test**: in-memory SQLite (`sqlite:/`) — no file on disk, fast and isolated
-- **Development/Production**: file-based SQLite (`db/<env>.sqlite3`) with WAL journal mode
+- **Development/Production**: file-based SQLite (`data/<env>.sqlite3`) with WAL journal mode
 - **Migrations**: Sequel migrations in `db/migrations/`, named `YYYYMMDDHHMMSS_description.rb`
 
 ## Testing

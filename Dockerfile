@@ -34,13 +34,13 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /usr/local/bundle /usr/local/bundle
 COPY --from=builder --chown=app:app /app /app
 
-RUN mkdir -p /app/db && chown app:app /app/db
+RUN mkdir -p /app/data && chown app:app /app/data
 
 ENV RACK_ENV=production
 
 USER app:app
 
-VOLUME /app/db
+VOLUME /app/data
 
 EXPOSE 9292
 
