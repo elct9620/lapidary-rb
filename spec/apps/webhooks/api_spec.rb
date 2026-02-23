@@ -58,56 +58,63 @@ RSpec.describe Webhooks::API do
              'CONTENT_TYPE' => 'application/json'
       end
 
-      it 'returns 200 OK' do
-        expect(last_response).to be_ok
+      it 'returns 202 Accepted' do
+        expect(last_response.status).to eq(202)
       end
 
       it 'returns JSON content type' do
         expect(last_response.content_type).to include('application/json')
       end
 
-      it 'returns status ok' do
+      it 'returns status accepted' do
         body = JSON.parse(last_response.body)
-        expect(body).to eq('status' => 'ok')
+        expect(body).to eq('status' => 'accepted')
       end
 
-      it 'tracks the issue as analyzed' do
-        repository = Lapidary::Container['webhooks.repositories.analysis_record_repository']
-        record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
-        expect(repository.exists?(record)).to be true
+      it 'enqueues a job for the issue' do
+        db = Lapidary::Container['database']
+        expect(db[:jobs].where(entity_type: 'issue', entity_id: '1').count).to eq(1)
       end
 
-      it 'tracks journals as analyzed' do
-        repository = Lapidary::Container['webhooks.repositories.analysis_record_repository']
-        journal101 = Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 101)
-        journal102 = Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 102)
-        expect(repository.exists?(journal101)).to be true
-        expect(repository.exists?(journal102)).to be true
+      it 'enqueues jobs for journals' do
+        db = Lapidary::Container['database']
+        expect(db[:jobs].where(entity_type: 'journal', entity_id: '101').count).to eq(1)
+        expect(db[:jobs].where(entity_type: 'journal', entity_id: '102').count).to eq(1)
       end
     end
 
     context 'with incremental journal tracking' do
+      let(:process_job) do
+        Analysis::UseCases::ProcessJob.new(
+          job_repository: Lapidary::Container['analysis.repositories.job_repository'],
+          analysis_record_repository: Lapidary::Container['analysis.repositories.analysis_record_repository']
+        )
+      end
+
       before do
         stub_redmine_success
 
-        # First request tracks issue + journals
+        # First request enqueues jobs
         post '/webhook',
              JSON.generate(issue_id: 1),
              'CONTENT_TYPE' => 'application/json'
 
-        # Second request should not duplicate
+        # Process all jobs (worker simulation)
+        nil until process_job.call == false
+
+        # Second request should not enqueue duplicates
         post '/webhook',
              JSON.generate(issue_id: 1),
              'CONTENT_TYPE' => 'application/json'
       end
 
-      it 'returns 200 OK on second request' do
-        expect(last_response).to be_ok
+      it 'returns 202 Accepted on second request' do
+        expect(last_response.status).to eq(202)
       end
 
-      it 'does not duplicate journal records' do
+      it 'does not enqueue duplicate journal jobs after processing' do
         db = Lapidary::Container['database']
-        journal_count = db[:analysis_records].where(entity_type: 'journal').count
+        journal_count = db[:jobs].where(entity_type: 'journal').count
         expect(journal_count).to eq(2)
       end
     end

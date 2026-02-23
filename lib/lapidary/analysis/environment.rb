@@ -5,6 +5,7 @@ require 'async/service/managed/environment'
 
 module Lapidary
   module Analysis
+    # Falcon managed environment configuration for the analysis worker.
     module Environment
       include Async::Service::Managed::Environment
 

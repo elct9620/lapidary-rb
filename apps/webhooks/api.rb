@@ -13,10 +13,17 @@ module Webhooks
       use_case = UseCases::HandleWebhook.new(
         analysis_record_repository: container['webhooks.repositories.analysis_record_repository']
       )
-      output = use_case.call(issue)
+      untracked_records = use_case.call(issue)
 
+      job_repository = container['analysis.repositories.job_repository']
+      untracked_records.each do |record|
+        job = Analysis::Entities::Job.new(entity_type: record.entity_type, entity_id: record.entity_id)
+        job_repository.enqueue(job)
+      end
+
+      status 202
       content_type :json
-      JSON.generate(output)
+      JSON.generate(status: 'accepted')
     rescue Redmine::API::FetchError => e
       logger.warn(self, e.message)
       halt_json 502, error: 'upstream service error'
