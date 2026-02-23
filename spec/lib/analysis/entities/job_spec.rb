@@ -3,7 +3,7 @@
 require 'spec_helper'
 
 RSpec.describe Analysis::Entities::Job do
-  subject(:job) { described_class.new(entity_type: 'issue', entity_id: 1) }
+  subject(:job) { described_class.new(arguments: { entity_type: 'issue', entity_id: 1 }) }
 
   describe '#initialize' do
     it 'defaults to pending status' do

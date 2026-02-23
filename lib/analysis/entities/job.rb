@@ -7,15 +7,14 @@ module Analysis
     class Job
       STATUSES = %w[pending claimed done].freeze
 
-      attr_reader :id, :entity_type, :entity_id, :status, :attempts, :max_attempts,
+      attr_reader :id, :arguments, :status, :attempts, :max_attempts,
                   :error, :scheduled_at, :created_at, :updated_at
 
-      def initialize(entity_type:, entity_id:, id: nil, status: 'pending', # rubocop:disable Metrics/ParameterLists
+      def initialize(arguments: {}, id: nil, status: 'pending', # rubocop:disable Metrics/ParameterLists
                      attempts: 0, max_attempts: 3, error: nil,
                      scheduled_at: nil, created_at: nil, updated_at: nil)
         @id = id
-        @entity_type = entity_type
-        @entity_id = entity_id
+        @arguments = arguments
         @status = status
         @attempts = attempts
         @max_attempts = max_attempts

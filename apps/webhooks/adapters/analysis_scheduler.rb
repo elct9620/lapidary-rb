@@ -8,7 +8,7 @@ module Webhooks
       include Lapidary::Dependency['analysis.repositories.job_repository']
 
       def schedule(entity_type:, entity_id:)
-        job = Analysis::Entities::Job.new(entity_type: entity_type, entity_id: entity_id)
+        job = Analysis::Entities::Job.new(arguments: { entity_type: entity_type, entity_id: entity_id })
         job_repository.enqueue(job)
       end
     end

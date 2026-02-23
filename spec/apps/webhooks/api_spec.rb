@@ -73,13 +73,15 @@ RSpec.describe Webhooks::API do
 
       it 'enqueues a job for the issue' do
         db = Lapidary::Container['database']
-        expect(db[:jobs].where(entity_type: 'issue', entity_id: '1').count).to eq(1)
+        jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+        expect(jobs).to include(entity_type: 'issue', entity_id: 1)
       end
 
       it 'enqueues jobs for journals' do
         db = Lapidary::Container['database']
-        expect(db[:jobs].where(entity_type: 'journal', entity_id: '101').count).to eq(1)
-        expect(db[:jobs].where(entity_type: 'journal', entity_id: '102').count).to eq(1)
+        jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+        expect(jobs).to include(entity_type: 'journal', entity_id: 101)
+        expect(jobs).to include(entity_type: 'journal', entity_id: 102)
       end
     end
 
@@ -114,7 +116,8 @@ RSpec.describe Webhooks::API do
 
       it 'does not enqueue duplicate journal jobs after processing' do
         db = Lapidary::Container['database']
-        journal_count = db[:jobs].where(entity_type: 'journal').count
+        jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+        journal_count = jobs.count { |j| j[:entity_type] == 'journal' }
         expect(journal_count).to eq(2)
       end
     end

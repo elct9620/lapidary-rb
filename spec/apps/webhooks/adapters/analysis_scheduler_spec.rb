@@ -10,7 +10,8 @@ RSpec.describe Webhooks::Adapters::AnalysisScheduler do
       scheduler.schedule(entity_type: 'issue', entity_id: 42)
 
       row = Lapidary::Container['database'][:jobs].first
-      expect(row).to include(entity_type: 'issue', entity_id: '42', status: 'pending')
+      expect(row[:status]).to eq('pending')
+      expect(JSON.parse(row[:arguments], symbolize_names: true)).to eq(entity_type: 'issue', entity_id: 42)
     end
   end
 end

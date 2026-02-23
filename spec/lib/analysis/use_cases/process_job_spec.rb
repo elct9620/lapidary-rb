@@ -16,7 +16,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
   describe '#call' do
     context 'when there is a pending job' do
       before do
-        job = Analysis::Entities::Job.new(entity_type: 'issue', entity_id: 1)
+        job = Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 })
         job_repository.enqueue(job)
       end
 
@@ -49,8 +49,8 @@ RSpec.describe Analysis::UseCases::ProcessJob do
 
     context 'with multiple pending jobs' do
       before do
-        job_repository.enqueue(Analysis::Entities::Job.new(entity_type: 'issue', entity_id: 1))
-        job_repository.enqueue(Analysis::Entities::Job.new(entity_type: 'journal', entity_id: 101))
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'journal', entity_id: 101 }))
       end
 
       it 'processes one job per call' do

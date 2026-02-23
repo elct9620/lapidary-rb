@@ -31,8 +31,8 @@ module Analysis
 
       def build_record(job)
         Entities::AnalysisRecord.new(
-          entity_type: job.entity_type,
-          entity_id: Integer(job.entity_id)
+          entity_type: job.arguments[:entity_type],
+          entity_id: Integer(job.arguments[:entity_id])
         )
       end
     end

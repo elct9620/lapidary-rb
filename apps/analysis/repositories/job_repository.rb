@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'json'
+
 module Analysis
   module Repositories
     # Repository for managing analysis job persistence and claiming.
@@ -36,7 +38,7 @@ module Analysis
 
       def job_attributes(job, now)
         {
-          entity_type: job.entity_type, entity_id: job.entity_id,
+          arguments: JSON.generate(job.arguments),
           status: job.status, attempts: job.attempts,
           max_attempts: job.max_attempts, scheduled_at: job.scheduled_at,
           created_at: now, updated_at: now
@@ -66,11 +68,12 @@ module Analysis
       end
 
       def row_to_entity(row)
-        Entities::Job.new(**row.slice(
-          :id, :entity_type, :entity_id, :status,
-          :attempts, :max_attempts, :error,
+        attrs = row.slice(
+          :id, :status, :attempts, :max_attempts, :error,
           :scheduled_at, :created_at, :updated_at
-        ))
+        )
+        attrs[:arguments] = JSON.parse(row[:arguments], symbolize_names: true)
+        Entities::Job.new(**attrs)
       end
 
       def dataset
