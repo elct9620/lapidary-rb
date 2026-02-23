@@ -37,7 +37,7 @@ module Analysis
           job.retry(error.message)
         else
           job.fail(error.message)
-          @logger.error("Job #{job.id} permanently failed: #{error.message}")
+          @logger.error(self) { "Job #{job.id} permanently failed: #{error.message}" }
         end
         @job_repository.save(job)
       end

@@ -110,7 +110,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       it 'logs an error' do
         use_case.call
 
-        expect(logger).to have_received(:error).with(/permanent failure/)
+        expect(logger).to have_received(:error).with(use_case)
       end
     end
   end
