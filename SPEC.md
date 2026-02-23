@@ -117,7 +117,7 @@ Content-Type: `application/json`
 1. Validate the request
 2. Fetch Issue data from the Redmine API (including journals)
 3. Determine which entities (Issue and Journals) are not yet tracked
-4. Create one analysis job per untracked entity, each carrying the data needed for analysis (e.g., Issue content, author, Journal details and associated Issue context)
+4. Create one analysis job per untracked entity, each carrying the fields defined in the Job Arguments field mapping (see Issue Data Fetching)
 5. Respond with 202 Accepted
 
 **Responses**:
@@ -151,7 +151,14 @@ The fetched data is attached to each analysis job so that the Analysis Service c
     "author": { "id": 1, "name": "matz (Yukihiro Matsumoto)" },
     "created_on": "2024-01-15T10:30:00Z",
     "updated_on": "2024-01-16T14:20:00Z",
-    "journals": [...]
+    "journals": [
+      {
+        "id": 1,
+        "user": { "id": 2, "name": "nobu (Nobuyoshi Nakada)" },
+        "notes": "Review comment here",
+        "created_on": "2024-01-16T14:20:00Z"
+      }
+    ]
   }
 }
 ```
@@ -163,6 +170,34 @@ The fetched data is attached to each analysis job so that the Analysis Service c
 | `entity_type` | Derived | String | `issue` or `journal` |
 | `entity_id` | `issue.id` or `issue.journals[].id` | Integer | The ID of the tracked entity |
 | `analyzed_at` | System clock | DateTime | Timestamp when the analysis record was created |
+
+**Job Arguments field mapping**:
+
+The Redmine API returns author names in the format `"username (Display Name)"` (e.g., `"matz (Yukihiro Matsumoto)"`). When no display name is present, the field contains only the username without parentheses.
+
+Each analysis job carries a minimal set of fields extracted from the Redmine API response. The structure differs by entity type:
+
+*Issue Job Arguments:*
+
+| Field | Source | Type | Description |
+|-------|--------|------|-------------|
+| `entity_type` | Derived | String | Fixed value `issue` |
+| `entity_id` | `issue.id` | Integer | Issue ID |
+| `content` | `issue.subject` | String | Issue title/content |
+| `author_username` | `issue.author.name` (before parentheses) | String | Author account name |
+| `author_display_name` | `issue.author.name` (inside parentheses) | String | Author display name |
+
+*Journal Job Arguments:*
+
+| Field | Source | Type | Description |
+|-------|--------|------|-------------|
+| `entity_type` | Derived | String | Fixed value `journal` |
+| `entity_id` | `journal.id` | Integer | Journal ID |
+| `content` | `journal.notes` | String | Journal reply content |
+| `author_username` | `journal.user.name` (before parentheses) | String | Respondent account name |
+| `author_display_name` | `journal.user.name` (inside parentheses) | String | Respondent display name |
+| `issue_id` | `issue.id` | Integer | Associated Issue ID |
+| `issue_content` | `issue.subject` | String | Associated Issue title (provides context) |
 
 ### Analysis Tracking
 
@@ -200,7 +235,7 @@ The fetched data is attached to each analysis job so that the Analysis Service c
 | Field | Description |
 |-------|-------------|
 | Job identity | Unique identifier for the job |
-| Arguments | The data needed for analysis: entity type, entity ID, and the minimum set of author and content information required for analysis (not the full Redmine API response) |
+| Arguments | The fields defined in the Job Arguments field mapping (see Issue Data Fetching): entity type, entity ID, author, and content information extracted from the Redmine API response |
 | Status | Current state of the job |
 | Attempts | Number of times the job has been attempted |
 | Max attempts | Maximum number of retry attempts allowed |
@@ -225,6 +260,25 @@ The fetched data is attached to each analysis job so that the Analysis Service c
 - Single worker, sequential processing — one job at a time
 - Dequeues a job, performs analysis, writes the analysis record, and marks the job as done
 - In the current phase, "analysis" means recording the entity to the analysis tracking table and marking it as analyzed; the ontology processing phase will expand the analysis logic
+- In the current phase, the Job Arguments data beyond entity tracking fields (content, author information) is not persisted separately. Once the tracking record is written and the job is marked as done, this data is no longer retained. The Ontology processing phase will expand the analysis logic to extract and persist relationships from this data before the job completes.
+
+**Analysis behavior**:
+
+The eventual goal of analysis is to identify relationships between Authors and Ruby Core Modules based on Issue and Journal content. In the current phase, the system captures the data needed for this future identification by carrying it in Job Arguments; the actual relationship extraction and semantic classification are handled in the Ontology processing phase.
+
+- **Issue analysis**: Identify the relationship between the Issue Author and a Ruby Core Module based on Issue content
+- **Journal analysis**: Identify the relationship between the Journal Author and a Ruby Core Module based on Journal content combined with the associated Issue content (for context)
+
+**Analysis scenarios**:
+
+| Scenario | Entity Type | Author Role | Analysis Focus |
+|----------|-------------|-------------|----------------|
+| Ruby Committer reports a feature/bug | Issue | Ruby Committer | Author's maintenance relationship with the related Module |
+| Rubyist reports a feature/proposal | Issue | Rubyist | Author's usage relationship with the related Module |
+| Discussion participant replies | Journal | Participant | Author's participation relationship with the related Module |
+| Ruby Committer provides feedback | Journal | Ruby Committer | Author's review relationship with the related Module |
+
+Note: In this phase, the system does not distinguish between Committer and Rubyist. Determining the Author's role and the specific relationship type with a Module is handled in the Ontology processing phase.
 
 **Retry behavior**:
 
@@ -346,6 +400,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Job | A deferred work unit carrying analysis data, stored in the database for asynchronous processing |
 | Job Queue | A database-backed queue that holds pending analysis jobs |
 | Analysis Service | A background worker service that dequeues and processes analysis jobs |
+| Ruby Core Module | A core module of Ruby (e.g., String, Array, IO), represented as a node in the knowledge graph |
 
 ## Patterns
 
