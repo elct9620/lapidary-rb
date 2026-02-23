@@ -10,7 +10,9 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 
 ```
 ┌─────────────────────────────────┐
-│  Application (apps/)            │  Domain modules (Zeitwerk autoloaded)
+│  Adapters (apps/)               │  Controllers, repositories, contracts, adapters
+├─────────────────────────────────┤
+│  Domain (lib/<domain>/)         │  Entities, use cases (per bounded context)
 ├─────────────────────────────────┤
 │  Infrastructure (lib/lapidary/) │  Auto-registered shared components
 ├─────────────────────────────────┤
@@ -18,11 +20,19 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 └─────────────────────────────────┘
 ```
 
-### Application Layer
+### Domain Layer
 
-`apps/` contains application-level components organized by domain. Each subdirectory represents a domain (e.g., `apps/webhooks/`) and contains that domain's controllers, use cases, entities, repositories, and contracts. The directory is registered as a `component_dirs` entry in the dry-system container and autoloaded via Zeitwerk (dry-system `:zeitwerk` plugin) — no manual `require` is needed. Components auto-register by default; individual files use the `# auto_register: false` magic comment to opt out.
+`lib/<domain>/` (e.g., `lib/analysis/`, `lib/webhooks/`) contains inner-layer domain components — entities and use cases — organized by bounded context. These are Zeitwerk autoloaded via the `lib/` root directory (e.g., `lib/webhooks/entities/issue.rb` → `Webhooks::Entities::Issue`). Inner-layer files are marked `# auto_register: false` to exclude them from dry-system container registration. They receive dependencies through plain Ruby constructor injection.
+
+### Adapter Layer
+
+`apps/` contains outer-layer adapter components organized by domain. Each subdirectory represents a bounded context (e.g., `apps/webhooks/`) and contains that context's controllers, repositories, contracts, and cross-context adapters. The directory is registered as a `component_dirs` entry in the dry-system container and autoloaded via Zeitwerk (dry-system `:zeitwerk` plugin) — no manual `require` is needed. Components auto-register by default; controllers use the `# auto_register: false` magic comment to opt out (they are mounted as Rack middleware).
 
 `config/web.rb` defines `Lapidary::Web`, the main Rack application that composes all API controllers via Sinatra's `use` middleware mechanism. Each API class inherits from `Lapidary::BaseController` and handles specific routes. `Lapidary::Web` exposes `Web.container` for accessing the DI container.
+
+### Context Integration
+
+When one bounded context needs to interact with another, an adapter (Anti-Corruption Layer) encapsulates the boundary. For example, `Webhooks::Adapters::AnalysisScheduler` translates Webhooks domain concepts into Analysis domain operations, preventing Analysis internals from leaking into the Webhooks context. Adapters live under `apps/<domain>/adapters/` and are auto-registered with the container.
 
 ### Infrastructure Layer
 
@@ -32,25 +42,29 @@ Components under `lib/lapidary/` are auto-registered by dry-system. This layer c
 
 `system/providers/` hosts dry-system providers that register external services (database connections, HTTP clients) into the container. These are resolved at container finalization time.
 
-### Application Layer Convention
+### Layer Convention
 
-`apps/` follows a domain-based convention where each subdirectory represents a domain:
+Each bounded context spans two directories:
 
-- `apps/health/` — Health check endpoint
-- `apps/webhooks/` — Webhook processing (issue notifications)
-- Additional domains use the same pattern
+- `lib/<domain>/` — Inner-layer (entities, use cases)
+- `apps/<domain>/` — Outer-layer (controllers, repositories, contracts, adapters)
 
-Each domain directory contains components categorized by Clean Architecture layer:
+Domain directories:
 
-| Component | Layer | `auto_register: false`? | Uses `Lapidary::Dependency`? | Description |
+- `analysis` — Job processing and analysis tracking
+- `webhooks` — Webhook processing (issue notifications)
+- `health` — Health check endpoint (outer layer only)
+
+| Component | Location | `auto_register: false`? | Uses `Lapidary::Dependency`? | Description |
 |---|---|---|---|---|
-| Controller | Adapter (outer) | Yes — mounted via `use`, not resolved | Yes | Sinatra controller handling HTTP routes |
-| Use Case | Domain (inner) | Yes — assembled by controller | **No** — plain constructor injection | Business logic orchestration |
-| Entity | Domain (inner) | Yes — domain object | **No** — no DI | Domain value/data objects |
-| Repository | Adapter (outer) | No — auto-registered | Yes | Data access, bridges domain and infrastructure |
-| Contract | Adapter (outer) | No — auto-registered | N/A | Request validation via `dry-validation` |
+| Controller | `apps/` | Yes — mounted via `use`, not resolved | No — uses `container[]` | Sinatra controller handling HTTP routes |
+| Adapter | `apps/` | No — auto-registered | Yes | Anti-Corruption Layer between bounded contexts |
+| Repository | `apps/` | No — auto-registered | Yes | Data access, bridges domain and infrastructure |
+| Contract | `apps/` | No — auto-registered | N/A | Request validation via `dry-validation` |
+| Use Case | `lib/` | Yes — not container-managed | **No** — plain constructor injection | Business logic orchestration |
+| Entity | `lib/` | Yes — domain object | **No** — no DI | Domain value/data objects |
 
-**Dependency direction rule:** Inner layers (Entity, Use Case) must never depend on outer layers (Framework, Infrastructure). Only outer-layer components (Controller, Repository) may use `Lapidary::Dependency` (`Dry::AutoInject`). Inner-layer components receive dependencies through plain Ruby constructor injection, keeping the dependency direction always pointing inward.
+**Dependency direction rule:** Inner layers (Entity, Use Case) must never depend on outer layers (Framework, Infrastructure). Only outer-layer components (Controller, Repository, Adapter) may use `Lapidary::Dependency` (`Dry::AutoInject`). Inner-layer components receive dependencies through plain Ruby constructor injection, keeping the dependency direction always pointing inward.
 
 Controllers (outer layer) resolve dependencies from the container and assemble Use Cases (inner layer):
 
@@ -60,7 +74,7 @@ use_case = UseCases::HandleWebhook.new(analysis_record_repository: analysis_reco
 output = use_case.call(issue_id)
 ```
 
-Zeitwerk autoloads all constants under `apps/` — no manual `require` is needed. The directory structure maps to Ruby module namespaces (e.g., `apps/webhooks/api.rb` → `Webhooks::API`, `apps/webhooks/entities/issue.rb` → `Webhooks::Entities::Issue`).
+Zeitwerk autoloads all constants under both `lib/` and `apps/` — no manual `require` is needed. The directory structure maps to Ruby module namespaces (e.g., `apps/webhooks/api.rb` → `Webhooks::API`, `lib/webhooks/entities/issue.rb` → `Webhooks::Entities::Issue`).
 
 ## Data Flow
 
@@ -98,29 +112,54 @@ Mark job as done
 ## Directory Structure
 
 ```
-config/
-  environment.rb       # Environment loader (container + web app)
-  web.rb               # Lapidary::Web — main Rack app, composes controllers
-apps/
-  health/
-    api.rb             # Controller (adapter)
-  webhooks/
-    api.rb             # Controller (adapter)
-    contract.rb        # Contract (adapter)
+lib/
+  lapidary/              # Infrastructure (Lapidary:: namespace, auto-registered)
+    container.rb
+    dependency.rb
+    base_controller.rb
+    migrator.rb
+    analysis/
+      environment.rb     # Framework & Driver (Falcon)
+      service.rb         # Framework & Driver (background worker)
+  analysis/              # Analysis BC inner layer (Analysis:: namespace)
     entities/
-      analysis_record.rb           # Entity (domain)
-      analysis_tracking_error.rb   # Entity (domain)
-      issue.rb                     # Entity (domain)
-      journal.rb                   # Entity (domain)
-    repositories/
-      analysis_record_repository.rb  # Repository (adapter)
-      issue_repository.rb           # Repository (adapter)
+      analysis_record.rb
+      analysis_tracking_error.rb
+      job.rb
+      job_error.rb
     use_cases/
-      handle_webhook.rb            # Use Case (domain)
-lib/lapidary/          # Auto-registered components
-system/providers/      # External service providers (database, HTTP client, etc.)
-config.ru              # Rack entry point
-falcon.rb              # Falcon server configuration
+      process_job.rb
+  webhooks/              # Webhooks BC inner layer (Webhooks:: namespace)
+    entities/
+      analysis_record.rb
+      analysis_tracking_error.rb
+      issue.rb
+      journal.rb
+    use_cases/
+      handle_webhook.rb
+  redmine/
+    api.rb               # External API integration
+apps/                    # Outer layer only (adapters, controllers, contracts)
+  analysis/
+    repositories/
+      analysis_record_repository.rb
+      job_repository.rb
+  webhooks/
+    api.rb               # Controller
+    contract.rb          # Contract
+    adapters/
+      analysis_scheduler.rb  # ACL: Webhooks → Analysis boundary
+    repositories/
+      analysis_record_repository.rb
+      issue_repository.rb
+  health/
+    api.rb               # Controller
+config/
+  environment.rb         # Environment loader (container + web app)
+  web.rb                 # Lapidary::Web — main Rack app, composes controllers
+system/providers/        # External service providers (database, HTTP client, etc.)
+config.ru                # Rack entry point
+falcon.rb                # Falcon server configuration
 ```
 
 ## Dependency Injection

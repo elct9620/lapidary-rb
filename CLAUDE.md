@@ -31,7 +31,8 @@ The application uses dry-system as an IoC container. Components are auto-registe
 - `lib/lapidary/container.rb` — dry-system container with Zeitwerk plugin, auto-registers from both `lib/lapidary/` and `apps/`
 - `lib/lapidary/dependency.rb` — `Lapidary::Dependency` mixin (`Dry::AutoInject`)
 - `lib/lapidary/base_controller.rb` — `Sinatra::Base` subclass, base for all controllers
-- `apps/<domain>/` — Domain-based modules (e.g., `apps/webhooks/`), each containing controllers, contracts, use cases
+- `lib/<domain>/` — Domain inner-layer components (entities, use cases) organized by bounded context (e.g., `lib/analysis/`, `lib/webhooks/`)
+- `apps/<domain>/` — Domain outer-layer components (controllers, contracts, repositories, adapters) organized by bounded context
 - `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
 - `docs/architecture.md` — Detailed architecture documentation
 - `SPEC.md` — Behavioral specification for V1
@@ -40,13 +41,14 @@ The application uses dry-system as an IoC container. Components are auto-registe
 
 This project follows the Clean Architecture dependency rule: inner layers (Entity, Use Case) must never depend on outer layers (Framework, Infrastructure). Since `Lapidary::Dependency` (`Dry::AutoInject`) is framework infrastructure, only outer-layer components may use it. Inner-layer components receive dependencies through plain Ruby constructor injection, and outer layers are responsible for assembly — keeping the dependency direction always pointing inward. Marking `# auto_register: false` is a consequence of this rule, as inner-layer components are not managed by the container.
 
-| Layer | Uses `Lapidary::Dependency`? | `auto_register: false`? | Example |
-|---|---|---|---|
-| Controller (adapter) | **No** — uses `container[]` for lazy resolution | Yes — mounted via `use`, not resolved | `Webhooks::API` |
-| Use Case (domain) | **No** — inner layer must not depend on framework | Yes — assembled by controller | `Webhooks::UseCases::HandleWebhook` |
-| Entity (domain) | **No** — inner layer must not depend on framework | Yes — domain object | `Webhooks::Entities::AnalysisRecord` |
-| Repository (adapter) | Yes — outer layer, bridges domain and infrastructure | No — auto-registered | `Webhooks::Repositories::AnalysisRecordRepository` |
-| Contract (adapter) | N/A | No — auto-registered | `Webhooks::Contract` |
+| Layer | Location | Uses `Lapidary::Dependency`? | `auto_register: false`? | Example |
+|---|---|---|---|---|
+| Controller (adapter) | `apps/` | **No** — uses `container[]` for lazy resolution | Yes — mounted via `use`, not resolved | `Webhooks::API` |
+| Adapter (outer) | `apps/` | Yes — bridges bounded contexts | No — auto-registered | `Webhooks::Adapters::AnalysisScheduler` |
+| Repository (adapter) | `apps/` | Yes — bridges domain and infrastructure | No — auto-registered | `Webhooks::Repositories::AnalysisRecordRepository` |
+| Contract (adapter) | `apps/` | N/A | No — auto-registered | `Webhooks::Contract` |
+| Use Case (domain) | `lib/` | **No** — inner layer must not depend on framework | Yes — not container-managed | `Webhooks::UseCases::HandleWebhook` |
+| Entity (domain) | `lib/` | **No** — inner layer must not depend on framework | Yes — domain object | `Webhooks::Entities::AnalysisRecord` |
 
 Controllers (outer layer) resolve dependencies from the container and assemble Use Cases (inner layer):
 
@@ -111,7 +113,13 @@ Outer-layer (adapter) classes under `apps/` auto-register with the container by 
 - `apps/webhooks/contract.rb` → resolves as `Container['webhooks.contract']`
 - `apps/webhooks/repositories/analysis_record_repository.rb` → resolves as `Container['webhooks.repositories.analysis_record_repository']`
 
-Inner-layer (domain) Use Cases and Entities must not depend on framework infrastructure, so they are marked `# auto_register: false` to exclude them from container management.
+Inner-layer (domain) Use Cases and Entities live under `lib/<domain>/` (e.g., `lib/webhooks/entities/`, `lib/webhooks/use_cases/`). They are marked `# auto_register: false` to exclude them from container management. Zeitwerk autoloads them via the `lib/` root directory (e.g., `lib/webhooks/entities/issue.rb` → `Webhooks::Entities::Issue`).
+
+#### Cross-Context Adapters
+
+When one bounded context needs to interact with another, use an adapter (Anti-Corruption Layer) under `apps/<domain>/adapters/`. The adapter encapsulates the foreign context's API:
+
+- `apps/webhooks/adapters/analysis_scheduler.rb` → resolves as `Container['webhooks.adapters.analysis_scheduler']`
 
 Use `dry-validation` contracts for request validation (schema + rules):
 

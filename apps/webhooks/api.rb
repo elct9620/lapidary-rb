@@ -15,10 +15,9 @@ module Webhooks
       )
       untracked_records = use_case.call(issue)
 
-      job_repository = container['analysis.repositories.job_repository']
+      scheduler = container['webhooks.adapters.analysis_scheduler']
       untracked_records.each do |record|
-        job = Analysis::Entities::Job.new(entity_type: record.entity_type, entity_id: record.entity_id)
-        job_repository.enqueue(job)
+        scheduler.schedule(entity_type: record.entity_type, entity_id: record.entity_id)
       end
 
       status 202
