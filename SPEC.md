@@ -14,20 +14,22 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Researchers can trace the complete journey of Ruby features from proposal to implementation through structured data
 - Contributors can quickly find issues and discussions related to their areas of interest
 
-## Success Criteria (V1)
+## Success Criteria
 
-- Webhook endpoint can receive Issue ID notifications and respond with correct status codes
-- Issue data successfully fetched from the Redmine API to identify Journals
-- Analysis records for Issue and untracked Journals are created in the database
-- Duplicate notifications for the same Issue do not re-mark already analyzed journals
+- Webhook endpoint can receive Issue ID notifications, fetch data from the Redmine API, create analysis jobs for each entity, and respond with correct status codes
+- Analysis Service processes queued jobs and writes analysis records to the database
+- Duplicate notifications for the same Issue do not create jobs for already tracked entities
+- Failed analysis jobs are retried with exponential backoff; permanently failed jobs are logged
 
-## Non-goals (V1)
+## Non-goals
 
 - Ontology processing — No semantic classification or concept association
 - LLM integration — No natural language summarization or intelligent analysis
 - Graph queries — No graph query interface
 - User authentication and access control
 - Frontend UI
+- Multi-worker concurrency
+- Job priority queues
 
 ---
 
@@ -40,29 +42,41 @@ The complete system is divided into four phases:
 3. **Knowledge graph construction** — Transform the semantic model into a graph structure
 4. **Query and exploration** — Provide APIs and interfaces for querying the knowledge graph
 
-V1 implements only the first phase.
+## Features
 
-## V1 Features
-
-1. **Webhook endpoint** — Receive Issue ID notifications sent by external systems
-2. **Issue data fetching** — Retrieve Issue data from the Redmine JSON API to identify Journals for analysis tracking
-3. **Health check endpoint** — Report application availability status
-4. **Container deployment** — Package the application as a container image for deployment
+1. **Webhook endpoint** — Receive Issue ID notifications, fetch Issue data from the Redmine API, and create analysis jobs for each entity (Issue and its untracked Journals)
+2. **Job queue** — Persist pending analysis work to the database, ensuring reliable processing
+3. **Analysis service** — A background worker that dequeues and processes analysis jobs sequentially
+4. **Issue data fetching** — Retrieve Issue data from the Redmine JSON API to identify entities for analysis
 5. **Analysis tracking** — Record analyzed Issues and Journals to avoid redundant processing and support incremental analysis
+6. **Health check endpoint** — Report application availability status
+7. **Container deployment** — Package the application as a container image for deployment
 
 ## User Journeys
 
-### Webhook Reception and Tracking
+### Webhook Reception and Job Enqueueing
 
 - **Context**: An external system detects a change to an issue on bugs.ruby-lang.org
 - **Action**: The external system sends a Webhook containing the Issue ID to Lapidary
-- **Outcome**: Lapidary fetches Issue data from the Redmine JSON API and creates analysis records for the Issue and its untracked Journals
+- **Outcome**: Lapidary fetches Issue data from the Redmine JSON API, creates an analysis job for the Issue and one for each untracked Journal (each job carries the data needed for analysis), and responds with 202 Accepted
+
+### Analysis Processing
+
+- **Context**: Analysis jobs are waiting in the job queue
+- **Action**: The Analysis Service dequeues a job and performs analysis
+- **Outcome**: An analysis record is written to the database, and the job is marked as done
 
 ### Incremental Analysis
 
 - **Context**: The same Issue is notified multiple times because new journal replies have been added
-- **Action**: The system compares against the tracking table to identify journals that have not yet been analyzed
-- **Outcome**: Only newly added journals are marked for analysis; previously analyzed journals are not affected
+- **Action**: The Webhook compares against the tracking table to identify journals that have not yet been tracked
+- **Outcome**: Only newly added journals have jobs enqueued; previously analyzed journals are not affected
+
+### Job Retry on Failure
+
+- **Context**: The Analysis Service fails to process a job
+- **Action**: The job is rescheduled for retry with exponential backoff
+- **Outcome**: The job is retried at a later time; if the maximum number of attempts is exceeded, the job is marked as permanently failed and the error is logged
 
 ---
 
@@ -98,11 +112,19 @@ Content-Type: `application/json`
 - Body must be valid JSON
 - Must include the `issue_id` field with a positive integer value
 
+**Processing flow**:
+
+1. Validate the request
+2. Fetch Issue data from the Redmine API (including journals)
+3. Determine which entities (Issue and Journals) are not yet tracked
+4. Create one analysis job per untracked entity, each carrying the data needed for analysis (e.g., Issue content, author, Journal details and associated Issue context)
+5. Respond with 202 Accepted
+
 **Responses**:
 
 | Condition | Status Code | Body |
 |-----------|-------------|------|
-| Successfully processed (analysis records created) | `200 OK` | `{ "status": "ok" }` |
+| Request processed successfully (zero or more analysis jobs enqueued) | `202 Accepted` | `{ "status": "accepted" }` |
 | Non-JSON request | `415 Unsupported Media Type` | `{ "error": "Content-Type must be application/json" }` |
 | Invalid payload (malformed JSON or missing `issue_id`) | `422 Unprocessable Entity` | `{ "error": "..." }` |
 | Redmine API unreachable or non-200 response | `502 Bad Gateway` | `{ "error": "failed to fetch issue from Redmine" }` |
@@ -114,7 +136,7 @@ Content-Type: `application/json`
 
 After receiving a Webhook, Lapidary fetches Issue data from the Redmine JSON API. The request includes the `include=journals` parameter. Without journals, only the author-to-subject relationship can be analyzed. Journals track respondents whose interactions are not yet recorded, enabling analysis of participant relationships beyond just the original author and extending the knowledge graph.
 
-Issue data is not persisted; it is used only to identify Journal IDs for analysis tracking.
+The fetched data is attached to each analysis job so that the Analysis Service can process it without calling external APIs.
 
 **Redmine API response structure** (relevant fields):
 
@@ -156,28 +178,85 @@ Issue data is not persisted; it is used only to identify Journal IDs for analysi
 
 - `entity_type` + `entity_id` must be jointly unique; duplicate writes do not create new records.
 
-**Recording behavior**:
+**Usage in Webhook processing**:
 
-- After Issue data is successfully fetched, analysis records are created for the Issue and all of its journals that are not yet tracked. Journal IDs are obtained from the fetched Redmine API response.
-- This step is part of the Webhook processing flow, executed after the Issue data fetching step.
+- After Issue data is fetched, the tracking table is queried to determine which Journals have not yet been tracked. Jobs are only created for untracked entities.
+
+**Usage in Analysis Service**:
+
+- After a job is successfully processed, an analysis record is created to mark the entity as analyzed.
 
 **Query behavior**:
 
 - Given an Issue ID and a list of Journal IDs (from the Redmine API response), the system determines which Journal IDs have not yet been tracked.
 - Untracked means no corresponding `(journal, journal_id)` record exists in the tracking table.
 
+### Job Queue
+
+**Purpose**: Persist pending analysis work to the database, ensuring jobs survive process restarts and are processed reliably.
+
+**Job record structure** (logical):
+
+| Field | Description |
+|-------|-------------|
+| Job identity | Unique identifier for the job |
+| Arguments | The data needed for analysis: entity type, entity ID, and the minimum set of author and content information required for analysis (not the full Redmine API response) |
+| Status | Current state of the job |
+| Attempts | Number of times the job has been attempted |
+| Max attempts | Maximum number of retry attempts allowed |
+| Error info | Error message from the most recent failure |
+| Scheduled time | When the job should next be executed |
+
+**Status transitions**:
+
+- `pending` → `claimed`: Worker picks up the job for processing
+- `claimed` → `done`: Processing completes successfully
+- `claimed` → `failed`: Processing fails and max attempts exceeded
+- `claimed` → `pending`: Processing fails but retries remain, or graceful shutdown releases the job
+
+**Data strategy**: Each job carries all data needed for analysis. The Analysis Service processes jobs without calling external APIs.
+
+### Analysis Service
+
+**Purpose**: A background worker service that dequeues and processes analysis jobs from the job queue.
+
+**Processing model**:
+
+- Single worker, sequential processing — one job at a time
+- Dequeues a job, performs analysis, writes the analysis record, and marks the job as done
+- In the current phase, "analysis" means recording the entity to the analysis tracking table and marking it as analyzed; the ontology processing phase will expand the analysis logic
+
+**Retry behavior**:
+
+- Failed jobs are retried with exponential backoff
+- A maximum number of attempts is enforced; jobs exceeding this limit are marked as permanently failed
+
+**Graceful shutdown**:
+
+- On shutdown signal, the service finishes the current in-progress job or releases it back to the queue
+- No new jobs are claimed after shutdown is initiated
+
 ### Error Scenarios
+
+**Webhook Errors**:
 
 | Scenario | Behavior |
 |----------|----------|
 | Content-Type is not `application/json` | Respond 415, do not process |
 | Invalid JSON payload | Respond 422, do not process |
 | Missing `issue_id` or not a positive integer | Respond 422, do not process |
-| Redmine API unreachable | Respond 502, do not write to database |
-| Redmine API responds with non-200 | Respond 502, do not write to database |
-| Duplicate notification (same Issue notified again) | Process normally, skip already tracked entities |
-| Database write failure | Respond 500, log error |
-| Analysis record write failure | Respond 500, log error |
+| Redmine API unreachable | Respond 502, do not enqueue any jobs |
+| Redmine API responds with non-200 | Respond 502, do not enqueue any jobs |
+| Duplicate notification (same Issue notified again) | Process normally, only create jobs for untracked entities |
+| Job enqueueing failure (database error) | Respond 500, log error |
+
+**Analysis Service Errors**:
+
+| Scenario | Behavior |
+|----------|----------|
+| Analysis record write failure | Retry with exponential backoff |
+| Maximum retry attempts exceeded | Mark job as permanently failed, log error |
+| Unexpected error during processing | Retry or mark as failed depending on remaining attempts |
 
 ### Global Error Handling
 
@@ -205,6 +284,8 @@ Issue data is not persisted; it is used only to identify Journal IDs for analysi
 |----------|-----------|---------------------|
 | Unhandled exception (caught by Global Error Handler) | `error` | Error class, message, stack trace |
 | Database write failure | `error` | Operation name, error message |
+| Job execution failure | `error` | Job identity, error message, attempt count |
+| Job permanently failed | `error` | Job identity, error message, total attempts |
 | Redmine API failure | `warn` | Request URL, HTTP status code |
 | Invalid request (422/415) | `warn` | Request origin information, validation errors |
 
@@ -224,6 +305,10 @@ The application is packaged as a container image using multi-stage build:
 - **Runtime stage**: Contains only the application code and runtime dependencies
 - **Entry point**: `bundle exec falcon host`
 
+#### Process Management
+
+Falcon manages both the web server and the Analysis Service as supervised processes within a single container.
+
 #### Environment Variables
 
 | Variable | Required | Default | Description |
@@ -242,7 +327,8 @@ The application is packaged as a container image using multi-stage build:
 #### Data Persistence
 
 - SQLite database file must be persisted via volume mount
-- Database path is determined by application configuration (to be finalized when database provider is implemented)
+- Database path is determined by application configuration
+- The job queue uses the same SQLite database
 
 ---
 
@@ -257,11 +343,18 @@ The application is packaged as a container image using multi-stage build:
 | Ontology | A model defining domain concepts and semantic relationships |
 | Analysis Record | A tracking entry that records whether a specific Issue or Journal has been analyzed |
 | Redmine | The issue tracking system used by bugs.ruby-lang.org |
+| Job | A deferred work unit carrying analysis data, stored in the database for asynchronous processing |
+| Job Queue | A database-backed queue that holds pending analysis jobs |
+| Analysis Service | A background worker service that dequeues and processes analysis jobs |
 
 ## Patterns
 
 | Pattern | Definition | Used In |
 |---------|------------|---------|
+| Async handoff | Receive a request, prepare data, persist work to a queue, and respond immediately | Webhook creates jobs then responds 202 |
+| Exponential backoff | Progressively increasing retry delays to avoid overwhelming a failing service | Analysis Service retry |
+| Claim-and-execute | Atomically claim a job before executing it, preventing duplicate processing | Analysis Service processing |
+| Graceful shutdown | On shutdown, finish or release in-progress work before stopping | Analysis Service shutdown |
 | Upsert by ID | Insert or update a record keyed by a unique identifier; create if absent, update if present | Analysis Record writing |
 | Safe error response | Unhandled exceptions are converted into a generic error message, never leaking internal details | Global Error Handling |
 | Polymorphic tracking | A single table using `type` + `id` columns to track multiple entity types | Analysis Records tracking Issue and Journal |
@@ -279,7 +372,7 @@ See [Architecture](docs/architecture.md) for component structure, layers, and da
 | Web framework | Sinatra | Lightweight, suitable for API services |
 | HTTP server | Falcon | Supports asynchronous processing |
 | DI container | dry-system | Manages component dependencies |
-| Database | SQLite + Sequel | Simple deployment, small data volume for V1 |
+| Database | SQLite + Sequel | Simple deployment, small data volume |
 | Webhook format | Custom `{ "issue_id": N }` | External system sends Issue ID, Lapidary proactively fetches data from Redmine API |
 | Issue data source | Redmine JSON API | `GET /issues/{id}.json?include=journals` |
 | Redmine API access method | Public access (no authentication required) | bugs.ruby-lang.org JSON API is publicly accessible |
@@ -290,10 +383,19 @@ See [Architecture](docs/architecture.md) for component structure, layers, and da
 | Error handling strategy | All errors propagate correctly; Global Error Handler ensures safe responses | Errors should not be silently swallowed; safe responses prevent information leakage |
 | Deployment method | Container (Docker) | Portable, reproducible, consistent across environments |
 | Container build | Multi-stage build | Smaller image size, separates build and runtime dependencies |
+| Webhook processing model | Fetch from Redmine API then enqueue analysis jobs asynchronously | Decouples data fetching from analysis processing |
+| Job data strategy | Jobs carry all data needed for analysis | Analysis Service does not need to call external APIs |
+| Job granularity | One job per entity | Fine-grained retry, independent failure handling |
+| Job queue storage | SQLite (same database) | Zero external dependencies |
+| Worker concurrency | Single worker, sequential processing | Simple, minimizes SQLite write contention |
+| Job retry strategy | Exponential backoff with max attempts | Handles transient failures gracefully |
+| Process management | Falcon managed services | Unified process supervision |
+| Job idempotency | Analysis tracking layer | Reuses existing tracking mechanism to prevent duplicate work |
 
 ### To Be Decided
 
 | Item | Candidate Options | Notes |
 |------|-------------------|-------|
-| Webhook authentication | HMAC signature / IP whitelist | Whether source verification is needed in V1 |
+| Webhook authentication | HMAC signature / IP whitelist | Whether source verification is needed |
 | Logging solution | Ruby Logger / dry-logger | Logging framework to be selected |
+| Job cleanup strategy | TTL-based deletion / archival / manual purge | How to handle completed and permanently failed jobs over time |

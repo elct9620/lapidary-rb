@@ -62,7 +62,7 @@ output = use_case.call(issue_id)
 
 Zeitwerk autoloads all constants under `apps/` — no manual `require` is needed. The directory structure maps to Ruby module namespaces (e.g., `apps/webhooks/api.rb` → `Webhooks::API`, `apps/webhooks/entities/issue.rb` → `Webhooks::Entities::Issue`).
 
-## V1 Data Flow
+## Data Flow
 
 ```
 Webhook (POST /webhook)
@@ -75,10 +75,24 @@ Fetch issue from Redmine API
   GET /issues/{id}.json?include=journals
   │
   ▼
-Create analysis records (issue + untracked journals)
+Determine untracked entities (Issue + Journals)
   │
   ▼
-Respond 200 (ok)
+Enqueue analysis jobs (one per untracked entity)
+  │
+  ▼
+Respond 202 (accepted)
+
+Analysis Service (background worker)
+  │
+  ▼
+Dequeue job
+  │
+  ▼
+Write analysis tracking record
+  │
+  ▼
+Mark job as done
 ```
 
 ## Directory Structure
