@@ -2,14 +2,13 @@
 
 module Webhooks
   module Adapters
-    # Anti-Corruption Layer: translates Webhooks domain concepts
-    # into Analysis domain operations without leaking Analysis internals.
+    # Anti-Corruption Layer: publishes domain events when entities are discovered.
+    # Analysis BC subscribes to these events independently.
     class AnalysisScheduler
-      include Lapidary::Dependency['analysis.repositories.job_repository']
+      include Lapidary::Dependency['event_bus']
 
       def schedule(entity_type:, entity_id:)
-        job = Analysis::Entities::Job.new(arguments: { entity_type: entity_type.to_s, entity_id: entity_id })
-        job_repository.enqueue(job)
+        event_bus.publish('webhooks.entity_discovered', entity_type: entity_type, entity_id: entity_id)
       end
     end
   end

@@ -32,7 +32,13 @@ For project goals, behavior specifications, and technical decisions, see [SPEC.m
 
 ### Context Integration
 
-When one bounded context needs to interact with another, an adapter (Anti-Corruption Layer) encapsulates the boundary. For example, `Webhooks::Adapters::AnalysisScheduler` translates Webhooks domain concepts into Analysis domain operations, preventing Analysis internals from leaking into the Webhooks context. Adapters live under `apps/<domain>/adapters/` and are auto-registered with the container.
+Bounded contexts communicate through domain events via an **event bus** (`dry-events`). The publishing context knows nothing about subscribers — it simply publishes events. Subscribing contexts register listeners that react to events independently.
+
+For example, `Webhooks::Adapters::AnalysisScheduler` publishes a `webhooks.entity_discovered` event when a new entity is found. `Analysis::Subscribers::EntityDiscoveredSubscriber` subscribes to this event and enqueues an analysis job. The Webhooks BC has zero dependency on Analysis internals.
+
+The event bus is registered as a provider (`system/providers/event_bus.rb`). Subscription wiring happens in `Container.after(:finalize)` to ensure all components are registered before subscribers are connected.
+
+Adapters live under `apps/<domain>/adapters/` and subscribers live under `apps/<domain>/subscribers/`. Both are auto-registered with the container.
 
 ### Cross-Context Entity Strategy
 
@@ -69,7 +75,8 @@ Domain directories:
 | Component | Location | `auto_register: false`? | Uses `Lapidary::Dependency`? | Description |
 |---|---|---|---|---|
 | Controller | `apps/` | Yes — mounted via `use`, not resolved | No — uses `container[]` | Sinatra controller handling HTTP routes |
-| Adapter | `apps/` | No — auto-registered | Yes | Anti-Corruption Layer between bounded contexts |
+| Adapter | `apps/` | No — auto-registered | Yes | Anti-Corruption Layer, publishes domain events |
+| Subscriber | `apps/` | No — auto-registered | Yes | Reacts to domain events from other contexts |
 | Repository | `apps/` | No — auto-registered | Yes | Data access, bridges domain and infrastructure |
 | Contract | `apps/` | No — auto-registered | N/A | Request validation via `dry-validation` |
 | Use Case | `lib/` | Yes — not container-managed | **No** — plain constructor injection | Business logic orchestration |
@@ -103,7 +110,10 @@ Fetch issue from Redmine API
 Determine untracked entities (Issue + Journals)
   │
   ▼
-Enqueue analysis jobs (one per untracked entity)
+Publish 'webhooks.entity_discovered' events (one per untracked entity)
+  │
+  ▼
+Analysis subscriber enqueues jobs (via event bus)
   │
   ▼
 Respond 202 (accepted)
@@ -150,16 +160,18 @@ lib/
       handle_webhook.rb
   redmine/
     api.rb               # External API integration
-apps/                    # Outer layer only (adapters, controllers, contracts)
+apps/                    # Outer layer only (adapters, controllers, contracts, subscribers)
   analysis/
     repositories/
       analysis_record_repository.rb
       job_repository.rb
+    subscribers/
+      entity_discovered_subscriber.rb  # Subscribes to webhooks.entity_discovered events
   webhooks/
     api.rb               # Controller
     contract.rb          # Contract
     adapters/
-      analysis_scheduler.rb  # ACL: Webhooks → Analysis boundary
+      analysis_scheduler.rb  # Publishes entity_discovered events via event bus
     repositories/
       analysis_record_repository.rb
       issue_repository.rb

@@ -33,7 +33,7 @@ The application uses dry-system as an IoC container. Components are auto-registe
 - `lib/lapidary/dependency.rb` — `Lapidary::Dependency` mixin (`Dry::AutoInject`)
 - `lib/lapidary/base_controller.rb` — `Sinatra::Base` subclass, base for all controllers
 - `lib/<domain>/` — Domain inner-layer components (entities, use cases) organized by bounded context (e.g., `lib/analysis/`, `lib/webhooks/`)
-- `apps/<domain>/` — Domain outer-layer components (controllers, contracts, repositories, adapters) organized by bounded context
+- `apps/<domain>/` — Domain outer-layer components (controllers, contracts, repositories, adapters, subscribers) organized by bounded context
 - `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
 - `falcon.rb` — Defines two Falcon services: HTTP server (Rack app) and `analysis` background worker (async polling service)
 - `docs/architecture.md` — Detailed architecture documentation
@@ -46,7 +46,8 @@ This project follows the Clean Architecture dependency rule: inner layers (Entit
 | Layer | Location | Uses `Lapidary::Dependency`? | `auto_register: false`? | Example |
 |---|---|---|---|---|
 | Controller (adapter) | `apps/` | **No** — uses `container[]` for lazy resolution | Yes — mounted via `use`, not resolved | `Webhooks::API` |
-| Adapter (outer) | `apps/` | Yes — bridges bounded contexts | No — auto-registered | `Webhooks::Adapters::AnalysisScheduler` |
+| Adapter (outer) | `apps/` | Yes — publishes domain events | No — auto-registered | `Webhooks::Adapters::AnalysisScheduler` |
+| Subscriber (outer) | `apps/` | Yes — reacts to domain events | No — auto-registered | `Analysis::Subscribers::EntityDiscoveredSubscriber` |
 | Repository (adapter) | `apps/` | Yes — bridges domain and infrastructure | No — auto-registered | `Webhooks::Repositories::AnalysisRecordRepository` |
 | Contract (adapter) | `apps/` | N/A | No — auto-registered | `Webhooks::Contract` |
 | Use Case (domain) | `lib/` | **No** — inner layer must not depend on framework | Yes — not container-managed | `Webhooks::UseCases::HandleWebhook` |
@@ -121,11 +122,14 @@ Outer-layer (adapter) classes under `apps/` auto-register with the container by 
 
 Inner-layer (domain) Use Cases and Entities live under `lib/<domain>/` (e.g., `lib/webhooks/entities/`, `lib/webhooks/use_cases/`). They are marked `# auto_register: false` to exclude them from container management. Zeitwerk autoloads them via the `lib/` root directory (e.g., `lib/webhooks/entities/issue.rb` → `Webhooks::Entities::Issue`).
 
-#### Cross-Context Adapters
+#### Cross-Context Communication via Events
 
-When one bounded context needs to interact with another, use an adapter (Anti-Corruption Layer) under `apps/<domain>/adapters/`. The adapter encapsulates the foreign context's API:
+Bounded contexts communicate through domain events via a `dry-events` event bus (`Container['event_bus']`). The publishing context publishes events without knowing about subscribers. Subscribing contexts register listeners that react independently.
 
-- `apps/webhooks/adapters/analysis_scheduler.rb` → resolves as `Container['webhooks.adapters.analysis_scheduler']`
+- **Adapter** publishes events: `apps/webhooks/adapters/analysis_scheduler.rb` publishes `webhooks.entity_discovered`
+- **Subscriber** reacts to events: `apps/analysis/subscribers/entity_discovered_subscriber.rb` enqueues analysis jobs
+
+Event subscription wiring happens in `Container.after(:finalize)` in `lib/lapidary/container.rb`.
 
 Use `dry-validation` contracts for request validation (schema + rules):
 

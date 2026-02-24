@@ -6,12 +6,18 @@ RSpec.describe Webhooks::Adapters::AnalysisScheduler do
   subject(:scheduler) { Lapidary::Container['webhooks.adapters.analysis_scheduler'] }
 
   describe '#schedule' do
-    it 'enqueues a job via the job repository' do
+    it 'publishes a webhooks.entity_discovered event' do
+      received = []
+      event_bus = Lapidary::Container['event_bus']
+      event_bus.subscribe('webhooks.entity_discovered') do |event|
+        received << event.to_h
+      end
+
       scheduler.schedule(entity_type: 'issue', entity_id: 42)
 
-      row = Lapidary::Container['database'][:jobs].first
-      expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
-      expect(JSON.parse(row[:arguments], symbolize_names: true)).to eq(entity_type: 'issue', entity_id: 42)
+      expect(received).to contain_exactly(
+        a_hash_including(entity_type: 'issue', entity_id: 42)
+      )
     end
   end
 end

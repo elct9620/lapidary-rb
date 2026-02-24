@@ -17,6 +17,7 @@ module Lapidary
 
     after(:finalize) do
       self['migrator'].check
+      self['event_bus'].subscribe(self['analysis.subscribers.entity_discovered_subscriber'])
     end
   end
 end

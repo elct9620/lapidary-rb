@@ -2,6 +2,7 @@
 
 source 'https://rubygems.org'
 
+gem 'dry-events'
 gem 'dry-system'
 gem 'dry-validation'
 gem 'falcon'
