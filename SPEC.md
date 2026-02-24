@@ -215,6 +215,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 **Usage in Webhook processing**:
 
 - After Issue data is fetched, the tracking table is queried to determine which Journals have not yet been tracked. Jobs are only created for untracked entities.
+- All untracked journals create analysis jobs regardless of whether notes are empty.
 
 **Usage in Analysis Service**:
 
@@ -257,13 +258,13 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 **Processing model**:
 
 - Single worker, sequential processing — one job at a time
-- Dequeues a job, performs analysis, writes the analysis record, and marks the job as done
-- Analysis records the entity to the analysis tracking table and marks it as analyzed
-- Job Arguments carry entity data for knowledge graph construction; construction rules are defined by ontology processing
+- Dequeues a job, writes the analysis record, and marks the job as done
+- The analysis record marks the entity in the tracking table as analyzed
+- Job Arguments carry entity data for knowledge graph construction
 
 **Analysis domain model**:
 
-Job Arguments capture the data needed to identify relationships between Authors and Ruby Core Modules. The following describes the relationship types that ontology processing will extract:
+Job Arguments capture the data needed to identify relationships between Authors and Ruby Core Modules:
 
 - **Issue**: Relationship between the Issue Author and a Ruby Core Module based on Issue content
 - **Journal**: Relationship between the Journal Author and a Ruby Core Module based on Journal content combined with the associated Issue content (for context)
@@ -277,7 +278,7 @@ Job Arguments capture the data needed to identify relationships between Authors 
 | Discussion participant replies | Journal | Participant | Author's participation relationship with the related Module |
 | Ruby Committer provides feedback | Journal | Ruby Committer | Author's review relationship with the related Module |
 
-The system treats all authors uniformly. Role distinction (Committer vs Rubyist) and specific relationship typing with Modules are handled by ontology processing.
+The system treats all authors uniformly. Role distinction (Committer vs Rubyist) and specific relationship typing are not defined by this specification.
 
 **Retry behavior**:
 
@@ -327,7 +328,7 @@ The system treats all authors uniformly. Role distinction (Committer vs Rubyist)
 
 **Constraints**:
 
-- Node `type` and Edge `relationship` values are not constrained by the schema — ontology rules will be specified separately
+- Node `type` and Edge `relationship` values are not constrained by the schema
 - Multiple edges with different `relationship` types between the same node pair are allowed
 - Self-referencing edges (source = target) are permitted
 
@@ -342,6 +343,7 @@ The system treats all authors uniformly. Role distinction (Committer vs Rubyist)
 | Missing `issue_id` or not a positive integer | Respond 422, do not process |
 | Redmine API unreachable | Respond 502, do not enqueue any jobs |
 | Redmine API responds with non-200 | Respond 502, do not enqueue any jobs |
+| Redmine API responds 200 but response structure is invalid | Respond 502, do not enqueue any jobs |
 | Duplicate notification (same Issue notified again) | Process normally, only create jobs for untracked entities |
 | Job enqueueing failure (database error) | Respond 500, log error |
 
