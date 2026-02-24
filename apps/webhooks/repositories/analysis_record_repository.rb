@@ -32,6 +32,7 @@ module Webhooks
         tracked_ids = dataset
                       .where(entity_type: entity_type, entity_id: group.map(&:entity_id))
                       .select_map(:entity_id)
+                      .to_set
 
         group.reject { |r| tracked_ids.include?(r.entity_id) }
       end

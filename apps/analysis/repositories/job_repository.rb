@@ -68,13 +68,11 @@ module Analysis
       end
 
       def row_to_entity(row)
-        attrs = row.slice(
-          :id, :status, :attempts, :max_attempts, :error,
-          :scheduled_at, :updated_at
+        Entities::Job.new(
+          **row.slice(:id, :attempts, :max_attempts, :error, :scheduled_at, :updated_at),
+          arguments: JSON.parse(row[:arguments], symbolize_names: true),
+          status: Entities::JobStatus.new(value: row[:status])
         )
-        attrs[:arguments] = JSON.parse(row[:arguments], symbolize_names: true)
-        attrs[:status] = Entities::JobStatus.new(value: attrs[:status])
-        Entities::Job.new(**attrs)
       end
     end
   end

@@ -30,6 +30,7 @@ module Webhooks
         records.each do |record|
           @analysis_scheduler.schedule(entity_type: record.entity_type, entity_id: record.entity_id)
         end
+        nil
       end
 
       def build_issue_records(issue)
