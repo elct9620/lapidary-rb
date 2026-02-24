@@ -14,8 +14,18 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
   let(:analysis_record_repository) { Lapidary::Container['webhooks.repositories.analysis_record_repository'] }
   let(:analysis_scheduler) { Lapidary::Container['webhooks.adapters.analysis_scheduler'] }
 
-  let(:journals) { [Webhooks::Entities::Journal.new(id: 101), Webhooks::Entities::Journal.new(id: 102)] }
-  let(:issue) { Webhooks::Entities::Issue.new(id: 42, journals: journals) }
+  let(:journals) do
+    [
+      Webhooks::Entities::Journal.new(id: 101, notes: 'First comment', author_username: 'nobu',
+                                      author_display_name: 'Nobuyoshi Nakada'),
+      Webhooks::Entities::Journal.new(id: 102, notes: 'Second comment', author_username: 'ko1',
+                                      author_display_name: 'Koichi Sasada')
+    ]
+  end
+  let(:issue) do
+    Webhooks::Entities::Issue.new(id: 42, subject: 'Add new feature', author_username: 'matz',
+                                  author_display_name: 'Yukihiro Matsumoto', journals: journals)
+  end
   let(:issue_repository) { instance_double(Webhooks::Repositories::IssueRepository, find: issue) }
 
   describe '#call' do
@@ -24,21 +34,43 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
       expect(issue_repository).to have_received(:find).with(42)
     end
 
-    it 'schedules untracked issue records' do
+    it 'schedules untracked issue records with rich arguments' do
       use_case.call(42)
 
       db = Lapidary::Container['database']
       jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
-      expect(jobs).to include(entity_type: 'issue', entity_id: 42)
+      expect(jobs).to include(
+        entity_type: 'issue',
+        entity_id: 42,
+        content: 'Add new feature',
+        author_username: 'matz',
+        author_display_name: 'Yukihiro Matsumoto'
+      )
     end
 
-    it 'schedules untracked journal records' do
+    it 'schedules untracked journal records with rich arguments' do
       use_case.call(42)
 
       db = Lapidary::Container['database']
       jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
-      expect(jobs).to include(entity_type: 'journal', entity_id: 101)
-      expect(jobs).to include(entity_type: 'journal', entity_id: 102)
+      expect(jobs).to include(
+        entity_type: 'journal',
+        entity_id: 101,
+        content: 'First comment',
+        author_username: 'nobu',
+        author_display_name: 'Nobuyoshi Nakada',
+        issue_id: 42,
+        issue_content: 'Add new feature'
+      )
+      expect(jobs).to include(
+        entity_type: 'journal',
+        entity_id: 102,
+        content: 'Second comment',
+        author_username: 'ko1',
+        author_display_name: 'Koichi Sasada',
+        issue_id: 42,
+        issue_content: 'Add new feature'
+      )
     end
 
     it 'does not schedule already tracked entities' do

@@ -16,7 +16,7 @@ module Webhooks
         issue = @issue_repository.find(issue_id)
 
         untracked = find_untracked(issue)
-        schedule(untracked)
+        schedule(issue, untracked)
       end
 
       private
@@ -26,11 +26,43 @@ module Webhooks
         @analysis_record_repository.untracked(candidates)
       end
 
-      def schedule(records)
+      def schedule(issue, records)
         records.each do |record|
-          @analysis_scheduler.schedule(entity_type: record.entity_type, entity_id: record.entity_id)
+          arguments = build_job_arguments(issue, record)
+          @analysis_scheduler.schedule(**arguments)
         end
         nil
+      end
+
+      def build_job_arguments(issue, record)
+        if record.entity_type.to_s == EntityType::ISSUE.to_s
+          build_issue_arguments(issue)
+        else
+          build_journal_arguments(issue, record)
+        end
+      end
+
+      def build_issue_arguments(issue)
+        {
+          entity_type: EntityType::ISSUE.to_s,
+          entity_id: issue.id,
+          content: issue.subject,
+          author_username: issue.author_username,
+          author_display_name: issue.author_display_name
+        }
+      end
+
+      def build_journal_arguments(issue, record)
+        journal = issue.journals.find { |j| j.id == record.entity_id }
+        {
+          entity_type: EntityType::JOURNAL.to_s,
+          entity_id: journal.id,
+          content: journal.notes,
+          author_username: journal.author_username,
+          author_display_name: journal.author_display_name,
+          issue_id: issue.id,
+          issue_content: issue.subject
+        }
       end
 
       def build_issue_records(issue)

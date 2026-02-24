@@ -7,7 +7,7 @@ module Analysis
       include Lapidary::Dependency['analysis.repositories.job_repository']
 
       def on_webhooks_entity_discovered(event)
-        job = Entities::Job.new(arguments: { entity_type: event[:entity_type].to_s, entity_id: event[:entity_id] })
+        job = Entities::Job.new(arguments: event.to_h)
         job_repository.enqueue(job)
       end
     end

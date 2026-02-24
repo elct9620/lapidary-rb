@@ -10,6 +10,42 @@ RSpec.describe Webhooks::Entities::Issue do
     end
   end
 
+  describe '#subject' do
+    it 'returns the subject' do
+      issue = described_class.new(id: 42, subject: 'Add new feature')
+      expect(issue.subject).to eq('Add new feature')
+    end
+
+    it 'defaults to nil' do
+      issue = described_class.new(id: 42)
+      expect(issue.subject).to be_nil
+    end
+  end
+
+  describe '#author_username' do
+    it 'returns the author username' do
+      issue = described_class.new(id: 42, author_username: 'matz')
+      expect(issue.author_username).to eq('matz')
+    end
+
+    it 'defaults to nil' do
+      issue = described_class.new(id: 42)
+      expect(issue.author_username).to be_nil
+    end
+  end
+
+  describe '#author_display_name' do
+    it 'returns the author display name' do
+      issue = described_class.new(id: 42, author_display_name: 'Yukihiro Matsumoto')
+      expect(issue.author_display_name).to eq('Yukihiro Matsumoto')
+    end
+
+    it 'defaults to nil' do
+      issue = described_class.new(id: 42)
+      expect(issue.author_display_name).to be_nil
+    end
+  end
+
   describe '#journals' do
     it 'returns the journals' do
       journals = [Webhooks::Entities::Journal.new(id: 101), Webhooks::Entities::Journal.new(id: 102)]

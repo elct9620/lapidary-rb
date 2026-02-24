@@ -18,9 +18,10 @@ RSpec.describe Webhooks::API do
       issue: {
         id: 1,
         subject: 'Test issue',
+        author: { id: 1, name: 'matz (Yukihiro Matsumoto)' },
         journals: [
-          { id: 101, notes: 'First comment' },
-          { id: 102, notes: 'Second comment' }
+          { id: 101, user: { id: 2, name: 'nobu (Nobuyoshi Nakada)' }, notes: 'First comment' },
+          { id: 102, user: { id: 3, name: 'ko1' }, notes: 'Second comment' }
         ]
       }
     }
@@ -71,17 +72,39 @@ RSpec.describe Webhooks::API do
         expect(body).to eq('status' => 'accepted')
       end
 
-      it 'enqueues a job for the issue' do
+      it 'enqueues a job for the issue with rich arguments' do
         db = Lapidary::Container['database']
         jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
-        expect(jobs).to include(entity_type: 'issue', entity_id: 1)
+        expect(jobs).to include(
+          entity_type: 'issue',
+          entity_id: 1,
+          content: 'Test issue',
+          author_username: 'matz',
+          author_display_name: 'Yukihiro Matsumoto'
+        )
       end
 
-      it 'enqueues jobs for journals' do
+      it 'enqueues jobs for journals with rich arguments' do
         db = Lapidary::Container['database']
         jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
-        expect(jobs).to include(entity_type: 'journal', entity_id: 101)
-        expect(jobs).to include(entity_type: 'journal', entity_id: 102)
+        expect(jobs).to include(
+          entity_type: 'journal',
+          entity_id: 101,
+          content: 'First comment',
+          author_username: 'nobu',
+          author_display_name: 'Nobuyoshi Nakada',
+          issue_id: 1,
+          issue_content: 'Test issue'
+        )
+        expect(jobs).to include(
+          entity_type: 'journal',
+          entity_id: 102,
+          content: 'Second comment',
+          author_username: 'ko1',
+          author_display_name: nil,
+          issue_id: 1,
+          issue_content: 'Test issue'
+        )
       end
     end
 

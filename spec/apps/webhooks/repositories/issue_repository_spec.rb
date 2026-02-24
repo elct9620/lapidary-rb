@@ -12,10 +12,11 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
       {
         issue: {
           id: 42,
-          subject: 'Test issue',
+          subject: 'Add new feature',
+          author: { id: 1, name: 'matz (Yukihiro Matsumoto)' },
           journals: [
-            { id: 101, notes: 'First comment' },
-            { id: 102, notes: 'Second comment' }
+            { id: 101, user: { id: 2, name: 'nobu (Nobuyoshi Nakada)' }, notes: 'First comment' },
+            { id: 102, user: { id: 3, name: 'ko1 (Koichi Sasada)' }, notes: 'Second comment' }
           ]
         }
       }
@@ -32,14 +33,75 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
       expect(issue.id).to eq(42)
     end
 
-    it 'includes journals' do
+    it 'extracts the subject' do
+      issue = repository.find(42)
+      expect(issue.subject).to eq('Add new feature')
+    end
+
+    it 'parses author username and display name' do
+      issue = repository.find(42)
+      expect(issue.author_username).to eq('matz')
+      expect(issue.author_display_name).to eq('Yukihiro Matsumoto')
+    end
+
+    it 'includes journals with notes and author info' do
+      issue = repository.find(42)
+      journal = issue.journals.first
+      expect(journal.id).to eq(101)
+      expect(journal.notes).to eq('First comment')
+      expect(journal.author_username).to eq('nobu')
+      expect(journal.author_display_name).to eq('Nobuyoshi Nakada')
+    end
+
+    it 'includes all journal ids' do
       issue = repository.find(42)
       expect(issue.journal_ids).to eq([101, 102])
     end
 
+    context 'when author name has no display name' do
+      let(:response_body) do
+        {
+          issue: {
+            id: 42,
+            subject: 'Test',
+            author: { id: 1, name: 'matz' },
+            journals: []
+          }
+        }
+      end
+
+      it 'sets display name to nil' do
+        issue = repository.find(42)
+        expect(issue.author_username).to eq('matz')
+        expect(issue.author_display_name).to be_nil
+      end
+    end
+
+    context 'when journal user has no display name' do
+      let(:response_body) do
+        {
+          issue: {
+            id: 42,
+            subject: 'Test',
+            author: { id: 1, name: 'matz' },
+            journals: [
+              { id: 101, user: { id: 2, name: 'nobu' }, notes: 'A comment' }
+            ]
+          }
+        }
+      end
+
+      it 'sets journal author display name to nil' do
+        issue = repository.find(42)
+        journal = issue.journals.first
+        expect(journal.author_username).to eq('nobu')
+        expect(journal.author_display_name).to be_nil
+      end
+    end
+
     context 'when the issue has no journals' do
       let(:response_body) do
-        { issue: { id: 42, subject: 'Test issue', journals: [] } }
+        { issue: { id: 42, subject: 'Test issue', author: { id: 1, name: 'matz' }, journals: [] } }
       end
 
       it 'returns an Issue with empty journals' do

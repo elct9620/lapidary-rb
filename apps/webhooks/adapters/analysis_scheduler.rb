@@ -7,8 +7,8 @@ module Webhooks
     class AnalysisScheduler
       include Lapidary::Dependency['event_bus']
 
-      def schedule(entity_type:, entity_id:)
-        event_bus.publish('webhooks.entity_discovered', entity_type: entity_type, entity_id: entity_id)
+      def schedule(**arguments)
+        event_bus.publish('webhooks.entity_discovered', **arguments)
       end
     end
   end
