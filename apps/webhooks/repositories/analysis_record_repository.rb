@@ -24,6 +24,7 @@ module Webhooks
 
       def untracked(records)
         return [] if records.empty?
+        raise ArgumentError, 'records must have the same entity_type' unless homogeneous_entity_type?(records)
 
         with_error_wrapping do
           entity_type = records.first.entity_type
@@ -37,6 +38,10 @@ module Webhooks
       end
 
       private
+
+      def homogeneous_entity_type?(records)
+        records.map(&:entity_type).uniq.size == 1
+      end
 
       def with_error_wrapping
         yield

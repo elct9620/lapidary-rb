@@ -81,6 +81,15 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
       records = build_journal_records(1, 2)
       expect(repository.untracked(records)).to be_empty
     end
+
+    it 'raises ArgumentError when records have mixed entity_types' do
+      records = [
+        Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1),
+        Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 2)
+      ]
+
+      expect { repository.untracked(records) }.to raise_error(ArgumentError, 'records must have the same entity_type')
+    end
   end
 
   describe 'when migration has not been run' do

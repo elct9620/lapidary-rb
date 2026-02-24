@@ -8,17 +8,12 @@ module Webhooks
       payload = parse_json_body!
       result = validate_payload!(payload)
 
-      issue = container['webhooks.repositories.issue_repository'].find(result.to_h[:issue_id])
-
       use_case = UseCases::HandleWebhook.new(
-        analysis_record_repository: container['webhooks.repositories.analysis_record_repository']
+        issue_repository: container['webhooks.repositories.issue_repository'],
+        analysis_record_repository: container['webhooks.repositories.analysis_record_repository'],
+        analysis_scheduler: container['webhooks.adapters.analysis_scheduler']
       )
-      untracked_records = use_case.call(issue)
-
-      scheduler = container['webhooks.adapters.analysis_scheduler']
-      untracked_records.each do |record|
-        scheduler.schedule(entity_type: record.entity_type, entity_id: record.entity_id)
-      end
+      use_case.call(result.to_h[:issue_id])
 
       status 202
       content_type :json

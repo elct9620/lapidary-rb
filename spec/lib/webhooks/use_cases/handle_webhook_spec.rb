@@ -5,50 +5,63 @@ require 'spec_helper'
 RSpec.describe Webhooks::UseCases::HandleWebhook do
   subject(:use_case) do
     described_class.new(
-      analysis_record_repository: analysis_record_repository
+      issue_repository: issue_repository,
+      analysis_record_repository: analysis_record_repository,
+      analysis_scheduler: analysis_scheduler
     )
   end
 
   let(:analysis_record_repository) { Lapidary::Container['webhooks.repositories.analysis_record_repository'] }
+  let(:analysis_scheduler) { Lapidary::Container['webhooks.adapters.analysis_scheduler'] }
 
   let(:journals) { [Webhooks::Entities::Journal.new(id: 101), Webhooks::Entities::Journal.new(id: 102)] }
   let(:issue) { Webhooks::Entities::Issue.new(id: 42, journals: journals) }
+  let(:issue_repository) { instance_double(Webhooks::Repositories::IssueRepository, find: issue) }
 
   describe '#call' do
-    it 'returns untracked issue records' do
-      result = use_case.call(issue)
-
-      issue_records = result.select { |r| r.entity_type == 'issue' }
-      expect(issue_records.map(&:entity_id)).to eq([42])
+    it 'fetches the issue from the repository' do
+      use_case.call(42)
+      expect(issue_repository).to have_received(:find).with(42)
     end
 
-    it 'returns untracked journal records' do
-      result = use_case.call(issue)
+    it 'schedules untracked issue records' do
+      use_case.call(42)
 
-      journal_records = result.select { |r| r.entity_type == 'journal' }
-      expect(journal_records.map(&:entity_id)).to contain_exactly(101, 102)
+      db = Lapidary::Container['database']
+      jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+      expect(jobs).to include(entity_type: 'issue', entity_id: 42)
     end
 
-    it 'excludes already tracked entities' do
-      # Pre-track the issue
+    it 'schedules untracked journal records' do
+      use_case.call(42)
+
+      db = Lapidary::Container['database']
+      jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+      expect(jobs).to include(entity_type: 'journal', entity_id: 101)
+      expect(jobs).to include(entity_type: 'journal', entity_id: 102)
+    end
+
+    it 'does not schedule already tracked entities' do
       record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 42, analyzed_at: Time.now)
       analysis_record_repository.save(record)
 
-      result = use_case.call(issue)
+      use_case.call(42)
 
-      issue_records = result.select { |r| r.entity_type == 'issue' }
-      expect(issue_records).to be_empty
+      db = Lapidary::Container['database']
+      jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+      expect(jobs.select { |j| j[:entity_type] == 'issue' }).to be_empty
     end
 
-    it 'returns an empty array when all entities are tracked' do
-      # Pre-track everything
+    it 'does not schedule anything when all entities are tracked' do
       [['issue', 42], ['journal', 101], ['journal', 102]].each do |type, id|
         record = Webhooks::Entities::AnalysisRecord.new(entity_type: type, entity_id: id, analyzed_at: Time.now)
         analysis_record_repository.save(record)
       end
 
-      result = use_case.call(issue)
-      expect(result).to be_empty
+      use_case.call(42)
+
+      db = Lapidary::Container['database']
+      expect(db[:jobs].count).to eq(0)
     end
   end
 end

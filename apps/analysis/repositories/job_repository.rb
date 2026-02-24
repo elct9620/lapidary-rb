@@ -47,13 +47,14 @@ module Analysis
       end
 
       def claim_pending_job(now)
-        pending_id = pending_query(now).select(:id)
-        updated = dataset.where(id: pending_id, status: 'pending')
+        job_id = pending_query(now).get(:id)
+        return nil unless job_id
+
+        updated = dataset.where(id: job_id, status: 'pending')
                          .update(status: 'claimed', updated_at: now)
         return nil if updated.zero?
 
-        dataset.where(status: 'claimed', updated_at: now)
-               .order(Sequel.desc(:id)).first
+        dataset.where(id: job_id).first
       end
 
       def pending_query(now)
