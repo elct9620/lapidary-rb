@@ -15,6 +15,8 @@ module Lapidary
       end
 
       def wraps_errors(error_class)
+        # Uses block.call instead of yield because yield is not available
+        # inside define_method blocks (no implicit block forwarding).
         define_method(:with_error_wrapping) do |&block|
           block.call
         rescue Sequel::Error => e

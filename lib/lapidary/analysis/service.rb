@@ -36,6 +36,7 @@ module Lapidary
           job_repository: container['analysis.repositories.job_repository'],
           analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
           extractor: container['analysis.extractors.llm_extractor'],
+          # Validator is an inner-layer domain object, not container-managed
           validator: ::Analysis::Ontology::Validator.new,
           logger: container['logger']
         )

@@ -50,6 +50,8 @@ module Analysis
         }
       end
 
+      # Three-step claim (select → update → fetch) relies on SQLite's single-writer
+      # guarantee to avoid race conditions without explicit locking.
       def claim_pending_job(now)
         job_id = pending_query(now).get(:id)
         return nil unless job_id

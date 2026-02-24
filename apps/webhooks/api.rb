@@ -13,7 +13,7 @@ module Webhooks
         analysis_record_repository: container['webhooks.repositories.analysis_record_repository'],
         analysis_scheduler: container['webhooks.adapters.analysis_scheduler']
       )
-      use_case.call(result.to_h[:issue_id])
+      use_case.call(result[:issue_id])
 
       status 202
       content_type :json
