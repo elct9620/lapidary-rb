@@ -207,3 +207,4 @@ Errors propagate naturally through the layers and are caught at the boundary:
 | `RACK_ENV` | `development` | Affects database path and Sinatra environment |
 | `PORT` | `9292` | HTTP listen port (Falcon only, configured in `falcon.rb`) |
 | `REDMINE_URL` | `https://bugs.ruby-lang.org` | Base URL for the Redmine JSON API |
+| `OPENAI_API_KEY` | `nil` | OpenAI API key for LLM extraction pipeline |
