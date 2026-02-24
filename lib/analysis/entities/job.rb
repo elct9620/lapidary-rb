@@ -8,17 +8,15 @@ module Analysis
       attr_reader :id, :arguments, :status, :attempts, :max_attempts,
                   :error, :scheduled_at, :updated_at
 
-      def initialize(arguments: {}, id: nil, status: JobStatus::PENDING, # rubocop:disable Metrics/ParameterLists
-                     attempts: 0, max_attempts: 3, error: nil,
-                     scheduled_at: nil, updated_at: nil)
-        @id = id
+      def initialize(arguments:, max_attempts: 3, scheduled_at: nil, **attrs)
         @arguments = arguments
-        @status = status
-        @attempts = attempts
         @max_attempts = max_attempts
-        @error = error
         @scheduled_at = scheduled_at || Time.now
-        @updated_at = updated_at
+        @id = attrs[:id]
+        @status = attrs.fetch(:status, JobStatus::PENDING)
+        @attempts = attrs.fetch(:attempts, 0)
+        @error = attrs[:error]
+        @updated_at = attrs[:updated_at]
       end
 
       def claim(now: Time.now)

@@ -21,14 +21,19 @@ module Webhooks
 
         with_error_wrapping do
           records.group_by { |r| r.entity_type.to_s }.flat_map do |entity_type, group|
-            entity_ids = group.map(&:entity_id)
-            tracked_ids = dataset
-                          .where(entity_type: entity_type, entity_id: entity_ids)
-                          .select_map(:entity_id)
-
-            group.reject { |r| tracked_ids.include?(r.entity_id) }
+            reject_tracked(entity_type, group)
           end
         end
+      end
+
+      private
+
+      def reject_tracked(entity_type, group)
+        tracked_ids = dataset
+                      .where(entity_type: entity_type, entity_id: group.map(&:entity_id))
+                      .select_map(:entity_id)
+
+        group.reject { |r| tracked_ids.include?(r.entity_id) }
       end
     end
   end

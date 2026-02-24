@@ -21,8 +21,8 @@ module Lapidary
       private
 
       def poll_loop(container, logger)
+        use_case = build_use_case(container)
         loop do
-          use_case = build_use_case(container)
           processed = use_case.call
           sleep POLL_INTERVAL unless processed
         rescue StandardError => e
