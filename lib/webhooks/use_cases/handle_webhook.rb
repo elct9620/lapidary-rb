@@ -35,7 +35,7 @@ module Webhooks
       end
 
       def build_job_arguments(issue, record)
-        if record.entity_type == EntityType::ISSUE
+        if record.entity_type == Entities::EntityType::ISSUE
           build_issue_arguments(issue)
         else
           build_journal_arguments(issue, record)
@@ -44,7 +44,7 @@ module Webhooks
 
       def build_issue_arguments(issue)
         {
-          entity_type: EntityType::ISSUE.to_s,
+          entity_type: Entities::EntityType::ISSUE.to_s,
           entity_id: issue.id,
           content: issue.subject,
           author_username: issue.author_username,
@@ -55,7 +55,7 @@ module Webhooks
       def build_journal_arguments(issue, record)
         journal = issue.journals.find { |j| j.id == record.entity_id }
         {
-          entity_type: EntityType::JOURNAL.to_s,
+          entity_type: Entities::EntityType::JOURNAL.to_s,
           entity_id: journal.id,
           content: journal.notes,
           author_username: journal.author_username,
@@ -66,11 +66,11 @@ module Webhooks
       end
 
       def build_issue_records(issue)
-        [Entities::AnalysisRecord.new(entity_type: EntityType::ISSUE, entity_id: issue.id)]
+        [Entities::AnalysisRecord.new(entity_type: Entities::EntityType::ISSUE, entity_id: issue.id)]
       end
 
       def build_journal_records(issue)
-        issue.journal_ids.map { |id| Entities::AnalysisRecord.new(entity_type: EntityType::JOURNAL, entity_id: id) }
+        issue.journal_ids.map { |id| Entities::AnalysisRecord.new(entity_type: Entities::EntityType::JOURNAL, entity_id: id) }
       end
     end
   end
