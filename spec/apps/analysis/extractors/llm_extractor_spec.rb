@@ -181,37 +181,26 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end
     end
 
-    context 'with prompt content' do
+    context 'with prompt building' do
+      let(:prompt_builder) { instance_double(Analysis::Extractors::PromptBuilder) }
+
+      subject(:extractor) { described_class.new(llm: llm, prompt_builder: prompt_builder) }
+
       before do
+        allow(prompt_builder).to receive(:call).and_return('test prompt')
         allow(response).to receive(:content).and_return({ 'triplets' => [] })
       end
 
-      it 'includes issue content in the prompt for issue jobs' do
-        extractor.call({ entity_type: 'issue', entity_id: 12_345 })
-
-        expect(chat).to have_received(:ask).with(a_string_matching(/Issue #12345/))
-      end
-
-      it 'includes journal content in the prompt for journal jobs' do
-        extractor.call({ entity_type: 'journal', entity_id: 67_890 })
-
-        expect(chat).to have_received(:ask).with(a_string_matching(/Journal #67890/))
-      end
-
-      it 'includes ontology definitions in the prompt' do
+      it 'delegates prompt building to PromptBuilder' do
         extractor.call({ entity_type: 'issue', entity_id: 1 })
 
-        expect(chat).to have_received(:ask).with(
-          a_string_matching(/Maintenance/).and(a_string_matching(/Contribute/))
-        )
+        expect(prompt_builder).to have_received(:call).with({ entity_type: 'issue', entity_id: 1 })
       end
 
-      it 'includes module names from ModuleRegistry in the prompt' do
+      it 'sends the built prompt to the LLM' do
         extractor.call({ entity_type: 'issue', entity_id: 1 })
 
-        expect(chat).to have_received(:ask).with(
-          a_string_matching(/String/).and(a_string_matching(/json/))
-        )
+        expect(chat).to have_received(:ask).with('test prompt')
       end
     end
 
