@@ -5,12 +5,11 @@ module Webhooks
   module Entities
     # Domain entity representing a tracked analysis record.
     class AnalysisRecord
-      attr_reader :entity_type, :entity_id, :analyzed_at
+      attr_reader :entity_type, :entity_id
 
-      def initialize(entity_type:, entity_id:, analyzed_at: nil)
+      def initialize(entity_type:, entity_id:)
         @entity_type = entity_type
         @entity_id = entity_id
-        @analyzed_at = analyzed_at
       end
     end
   end

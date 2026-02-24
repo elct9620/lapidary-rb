@@ -22,10 +22,8 @@ module Webhooks
       private
 
       def find_untracked(issue)
-        untracked = []
-        untracked.concat(@analysis_record_repository.untracked(build_issue_records(issue)))
-        untracked.concat(@analysis_record_repository.untracked(build_journal_records(issue)))
-        untracked
+        candidates = build_issue_records(issue) + build_journal_records(issue)
+        @analysis_record_repository.untracked(candidates)
       end
 
       def schedule(records)
@@ -35,11 +33,11 @@ module Webhooks
       end
 
       def build_issue_records(issue)
-        [Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: issue.id)]
+        [Entities::AnalysisRecord.new(entity_type: EntityType::ISSUE, entity_id: issue.id)]
       end
 
       def build_journal_records(issue)
-        issue.journal_ids.map { |id| Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: id) }
+        issue.journal_ids.map { |id| Entities::AnalysisRecord.new(entity_type: EntityType::JOURNAL, entity_id: id) }
       end
     end
   end

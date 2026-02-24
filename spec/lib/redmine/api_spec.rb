@@ -74,6 +74,56 @@ RSpec.describe Redmine::API do
       end
     end
 
+    context 'with default timeout configuration' do
+      let(:response) { Net::HTTPSuccess.new('1.1', '200', 'OK') }
+      let(:http_double) { instance_double(Net::HTTP) }
+
+      before do
+        allow(Net::HTTP).to receive(:new).and_return(http_double)
+        allow(http_double).to receive(:use_ssl=)
+        allow(http_double).to receive(:open_timeout=)
+        allow(http_double).to receive(:read_timeout=)
+        allow(http_double).to receive(:request).and_return(response)
+        allow(response).to receive(:body).and_return('{}')
+      end
+
+      it 'sets open_timeout to 10 seconds' do
+        api.fetch_issue(issue_id)
+        expect(http_double).to have_received(:open_timeout=).with(10)
+      end
+
+      it 'sets read_timeout to 10 seconds' do
+        api.fetch_issue(issue_id)
+        expect(http_double).to have_received(:read_timeout=).with(10)
+      end
+    end
+
+    context 'with custom timeout configuration' do
+      subject(:api) { described_class.new(open_timeout: 5, read_timeout: 15) }
+
+      let(:response) { Net::HTTPSuccess.new('1.1', '200', 'OK') }
+      let(:http_double) { instance_double(Net::HTTP) }
+
+      before do
+        allow(Net::HTTP).to receive(:new).and_return(http_double)
+        allow(http_double).to receive(:use_ssl=)
+        allow(http_double).to receive(:open_timeout=)
+        allow(http_double).to receive(:read_timeout=)
+        allow(http_double).to receive(:request).and_return(response)
+        allow(response).to receive(:body).and_return('{}')
+      end
+
+      it 'sets open_timeout to custom value' do
+        api.fetch_issue(issue_id)
+        expect(http_double).to have_received(:open_timeout=).with(5)
+      end
+
+      it 'sets read_timeout to custom value' do
+        api.fetch_issue(issue_id)
+        expect(http_double).to have_received(:read_timeout=).with(15)
+      end
+    end
+
     context 'with a custom base_url' do
       subject(:api) { described_class.new(base_url: 'https://custom.redmine.org') }
 

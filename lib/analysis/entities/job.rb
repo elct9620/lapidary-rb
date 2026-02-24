@@ -21,18 +21,18 @@ module Analysis
         @updated_at = updated_at
       end
 
-      def claim
+      def claim(now: Time.now)
         raise JobError, "cannot claim job in #{@status} status" unless pending?
 
         @status = JobStatus::CLAIMED
-        @updated_at = Time.now
+        @updated_at = now
       end
 
-      def complete
+      def complete(now: Time.now)
         raise JobError, "cannot complete job in #{@status} status" unless claimed?
 
         @status = JobStatus::DONE
-        @updated_at = Time.now
+        @updated_at = now
       end
 
       def pending?
@@ -47,22 +47,22 @@ module Analysis
         @attempts + 1 < @max_attempts
       end
 
-      def retry(error)
+      def retry(error, now: Time.now)
         raise JobError, "cannot retry job in #{@status} status" unless claimed?
 
         @status = JobStatus::PENDING
         @attempts += 1
         @error = error
-        @scheduled_at = Time.now + (2**@attempts)
-        @updated_at = Time.now
+        @scheduled_at = now + (2**@attempts)
+        @updated_at = now
       end
 
-      def fail(error)
+      def fail(error, now: Time.now)
         raise JobError, "cannot fail job in #{@status} status" unless claimed?
 
         @status = JobStatus::FAILED
         @error = error
-        @updated_at = Time.now
+        @updated_at = now
       end
     end
   end

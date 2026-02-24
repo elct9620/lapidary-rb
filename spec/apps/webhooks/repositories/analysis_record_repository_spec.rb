@@ -5,34 +5,10 @@ require 'spec_helper'
 RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
   subject(:repository) { Lapidary::Container['webhooks.repositories.analysis_record_repository'] }
 
-  def build_record(entity_type:, entity_id:)
-    Webhooks::Entities::AnalysisRecord.new(entity_type: entity_type, entity_id: entity_id, analyzed_at: Time.now)
-  end
+  let(:db) { Lapidary::Container['database'] }
 
-  describe '#save' do
-    it 'creates a new record' do
-      record = build_record(entity_type: 'issue', entity_id: 1)
-      repository.save(record)
-
-      expect(repository.exists?(record)).to be true
-    end
-
-    it 'does not raise on duplicate insert' do
-      record = build_record(entity_type: 'issue', entity_id: 1)
-      repository.save(record)
-
-      expect { repository.save(record) }.not_to raise_error
-    end
-
-    it 'does not create a duplicate record' do
-      record = build_record(entity_type: 'issue', entity_id: 1)
-      repository.save(record)
-      repository.save(record)
-
-      db = Lapidary::Container['database']
-      count = db[:analysis_records].where(entity_type: 'issue', entity_id: 1).count
-      expect(count).to eq(1)
-    end
+  def insert_record(entity_type:, entity_id:)
+    db[:analysis_records].insert(entity_type: entity_type, entity_id: entity_id, analyzed_at: Time.now)
   end
 
   describe '#exists?' do
@@ -42,9 +18,9 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
     end
 
     it 'returns true when a record exists' do
-      record = build_record(entity_type: 'issue', entity_id: 1)
-      repository.save(record)
+      insert_record(entity_type: 'issue', entity_id: 1)
 
+      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
       expect(repository.exists?(record)).to be true
     end
   end
@@ -62,7 +38,7 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
     end
 
     it 'excludes already tracked records' do
-      repository.save(build_record(entity_type: 'journal', entity_id: 2))
+      insert_record(entity_type: 'journal', entity_id: 2)
 
       records = build_journal_records(1, 2, 3)
       result = repository.untracked(records)
@@ -75,32 +51,33 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
     end
 
     it 'returns an empty array when all are tracked' do
-      repository.save(build_record(entity_type: 'journal', entity_id: 1))
-      repository.save(build_record(entity_type: 'journal', entity_id: 2))
+      insert_record(entity_type: 'journal', entity_id: 1)
+      insert_record(entity_type: 'journal', entity_id: 2)
 
       records = build_journal_records(1, 2)
       expect(repository.untracked(records)).to be_empty
     end
 
-    it 'raises ArgumentError when records have mixed entity_types' do
+    it 'handles mixed entity_types correctly' do
+      insert_record(entity_type: 'issue', entity_id: 1)
+
       records = [
         Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1),
-        Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 2)
+        Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 2),
+        Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 10)
       ]
 
-      expect { repository.untracked(records) }.to raise_error(ArgumentError, 'records must have the same entity_type')
+      result = repository.untracked(records)
+      expect(result.map { |r| [r.entity_type.to_s, r.entity_id] }).to contain_exactly(
+        ['issue', 2],
+        ['journal', 10]
+      )
     end
   end
 
   describe 'when migration has not been run' do
     before do
       Lapidary::Container['database'].drop_table(:analysis_records)
-    end
-
-    it '#save raises AnalysisTrackingError' do
-      record = build_record(entity_type: 'issue', entity_id: 1)
-
-      expect { repository.save(record) }.to raise_error(Webhooks::Entities::AnalysisTrackingError)
     end
 
     it '#exists? raises AnalysisTrackingError' do
@@ -116,20 +93,9 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
   end
 
   describe 'error wrapping' do
-    let(:database) { Lapidary::Container['database'] }
-
-    it 'wraps Sequel::DatabaseError from #save as AnalysisTrackingError' do
-      record = build_record(entity_type: 'issue', entity_id: 1)
-      allow(database).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
-
-      expect do
-        repository.save(record)
-      end.to raise_error(Webhooks::Entities::AnalysisTrackingError, 'connection lost')
-    end
-
     it 'wraps Sequel::DatabaseError from #exists? as AnalysisTrackingError' do
       record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
-      allow(database).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
+      allow(db).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
 
       expect do
         repository.exists?(record)
@@ -138,7 +104,7 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
 
     it 'wraps Sequel::DatabaseError from #untracked as AnalysisTrackingError' do
       records = [Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 1)]
-      allow(database).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
+      allow(db).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
 
       expect do
         repository.untracked(records)

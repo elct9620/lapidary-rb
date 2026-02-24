@@ -13,7 +13,7 @@ module Analysis
       def save(record)
         with_error_wrapping do
           dataset.insert_conflict(target: %i[entity_type entity_id]).insert(
-            entity_type: record.entity_type,
+            entity_type: record.entity_type.to_s,
             entity_id: record.entity_id,
             analyzed_at: record.analyzed_at
           )

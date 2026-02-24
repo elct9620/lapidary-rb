@@ -5,6 +5,8 @@ require 'spec_helper'
 RSpec.describe Analysis::Entities::Job do
   subject(:job) { described_class.new(arguments: { entity_type: 'issue', entity_id: 1 }) }
 
+  let(:fixed_time) { Time.new(2025, 1, 1, 12, 0, 0) }
+
   describe '#initialize' do
     it 'defaults to pending status' do
       expect(job).to be_pending
@@ -26,13 +28,13 @@ RSpec.describe Analysis::Entities::Job do
   describe '#claim' do
     context 'when pending' do
       it 'transitions to claimed status' do
-        job.claim
+        job.claim(now: fixed_time)
         expect(job).to be_claimed
       end
 
       it 'updates updated_at' do
-        job.claim
-        expect(job.updated_at).to be_within(1).of(Time.now)
+        job.claim(now: fixed_time)
+        expect(job.updated_at).to eq(fixed_time)
       end
     end
 
@@ -61,13 +63,13 @@ RSpec.describe Analysis::Entities::Job do
       before { job.claim }
 
       it 'transitions to done status' do
-        job.complete
+        job.complete(now: fixed_time)
         expect(job.status).to eq(Analysis::Entities::JobStatus::DONE)
       end
 
       it 'updates updated_at' do
-        job.complete
-        expect(job.updated_at).to be_within(1).of(Time.now)
+        job.complete(now: fixed_time)
+        expect(job.updated_at).to eq(fixed_time)
       end
     end
 
@@ -94,26 +96,28 @@ RSpec.describe Analysis::Entities::Job do
       before { job.claim }
 
       it 'transitions back to pending status' do
-        job.retry('something failed')
+        job.retry('something failed', now: fixed_time)
         expect(job).to be_pending
       end
 
       it 'increments attempts' do
-        job.retry('something failed')
+        job.retry('something failed', now: fixed_time)
         expect(job.attempts).to eq(1)
       end
 
       it 'records the error message' do
-        job.retry('something failed')
+        job.retry('something failed', now: fixed_time)
         expect(job.error).to eq('something failed')
       end
 
       it 'sets scheduled_at with exponential backoff' do
-        freeze_time = Time.now
-        allow(Time).to receive(:now).and_return(freeze_time)
+        job.retry('something failed', now: fixed_time)
+        expect(job.scheduled_at).to eq(fixed_time + (2**1))
+      end
 
-        job.retry('something failed')
-        expect(job.scheduled_at).to eq(freeze_time + (2**1))
+      it 'updates updated_at' do
+        job.retry('something failed', now: fixed_time)
+        expect(job.updated_at).to eq(fixed_time)
       end
     end
 
@@ -140,13 +144,18 @@ RSpec.describe Analysis::Entities::Job do
       before { job.claim }
 
       it 'transitions to failed status' do
-        job.fail('permanent failure')
+        job.fail('permanent failure', now: fixed_time)
         expect(job.status).to eq(Analysis::Entities::JobStatus::FAILED)
       end
 
       it 'records the error message' do
-        job.fail('permanent failure')
+        job.fail('permanent failure', now: fixed_time)
         expect(job.error).to eq('permanent failure')
+      end
+
+      it 'updates updated_at' do
+        job.fail('permanent failure', now: fixed_time)
+        expect(job.updated_at).to eq(fixed_time)
       end
     end
 

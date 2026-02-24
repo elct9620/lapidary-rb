@@ -42,25 +42,23 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
     end
 
     it 'does not schedule already tracked entities' do
-      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 42, analyzed_at: Time.now)
-      analysis_record_repository.save(record)
+      db = Lapidary::Container['database']
+      db[:analysis_records].insert(entity_type: 'issue', entity_id: 42, analyzed_at: Time.now)
 
       use_case.call(42)
 
-      db = Lapidary::Container['database']
       jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
       expect(jobs.select { |j| j[:entity_type] == 'issue' }).to be_empty
     end
 
     it 'does not schedule anything when all entities are tracked' do
+      db = Lapidary::Container['database']
       [['issue', 42], ['journal', 101], ['journal', 102]].each do |type, id|
-        record = Webhooks::Entities::AnalysisRecord.new(entity_type: type, entity_id: id, analyzed_at: Time.now)
-        analysis_record_repository.save(record)
+        db[:analysis_records].insert(entity_type: type, entity_id: id, analyzed_at: Time.now)
       end
 
       use_case.call(42)
 
-      db = Lapidary::Container['database']
       expect(db[:jobs].count).to eq(0)
     end
   end

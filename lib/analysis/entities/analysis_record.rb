@@ -13,8 +13,8 @@ module Analysis
         @analyzed_at = analyzed_at
       end
 
-      def analyze
-        @analyzed_at = Time.now
+      def analyze(now: Time.now)
+        @analyzed_at = now
       end
     end
   end

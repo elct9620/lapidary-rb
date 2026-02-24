@@ -14,14 +14,15 @@ module Lapidary
           container = Lapidary::Container
           logger = container['logger']
           logger.info(self) { 'Analysis worker started' }
-          poll_loop(build_use_case(container), logger)
+          poll_loop(container, logger)
         end
       end
 
       private
 
-      def poll_loop(use_case, logger)
+      def poll_loop(container, logger)
         loop do
+          use_case = build_use_case(container)
           processed = use_case.call
           sleep POLL_INTERVAL unless processed
         rescue StandardError => e
