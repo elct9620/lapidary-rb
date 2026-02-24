@@ -31,7 +31,7 @@ module Analysis
 
         job.complete
         @job_repository.save(job)
-      rescue StandardError => e
+      rescue Entities::AnalysisTrackingError, Entities::JobError, Entities::ExtractionError => e
         handle_failure(job, e)
       end
 

@@ -71,7 +71,8 @@ RSpec.describe Analysis::UseCases::ProcessJob do
     context 'when processing fails' do
       before do
         job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
-        allow(analysis_record_repository).to receive(:save).and_raise(StandardError, 'connection lost')
+        allow(analysis_record_repository).to receive(:save)
+          .and_raise(Analysis::Entities::AnalysisTrackingError, 'connection lost')
       end
 
       it 'returns true' do
@@ -101,7 +102,8 @@ RSpec.describe Analysis::UseCases::ProcessJob do
           attempts: 2, max_attempts: 3
         )
         job_repository.enqueue(job)
-        allow(analysis_record_repository).to receive(:save).and_raise(StandardError, 'permanent failure')
+        allow(analysis_record_repository).to receive(:save)
+          .and_raise(Analysis::Entities::AnalysisTrackingError, 'permanent failure')
       end
 
       it 'marks the job as failed' do
@@ -167,7 +169,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
     context 'when extraction fails' do
       let(:extractor) do
         instance_double(Analysis::Extractors::LlmExtractor).tap do |ext|
-          allow(ext).to receive(:call).and_raise(StandardError, 'extraction error')
+          allow(ext).to receive(:call).and_raise(Analysis::Entities::ExtractionError, 'extraction error')
         end
       end
 
