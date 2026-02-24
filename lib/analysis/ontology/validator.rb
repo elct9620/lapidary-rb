@@ -16,7 +16,6 @@ module Analysis
         validate_subject_type(triplet, errors)
         validate_object_type(triplet, errors)
         validate_relationship(triplet, errors)
-        validate_domain_range(triplet, errors)
         validate_committer_constraint(triplet, errors)
         validate_module_name(triplet, errors)
         ValidationResult.new(triplet: triplet, errors: errors)
@@ -40,16 +39,6 @@ module Analysis
         return if VALID_RELATIONSHIPS.include?(triplet.relationship)
 
         errors << "relationship must be Maintenance or Contribute, got #{triplet.relationship}"
-      end
-
-      def validate_domain_range(triplet, _errors)
-        return unless VALID_SUBJECT_TYPES.include?(triplet.subject.type)
-        return unless VALID_OBJECT_TYPES.include?(triplet.object.type)
-        return unless VALID_RELATIONSHIPS.include?(triplet.relationship)
-
-        # All current relationships share the same domain-range: Rubyist -> CoreModule|Stdlib
-        # This guard exists for future ontology expansion
-        nil
       end
 
       def validate_committer_constraint(triplet, errors)

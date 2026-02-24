@@ -9,15 +9,11 @@ module Analysis
     class LlmExtractor
       include Lapidary::Dependency['llm']
 
-      RELATIONSHIP_MAP = {
-        'Maintenance' => Entities::RelationshipType::MAINTENANCE,
-        'Contribute' => Entities::RelationshipType::CONTRIBUTE
-      }.freeze
+      RELATIONSHIP_MAP = Ontology::Validator::VALID_RELATIONSHIPS
+                         .each_with_object({}) { |r, h| h[r.to_s] = r }.freeze
 
-      NODE_TYPE_MAP = {
-        'CoreModule' => Entities::NodeType::CORE_MODULE,
-        'Stdlib' => Entities::NodeType::STDLIB
-      }.freeze
+      NODE_TYPE_MAP = Ontology::Validator::VALID_OBJECT_TYPES
+                      .each_with_object({}) { |t, h| h[t.to_s] = t }.freeze
 
       # Structured output schema for LLM triplet extraction.
       class TripletSchema < RubyLLM::Schema
@@ -27,9 +23,9 @@ module Analysis
               string :name, description: 'Username on bugs.ruby-lang.org'
               boolean :is_committer, description: 'Whether this person is a known Ruby committer'
             end
-            string :relationship, enum: %w[Maintenance Contribute]
+            string :relationship, enum: RELATIONSHIP_MAP.keys
             object :object do
-              string :type, enum: %w[CoreModule Stdlib]
+              string :type, enum: NODE_TYPE_MAP.keys
               string :name, description: 'Canonical module name'
             end
           end

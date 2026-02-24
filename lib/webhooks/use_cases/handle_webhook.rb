@@ -35,7 +35,7 @@ module Webhooks
       end
 
       def build_job_arguments(issue, record)
-        if record.entity_type.to_s == EntityType::ISSUE.to_s
+        if record.entity_type == EntityType::ISSUE
           build_issue_arguments(issue)
         else
           build_journal_arguments(issue, record)

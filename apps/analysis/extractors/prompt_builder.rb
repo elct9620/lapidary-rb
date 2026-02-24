@@ -29,6 +29,7 @@ module Analysis
         TEXT
       end
 
+      # Keep in sync with Analysis::Entities node/relationship type value objects.
       def ontology_section
         <<~TEXT.chomp
           ## Ontology
