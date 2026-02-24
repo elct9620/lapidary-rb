@@ -156,8 +156,10 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
         )
       end
 
-      it 'raises KeyError for fail-fast behavior' do
-        expect { extractor.call({ entity_type: 'issue', entity_id: 1 }) }.to raise_error(KeyError)
+      it 'raises ExtractionError wrapping the KeyError' do
+        expect do
+          extractor.call({ entity_type: 'issue', entity_id: 1 })
+        end.to raise_error(Analysis::Entities::ExtractionError)
       end
     end
 
@@ -176,8 +178,10 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
         )
       end
 
-      it 'raises KeyError for fail-fast behavior' do
-        expect { extractor.call({ entity_type: 'issue', entity_id: 1 }) }.to raise_error(KeyError)
+      it 'raises ExtractionError wrapping the KeyError' do
+        expect do
+          extractor.call({ entity_type: 'issue', entity_id: 1 })
+        end.to raise_error(Analysis::Entities::ExtractionError)
       end
     end
 
@@ -209,10 +213,10 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
         allow(chat).to receive(:ask).and_raise(StandardError, 'API connection failed')
       end
 
-      it 'lets the error propagate for upstream retry handling' do
+      it 'wraps the error as ExtractionError' do
         expect do
           extractor.call({ entity_type: 'issue', entity_id: 1 })
-        end.to raise_error(StandardError, 'API connection failed')
+        end.to raise_error(Analysis::Entities::ExtractionError, 'API connection failed')
       end
     end
   end
