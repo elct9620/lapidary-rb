@@ -182,6 +182,14 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
         expect(row[:error]).to eq('extraction error')
       end
+
+      it 'does not create a ghost analysis record' do
+        use_case.call
+
+        row = Lapidary::Container['database'][:analysis_records]
+              .where(entity_type: 'issue', entity_id: 1).first
+        expect(row).to be_nil
+      end
     end
   end
 end

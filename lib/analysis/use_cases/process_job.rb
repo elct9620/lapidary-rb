@@ -26,9 +26,8 @@ module Analysis
       def process(job)
         record = build_record(job)
         record.analyze
-        @analysis_record_repository.save(record)
-
         extract_and_validate(job)
+        @analysis_record_repository.save(record)
 
         job.complete
         @job_repository.save(job)
