@@ -150,17 +150,35 @@ end
 
 Inject dependencies into other outer-layer classes (e.g., repositories) with `include Lapidary::Dependency['webhooks.contract']`. Controllers resolve from the container directly via `container['key']` instead.
 
+### Repository DSL
+
+Repositories use `Lapidary::RepositorySupport` for declarative boilerplate:
+
+```ruby
+class JobRepository
+  include Lapidary::Dependency['database']
+  include Lapidary::RepositorySupport
+
+  table :jobs                      # defines private `dataset` method → database[:jobs]
+  wraps_errors Entities::JobError  # defines private `with_error_wrapping` that rescues Sequel::Error
+
+  def enqueue(job)
+    with_error_wrapping { dataset.insert(...) }
+  end
+end
+```
+
 ### Error Handling
 
 Errors propagate naturally through the layers and are caught at the boundary:
 
-- **Repository layer**: Wraps `Sequel::Error` as domain-specific errors (e.g., `AnalysisTrackingError`) so inner layers don't depend on database details
+- **Repository layer**: Wraps `Sequel::Error` as domain-specific errors (e.g., `AnalysisTrackingError`) via `RepositorySupport#wraps_errors` so inner layers don't depend on database details
 - **Use Case layer**: Propagates domain errors — never swallows them
 - **Controller layer**: Handles domain-specific errors with appropriate HTTP status codes; unhandled exceptions are caught by `BaseController`'s global `error` handler which logs the full error and returns a safe `500` JSON response (no internal details leaked)
 
 ## Database
 
-- **Providers**: `system/providers/database.rb` registers `Sequel::Database` as `Container['database']`; `system/providers/logger.rb` registers `Console.logger` as `Container['logger']`
+- **Providers**: `database.rb` → `Container['database']` (Sequel), `logger.rb` → `Container['logger']` (Console), `redmine.rb` → `Container['redmine_api']` (Redmine::API), `event_bus.rb` → `Container['event_bus']` (dry-events publisher)
 - **Test**: in-memory SQLite (`sqlite:/`) — no file on disk, fast and isolated
 - **Development/Production**: file-based SQLite (`data/<env>.sqlite3`) with WAL journal mode
 - **Migrations**: Sequel migrations in `db/migrations/`, named `YYYYMMDDHHMMSS_description.rb`
