@@ -35,7 +35,7 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 
 ## Vision
 
-The complete system is divided into four phases:
+The complete system encompasses four capabilities:
 
 1. **Webhook reception** — Receive issue change notifications, fetch data from the Redmine API, and track analyzed entities
 2. **Ontology processing** — Extract concepts and relationships from issue data, building a semantic model
@@ -135,9 +135,7 @@ Content-Type: `application/json`
 
 **Data source**: `https://bugs.ruby-lang.org/issues/{id}.json?include=journals`
 
-After receiving a Webhook, Lapidary fetches Issue data from the Redmine JSON API. The request includes the `include=journals` parameter. Without journals, only the author-to-subject relationship can be analyzed. Journals track respondents whose interactions are not yet recorded, enabling analysis of participant relationships beyond just the original author and extending the knowledge graph.
-
-The fetched data is attached to each analysis job so that the Analysis Service can process it without calling external APIs.
+After receiving a Webhook, Lapidary fetches Issue data from the Redmine JSON API. The request includes the `include=journals` parameter to capture both the original author and all respondent data. The fetched data is attached to each analysis job so that the Analysis Service can process it without calling external APIs.
 
 **Redmine API response structure** (relevant fields):
 
@@ -263,14 +261,14 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 - Analysis records the entity to the analysis tracking table and marks it as analyzed
 - Job Arguments carry entity data for knowledge graph construction; construction rules are defined by ontology processing
 
-**Analysis behavior**:
+**Analysis domain model**:
 
-Analysis identifies relationships between Authors and Ruby Core Modules based on Issue and Journal content. Job Arguments carry the data needed for this identification.
+Job Arguments capture the data needed to identify relationships between Authors and Ruby Core Modules. The following describes the relationship types that ontology processing will extract:
 
-- **Issue analysis**: Identify the relationship between the Issue Author and a Ruby Core Module based on Issue content
-- **Journal analysis**: Identify the relationship between the Journal Author and a Ruby Core Module based on Journal content combined with the associated Issue content (for context)
+- **Issue**: Relationship between the Issue Author and a Ruby Core Module based on Issue content
+- **Journal**: Relationship between the Journal Author and a Ruby Core Module based on Journal content combined with the associated Issue content (for context)
 
-**Analysis scenarios**:
+**Relationship scenarios**:
 
 | Scenario | Entity Type | Author Role | Analysis Focus |
 |----------|-------------|-------------|----------------|
