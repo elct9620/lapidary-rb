@@ -20,12 +20,12 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Analysis Service processes queued jobs and writes analysis records to the database
 - Duplicate notifications for the same Issue do not create jobs for already tracked entities
 - Failed analysis jobs are retried with exponential backoff; permanently failed jobs are logged
+- Knowledge graph schema supports storing entities and relationships as Nodes and Edges with flexible metadata
 
 ## Non-goals
 
 - Ontology processing — No semantic classification or concept association
 - LLM integration — No natural language summarization or intelligent analysis
-- Graph queries — No graph query interface
 - User authentication and access control
 - Frontend UI
 - Multi-worker concurrency
@@ -51,6 +51,7 @@ The complete system is divided into four phases:
 5. **Analysis tracking** — Record analyzed Issues and Journals to avoid redundant processing and support incremental analysis
 6. **Health check endpoint** — Report application availability status
 7. **Container deployment** — Package the application as a container image for deployment
+8. **Knowledge graph storage** — Store entities and relationships as a directed graph using Node and Edge tables with flexible metadata
 
 ## User Journeys
 
@@ -259,12 +260,12 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 
 - Single worker, sequential processing — one job at a time
 - Dequeues a job, performs analysis, writes the analysis record, and marks the job as done
-- In the current phase, "analysis" means recording the entity to the analysis tracking table and marking it as analyzed; the ontology processing phase will expand the analysis logic
-- In the current phase, the Job Arguments data beyond entity tracking fields (content, author information) is not persisted separately. Once the tracking record is written and the job is marked as done, this data is no longer retained. The Ontology processing phase will expand the analysis logic to extract and persist relationships from this data before the job completes.
+- Analysis records the entity to the analysis tracking table and marks it as analyzed
+- Job Arguments carry entity data for knowledge graph construction; construction rules are defined by ontology processing
 
 **Analysis behavior**:
 
-The eventual goal of analysis is to identify relationships between Authors and Ruby Core Modules based on Issue and Journal content. In the current phase, the system captures the data needed for this future identification by carrying it in Job Arguments; the actual relationship extraction and semantic classification are handled in the Ontology processing phase.
+Analysis identifies relationships between Authors and Ruby Core Modules based on Issue and Journal content. Job Arguments carry the data needed for this identification.
 
 - **Issue analysis**: Identify the relationship between the Issue Author and a Ruby Core Module based on Issue content
 - **Journal analysis**: Identify the relationship between the Journal Author and a Ruby Core Module based on Journal content combined with the associated Issue content (for context)
@@ -278,7 +279,7 @@ The eventual goal of analysis is to identify relationships between Authors and R
 | Discussion participant replies | Journal | Participant | Author's participation relationship with the related Module |
 | Ruby Committer provides feedback | Journal | Ruby Committer | Author's review relationship with the related Module |
 
-Note: In this phase, the system does not distinguish between Committer and Rubyist. Determining the Author's role and the specific relationship type with a Module is handled in the Ontology processing phase.
+The system treats all authors uniformly. Role distinction (Committer vs Rubyist) and specific relationship typing with Modules are handled by ontology processing.
 
 **Retry behavior**:
 
@@ -289,6 +290,48 @@ Note: In this phase, the system does not distinguish between Committer and Rubyi
 
 - On shutdown signal, the service finishes the current in-progress job or releases it back to the queue
 - No new jobs are claimed after shutdown is initiated
+
+### Knowledge Graph Schema
+
+**Purpose**: Store entities and their relationships as a directed property graph.
+
+**Node table**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Text (PK) | Unique node identifier |
+| `type` | Text (NOT NULL) | Node classification (e.g., `issue`, `journal`, `author`, `module`) |
+| `data` | Text (JSON) | Flexible metadata as JSON |
+| `created_at` | DateTime | Creation timestamp |
+| `updated_at` | DateTime | Last update timestamp |
+
+- `type` is indexed for efficient filtering
+
+**Edge table**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source` | Text (NOT NULL, FK → nodes.id) | Source node |
+| `target` | Text (NOT NULL, FK → nodes.id) | Target node |
+| `relationship` | Text (NOT NULL) | Relationship type |
+| `properties` | Text (JSON) | Flexible metadata as JSON |
+| `created_at` | DateTime | Creation timestamp |
+| `updated_at` | DateTime | Last update timestamp |
+
+- Directed: `source → target`
+- `UNIQUE(source, target, relationship)` — one relationship type per node pair
+- Indexes on `source` and `target` for traversal performance
+
+**CTE Query patterns**:
+
+1. **Neighbor query** — Find all nodes connected to a given node (outbound, inbound, or both)
+2. **Traversal query** — Recursive CTE to walk the graph N hops from a starting node
+
+**Constraints**:
+
+- Node `type` and Edge `relationship` values are not constrained by the schema — ontology rules will be specified separately
+- Multiple edges with different `relationship` types between the same node pair are allowed
+- Self-referencing edges (source = target) are permitted
 
 ### Error Scenarios
 
@@ -401,6 +444,9 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Job Queue | A database-backed queue that holds pending analysis jobs |
 | Analysis Service | A background worker service that dequeues and processes analysis jobs |
 | Ruby Core Module | A core module of Ruby (e.g., String, Array, IO), represented as a node in the knowledge graph |
+| Node | A vertex in the knowledge graph representing an entity (e.g., Issue, Author, Module) |
+| Edge | A directed connection between two Nodes representing a relationship |
+| Property Graph | A graph model where both Nodes and Edges can carry key-value metadata |
 
 ## Patterns
 
@@ -413,6 +459,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Upsert by ID | Insert or update a record keyed by a unique identifier; create if absent, update if present | Analysis Record writing |
 | Safe error response | Unhandled exceptions are converted into a generic error message, never leaking internal details | Global Error Handling |
 | Polymorphic tracking | A single table using `type` + `id` columns to track multiple entity types | Analysis Records tracking Issue and Journal |
+| Property graph | Nodes and Edges store flexible metadata as JSON, enabling schema evolution without migrations | Knowledge Graph Schema |
 
 ## Architecture
 
@@ -446,6 +493,11 @@ See [Architecture](docs/architecture.md) for component structure, layers, and da
 | Job retry strategy | Exponential backoff with max attempts | Handles transient failures gracefully |
 | Process management | Falcon managed services | Unified process supervision |
 | Job idempotency | Analysis tracking layer | Reuses existing tracking mechanism to prevent duplicate work |
+| Graph storage model | Property graph (Node + Edge tables) | Simple relational model, no external graph DB dependency |
+| Node ID system | Independent text-based IDs | Decouples graph identity from source system |
+| Edge directionality | Directed graph | Relationships have explicit source and target |
+| Metadata storage | JSON text columns | Flexible, schema-free properties |
+| Graph traversal | SQL CTE | Leverages SQLite's recursive CTE support, no external engine needed |
 
 ### To Be Decided
 
@@ -454,3 +506,4 @@ See [Architecture](docs/architecture.md) for component structure, layers, and da
 | Webhook authentication | HMAC signature / IP whitelist | Whether source verification is needed |
 | Logging solution | Ruby Logger / dry-logger | Logging framework to be selected |
 | Job cleanup strategy | TTL-based deletion / archival / manual purge | How to handle completed and permanently failed jobs over time |
+| Node ID generation strategy | UUID / ULID / custom | Format to be chosen during implementation |
