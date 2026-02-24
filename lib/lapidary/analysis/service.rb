@@ -11,17 +11,20 @@ module Lapidary
 
       def run(_instance, _evaluator)
         Async do
-          container = Lapidary::Container
           logger = container['logger']
           logger.info(self) { 'Analysis worker started' }
-          poll_loop(container, logger)
+          poll_loop(logger)
         end
       end
 
       private
 
-      def poll_loop(container, logger)
-        use_case = build_use_case(container)
+      def container
+        Lapidary::Container
+      end
+
+      def poll_loop(logger)
+        use_case = build_use_case
         loop do
           processed = use_case.call
           sleep POLL_INTERVAL unless processed
@@ -31,7 +34,7 @@ module Lapidary
         end
       end
 
-      def build_use_case(container)
+      def build_use_case
         ::Analysis::UseCases::ProcessJob.new(
           job_repository: container['analysis.repositories.job_repository'],
           analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
