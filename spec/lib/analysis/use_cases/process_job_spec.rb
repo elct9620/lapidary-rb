@@ -7,13 +7,17 @@ RSpec.describe Analysis::UseCases::ProcessJob do
     described_class.new(
       job_repository: job_repository,
       analysis_record_repository: analysis_record_repository,
+      extractor: extractor,
+      validator: validator,
       logger: logger
     )
   end
 
   let(:job_repository) { Lapidary::Container['analysis.repositories.job_repository'] }
   let(:analysis_record_repository) { Lapidary::Container['analysis.repositories.analysis_record_repository'] }
-  let(:logger) { instance_double(Console::Logger, error: nil) }
+  let(:extractor) { Analysis::Extractors::MockExtractor.new }
+  let(:validator) { Analysis::Ontology::Validator.new }
+  let(:logger) { instance_double(Console::Logger, error: nil, warn: nil) }
 
   describe '#call' do
     context 'when there is a pending job' do
@@ -111,6 +115,72 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         use_case.call
 
         expect(logger).to have_received(:error).with(use_case)
+      end
+    end
+
+    context 'when extraction produces valid triplets' do
+      before do
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
+      end
+
+      it 'does not log any warnings' do
+        use_case.call
+
+        expect(logger).not_to have_received(:warn)
+      end
+    end
+
+    context 'when extraction produces invalid triplets' do
+      let(:extractor) do
+        invalid_triplet = Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::RUBYIST,
+            name: 'someone'
+          ),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::CORE_MODULE,
+            name: 'String'
+          )
+        )
+        instance_double(Analysis::Extractors::MockExtractor, call: [invalid_triplet])
+      end
+
+      before do
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
+      end
+
+      it 'logs warnings for invalid triplets' do
+        use_case.call
+
+        expect(logger).to have_received(:warn).with(use_case)
+      end
+
+      it 'still completes the job' do
+        use_case.call
+
+        row = Lapidary::Container['database'][:jobs].first
+        expect(row[:status]).to eq(Analysis::Entities::JobStatus::DONE.to_s)
+      end
+    end
+
+    context 'when extraction fails' do
+      let(:extractor) do
+        instance_double(Analysis::Extractors::MockExtractor).tap do |ext|
+          allow(ext).to receive(:call).and_raise(StandardError, 'extraction error')
+        end
+      end
+
+      before do
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
+      end
+
+      it 'retries the job via existing error handling' do
+        use_case.call
+
+        row = Lapidary::Container['database'][:jobs].first
+        expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
+        expect(row[:error]).to eq('extraction error')
       end
     end
   end
