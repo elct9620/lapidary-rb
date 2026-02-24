@@ -5,6 +5,10 @@ module Analysis
     # Repository for managing analysis tracking records.
     class AnalysisRecordRepository
       include Lapidary::Dependency['database']
+      include Lapidary::RepositorySupport
+
+      table :analysis_records
+      wraps_errors Entities::AnalysisTrackingError
 
       def save(record)
         with_error_wrapping do
@@ -14,18 +18,6 @@ module Analysis
             analyzed_at: record.analyzed_at
           )
         end
-      end
-
-      private
-
-      def with_error_wrapping
-        yield
-      rescue Sequel::Error => e
-        raise Entities::AnalysisTrackingError, e.message
-      end
-
-      def dataset
-        database[:analysis_records]
       end
     end
   end

@@ -5,6 +5,10 @@ module Webhooks
     # Repository for managing analysis tracking records.
     class AnalysisRecordRepository
       include Lapidary::Dependency['database']
+      include Lapidary::RepositorySupport
+
+      table :analysis_records
+      wraps_errors Entities::AnalysisTrackingError
 
       def save(record)
         with_error_wrapping do
@@ -41,16 +45,6 @@ module Webhooks
 
       def homogeneous_entity_type?(records)
         records.map(&:entity_type).uniq.size == 1
-      end
-
-      def with_error_wrapping
-        yield
-      rescue Sequel::Error => e
-        raise Entities::AnalysisTrackingError, e.message
-      end
-
-      def dataset
-        database[:analysis_records]
       end
     end
   end

@@ -73,5 +73,22 @@ RSpec.describe Redmine::API do
         expect { api.fetch_issue(issue_id) }.to raise_error(Redmine::API::FetchError)
       end
     end
+
+    context 'with a custom base_url' do
+      subject(:api) { described_class.new(base_url: 'https://custom.redmine.org') }
+
+      let(:custom_url) { "https://custom.redmine.org/issues/#{issue_id}.json?include=journals" }
+
+      before do
+        stub_request(:get, custom_url)
+          .to_return(status: 200, body: JSON.generate({ issue: { id: issue_id } }),
+                     headers: { 'Content-Type' => 'application/json' })
+      end
+
+      it 'uses the custom base URL' do
+        result = api.fetch_issue(issue_id)
+        expect(result['issue']['id']).to eq(issue_id)
+      end
+    end
   end
 end

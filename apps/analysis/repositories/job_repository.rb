@@ -7,6 +7,10 @@ module Analysis
     # Repository for managing analysis job persistence and claiming.
     class JobRepository
       include Lapidary::Dependency['database']
+      include Lapidary::RepositorySupport
+
+      table :jobs
+      wraps_errors Entities::JobError
 
       def enqueue(job)
         with_error_wrapping do
@@ -63,23 +67,13 @@ module Analysis
                .order(:scheduled_at).limit(1)
       end
 
-      def with_error_wrapping
-        yield
-      rescue Sequel::Error => e
-        raise Entities::JobError, e.message
-      end
-
       def row_to_entity(row)
         attrs = row.slice(
           :id, :status, :attempts, :max_attempts, :error,
-          :scheduled_at, :created_at, :updated_at
+          :scheduled_at, :updated_at
         )
         attrs[:arguments] = JSON.parse(row[:arguments], symbolize_names: true)
         Entities::Job.new(**attrs)
-      end
-
-      def dataset
-        database[:jobs]
       end
     end
   end

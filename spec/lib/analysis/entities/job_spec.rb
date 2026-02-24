@@ -62,7 +62,7 @@ RSpec.describe Analysis::Entities::Job do
 
       it 'transitions to done status' do
         job.complete
-        expect(job).to be_done
+        expect(job.status).to eq('done')
       end
 
       it 'updates updated_at' do
@@ -141,7 +141,7 @@ RSpec.describe Analysis::Entities::Job do
 
       it 'transitions to failed status' do
         job.fail('permanent failure')
-        expect(job).to be_failed
+        expect(job.status).to eq('failed')
       end
 
       it 'records the error message' do

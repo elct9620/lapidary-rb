@@ -5,14 +5,12 @@ module Analysis
   module Entities
     # Domain entity representing an analysis job in the queue.
     class Job
-      STATUSES = %w[pending claimed done failed].freeze
-
       attr_reader :id, :arguments, :status, :attempts, :max_attempts,
-                  :error, :scheduled_at, :created_at, :updated_at
+                  :error, :scheduled_at, :updated_at
 
       def initialize(arguments: {}, id: nil, status: 'pending', # rubocop:disable Metrics/ParameterLists
                      attempts: 0, max_attempts: 3, error: nil,
-                     scheduled_at: nil, created_at: nil, updated_at: nil)
+                     scheduled_at: nil, updated_at: nil)
         @id = id
         @arguments = arguments
         @status = status
@@ -20,7 +18,6 @@ module Analysis
         @max_attempts = max_attempts
         @error = error
         @scheduled_at = scheduled_at || Time.now
-        @created_at = created_at
         @updated_at = updated_at
       end
 
@@ -44,14 +41,6 @@ module Analysis
 
       def claimed?
         @status == 'claimed'
-      end
-
-      def done?
-        @status == 'done'
-      end
-
-      def failed?
-        @status == 'failed'
       end
 
       def retryable?

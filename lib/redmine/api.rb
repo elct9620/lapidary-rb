@@ -10,10 +10,12 @@ module Redmine
   class API
     class FetchError < StandardError; end
 
-    BASE_URL = 'https://bugs.ruby-lang.org'
+    def initialize(base_url: 'https://bugs.ruby-lang.org')
+      @base_url = base_url
+    end
 
     def fetch_issue(issue_id)
-      url = URI("#{BASE_URL}/issues/#{issue_id}.json?include=journals")
+      url = URI("#{@base_url}/issues/#{issue_id}.json?include=journals")
       response = Net::HTTP.get_response(url)
 
       raise FetchError, "Failed to fetch #{url}: HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)

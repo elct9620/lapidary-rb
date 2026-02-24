@@ -16,10 +16,6 @@ module Analysis
       def analyze
         @analyzed_at = Time.now
       end
-
-      def analyzed?
-        !@analyzed_at.nil?
-      end
     end
   end
 end
