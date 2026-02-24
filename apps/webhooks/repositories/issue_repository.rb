@@ -9,6 +9,8 @@ module Webhooks
       def find(issue_id)
         data = redmine_api.fetch_issue(issue_id)
         build_issue(data)
+      rescue Redmine::API::FetchError => e
+        raise Entities::IssueFetchError, e.message
       end
 
       private

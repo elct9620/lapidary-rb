@@ -18,7 +18,7 @@ module Webhooks
       status 202
       content_type :json
       JSON.generate(status: 'accepted')
-    rescue Redmine::API::FetchError => e
+    rescue Entities::IssueFetchError => e
       logger.warn(self, e.message)
       halt_json 502, error: 'upstream service error'
     end

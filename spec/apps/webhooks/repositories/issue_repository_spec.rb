@@ -53,8 +53,8 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
         stub_request(:get, url).to_return(status: 503, body: 'Service Unavailable')
       end
 
-      it 'propagates FetchError' do
-        expect { repository.find(42) }.to raise_error(Redmine::API::FetchError)
+      it 'wraps as IssueFetchError' do
+        expect { repository.find(42) }.to raise_error(Webhooks::Entities::IssueFetchError)
       end
     end
   end

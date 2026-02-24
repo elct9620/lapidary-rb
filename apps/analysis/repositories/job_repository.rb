@@ -34,7 +34,7 @@ module Analysis
           dataset.where(id: job.id).update(
             status: job.status.to_s, attempts: job.attempts,
             error: job.error, scheduled_at: job.scheduled_at,
-            updated_at: job.updated_at || Time.now
+            updated_at: job.updated_at
           )
         end
       end
