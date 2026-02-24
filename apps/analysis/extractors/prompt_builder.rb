@@ -29,20 +29,20 @@ module Analysis
         TEXT
       end
 
-      # Keep in sync with Analysis::Entities node/relationship type value objects.
       def ontology_section
         <<~TEXT.chomp
           ## Ontology
 
           ### Node Types
-          - Rubyist: A person who contributes to or maintains Ruby modules
-          - CoreModule: A core Ruby module (part of the Ruby language itself)
-          - Stdlib: A Ruby standard library module
+          #{format_descriptions(Analysis::Entities::NodeType::DESCRIPTIONS)}
 
           ### Relationship Types
-          - Maintenance: A Rubyist who actively maintains a module (must be a known Ruby committer)
-          - Contribute: A Rubyist who contributes to a module (bug reports, patches, discussions)
+          #{format_descriptions(Analysis::Entities::RelationshipType::DESCRIPTIONS)}
         TEXT
+      end
+
+      def format_descriptions(descriptions)
+        descriptions.map { |type, desc| "- #{type}: #{desc}" }.join("\n")
       end
 
       def module_list_section

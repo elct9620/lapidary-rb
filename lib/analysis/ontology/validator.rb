@@ -7,9 +7,9 @@ module Analysis
     class Validator
       ValidationResult = Data.define(:triplet, :errors)
 
-      VALID_SUBJECT_TYPES = [Entities::NodeType::RUBYIST].freeze
-      VALID_OBJECT_TYPES = [Entities::NodeType::CORE_MODULE, Entities::NodeType::STDLIB].freeze
-      VALID_RELATIONSHIPS = [Entities::RelationshipType::MAINTENANCE, Entities::RelationshipType::CONTRIBUTE].freeze
+      VALID_SUBJECT_TYPES = Entities::NodeType::SUBJECT_TYPES
+      VALID_OBJECT_TYPES = Entities::NodeType::OBJECT_TYPES
+      VALID_RELATIONSHIPS = Entities::RelationshipType::ALL
 
       def call(triplet)
         errors = []

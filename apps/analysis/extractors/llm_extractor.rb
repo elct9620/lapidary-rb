@@ -9,10 +9,10 @@ module Analysis
     class LlmExtractor
       include Lapidary::Dependency['llm']
 
-      RELATIONSHIP_MAP = Ontology::Validator::VALID_RELATIONSHIPS
+      RELATIONSHIP_MAP = Entities::RelationshipType::ALL
                          .each_with_object({}) { |r, h| h[r.to_s] = r }.freeze
 
-      NODE_TYPE_MAP = Ontology::Validator::VALID_OBJECT_TYPES
+      NODE_TYPE_MAP = Entities::NodeType::OBJECT_TYPES
                       .each_with_object({}) { |t, h| h[t.to_s] = t }.freeze
 
       # Structured output schema for LLM triplet extraction.
