@@ -15,7 +15,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
 
   let(:job_repository) { Lapidary::Container['analysis.repositories.job_repository'] }
   let(:analysis_record_repository) { Lapidary::Container['analysis.repositories.analysis_record_repository'] }
-  let(:extractor) { Analysis::Extractors::MockExtractor.new }
+  let(:extractor) { instance_double(Analysis::Extractors::LlmExtractor, call: []) }
   let(:validator) { Analysis::Ontology::Validator.new }
   let(:logger) { instance_double(Console::Logger, error: nil, warn: nil) }
 
@@ -143,7 +143,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
             name: 'String'
           )
         )
-        instance_double(Analysis::Extractors::MockExtractor, call: [invalid_triplet])
+        instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet])
       end
 
       before do
@@ -166,7 +166,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
 
     context 'when extraction fails' do
       let(:extractor) do
-        instance_double(Analysis::Extractors::MockExtractor).tap do |ext|
+        instance_double(Analysis::Extractors::LlmExtractor).tap do |ext|
           allow(ext).to receive(:call).and_raise(StandardError, 'extraction error')
         end
       end

@@ -113,7 +113,7 @@ RSpec.describe Webhooks::API do
         Analysis::UseCases::ProcessJob.new(
           job_repository: Lapidary::Container['analysis.repositories.job_repository'],
           analysis_record_repository: Lapidary::Container['analysis.repositories.analysis_record_repository'],
-          extractor: Lapidary::Container['analysis.extractors.mock_extractor'],
+          extractor: ->(_args) { [] },
           validator: Analysis::Ontology::Validator.new,
           logger: Lapidary::Container['logger']
         )

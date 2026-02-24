@@ -35,7 +35,7 @@ module Lapidary
         ::Analysis::UseCases::ProcessJob.new(
           job_repository: container['analysis.repositories.job_repository'],
           analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
-          extractor: container['analysis.extractors.mock_extractor'],
+          extractor: container['analysis.extractors.llm_extractor'],
           validator: ::Analysis::Ontology::Validator.new,
           logger: container['logger']
         )
