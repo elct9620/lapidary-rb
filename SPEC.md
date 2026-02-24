@@ -21,11 +21,13 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Duplicate notifications for the same Issue do not create jobs for already tracked entities
 - Failed analysis jobs are retried with exponential backoff; permanently failed jobs are logged
 - Knowledge graph schema supports storing entities and relationships as Nodes and Edges with flexible metadata
+- Ontology-guided extraction pipeline extracts (Rubyist, Maintenance|Contribute, CoreModule|Stdlib) triplets from Issue/Journal content via LLM
+- Extracted triplets are validated against ontology constraints before writing to the knowledge graph
 
 ## Non-goals
 
-- Ontology processing — No semantic classification or concept association
-- LLM integration — No natural language summarization or intelligent analysis
+- Ontology evolution — The ontology is static and predefined; automatic discovery or modification of node types and relationship types is out of scope
+- Multi-hop reasoning — No inference chains or logical deduction across multiple edges; graph traversal queries are supported for exploration but do not derive new knowledge
 - User authentication and access control
 - Frontend UI
 - Multi-worker concurrency
@@ -38,8 +40,8 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 The complete system encompasses four capabilities:
 
 1. **Webhook reception** — Receive issue change notifications, fetch data from the Redmine API, and track analyzed entities
-2. **Ontology processing** — Extract concepts and relationships from issue data, building a semantic model
-3. **Knowledge graph construction** — Transform the semantic model into a graph structure
+2. **Ontology-guided extraction** — Use a predefined ontology and LLM to extract structured triplets from issue data
+3. **Knowledge graph construction** — Write validated triplets into a directed property graph
 4. **Query and exploration** — Provide APIs and interfaces for querying the knowledge graph
 
 ## Features
@@ -52,6 +54,9 @@ The complete system encompasses four capabilities:
 6. **Health check endpoint** — Report application availability status
 7. **Container deployment** — Package the application as a container image for deployment
 8. **Knowledge graph storage** — Store entities and relationships as a directed graph using Node and Edge tables with flexible metadata
+9. **Ontology definition** — Define permitted node types, relationship types, and domain-range constraints that govern the knowledge graph structure
+10. **Triplet extraction** — Use an LLM to extract (Rubyist, Relationship, Module) triplets from Issue and Journal content
+11. **Ontology validation** — Validate extracted triplets against ontology constraints before writing to the knowledge graph
 
 ## User Journeys
 
@@ -72,6 +77,18 @@ The complete system encompasses four capabilities:
 - **Context**: The same Issue is notified multiple times because new journal replies have been added
 - **Action**: The Webhook compares against the tracking table to identify journals that have not yet been tracked
 - **Outcome**: Only newly added journals have jobs enqueued; previously analyzed journals are not affected
+
+### Knowledge Graph Construction
+
+- **Context**: The Analysis Service dequeues a job carrying Issue or Journal data
+- **Action**: The system sends the job content to an LLM for triplet extraction, validates extracted triplets against the ontology, normalizes entities, and writes valid triplets to the knowledge graph as Nodes and Edges
+- **Outcome**: The knowledge graph contains validated (Rubyist, Maintenance|Contribute, CoreModule|Stdlib) relationships with temporal qualifiers linking back to the source entity
+
+### Time-based Query Filtering
+
+- **Context**: A researcher queries the knowledge graph for relationships related to a specific Module
+- **Action**: The query specifies a time range to filter edges by their `observed_at` qualifier
+- **Outcome**: Only relationships observed within the specified time range are returned, enabling analysis of how involvement patterns change over time
 
 ### Job Retry on Failure
 
@@ -135,7 +152,7 @@ Content-Type: `application/json`
 
 **Data source**: `https://bugs.ruby-lang.org/issues/{id}.json?include=journals`
 
-After receiving a Webhook, Lapidary fetches Issue data from the Redmine JSON API. The request includes the `include=journals` parameter to capture both the original author and all respondent data. The fetched data is attached to each analysis job so that the Analysis Service can process it without calling external APIs.
+After receiving a Webhook, Lapidary fetches Issue data from the Redmine JSON API. The request includes the `include=journals` parameter to capture both the original author and all respondent data. The fetched data is attached to each analysis job so that the Analysis Service can process it without calling the Redmine API.
 
 **Redmine API response structure** (relevant fields):
 
@@ -185,6 +202,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 | `content` | `issue.subject` | String | Issue title/content |
 | `author_username` | `issue.author.name` (before parentheses) | String | Author account name |
 | `author_display_name` | `issue.author.name` (inside parentheses) | String | Author display name |
+| `created_on` | `issue.created_on` | DateTime | Issue creation timestamp (used as `observed_at` for graph edges) |
 
 *Journal Job Arguments:*
 
@@ -197,6 +215,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 | `author_display_name` | `journal.user.name` (inside parentheses) | String | Respondent display name |
 | `issue_id` | `issue.id` | Integer | Associated Issue ID |
 | `issue_content` | `issue.subject` | String | Associated Issue title (provides context) |
+| `created_on` | `journal.created_on` | DateTime | Journal creation timestamp (used as `observed_at` for graph edges) |
 
 ### Analysis Tracking
 
@@ -249,7 +268,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 - `claimed` → `failed`: Processing fails and max attempts exceeded
 - `claimed` → `pending`: Processing fails but retries remain, or graceful shutdown releases the job
 
-**Data strategy**: Each job carries all data needed for analysis. The Analysis Service processes jobs without calling external APIs.
+**Data strategy**: Each job carries all data needed from the Redmine API. The Analysis Service does not call the Redmine API, but does call an LLM API for triplet extraction.
 
 ### Analysis Service
 
@@ -264,21 +283,38 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 
 **Analysis domain model**:
 
-Job Arguments capture the data needed to identify relationships between Authors and Ruby Core Modules:
+Job Arguments capture the data needed to identify relationships between Rubyists and Ruby Core Modules. The Analysis Service uses an ontology-guided extraction pipeline inspired by the Wikontic methodology (see [Ontology](docs/ontology.md) for complete type enumerations and theoretical background).
 
-- **Issue**: Relationship between the Issue Author and a Ruby Core Module based on Issue content
-- **Journal**: Relationship between the Journal Author and a Ruby Core Module based on Journal content combined with the associated Issue content (for context)
+The pipeline processes each job through four stages:
 
-**Relationship scenarios**:
+**1. Triplet Extraction** — An LLM receives the Job Arguments and outputs candidate triplets.
 
-| Scenario | Entity Type | Author Role | Analysis Focus |
-|----------|-------------|-------------|----------------|
-| Ruby Committer reports a feature/bug | Issue | Ruby Committer | Author's maintenance relationship with the related Module |
-| Rubyist reports a feature/proposal | Issue | Rubyist | Author's usage relationship with the related Module |
-| Discussion participant replies | Journal | Participant | Author's participation relationship with the related Module |
-| Ruby Committer provides feedback | Journal | Ruby Committer | Author's review relationship with the related Module |
+- *Input*: `entity_type`, `content`, `author_username`, `author_display_name`, and for journals: `issue_id`, `issue_content`
+- *Output*: Zero or more triplets of the form `{ subject: Rubyist, relationship: Maintenance | Contribute, object: CoreModule | Stdlib }`
+- The LLM prompt includes the ontology schema (permitted types and constraints) to guide extraction
+- The LLM may return zero triplets if the content does not describe a relevant relationship
 
-The system treats all authors uniformly. Role distinction (Committer vs Rubyist) and specific relationship typing are not defined by this specification.
+**2. Ontology Validation** — Each candidate triplet is validated against the ontology constraints.
+
+- Subject node type must be `Rubyist`
+- Object node type must be `CoreModule` or `Stdlib`
+- Relationship must be `Maintenance` or `Contribute`
+- The relationship's domain-range constraint must be satisfied (see [Ontology](docs/ontology.md))
+- Object name must exist in the curated module list
+- Triplets that fail validation are rejected and logged at `warn` level
+
+**3. Entity Normalization** — Validated triplets are normalized to canonical entities.
+
+- Author names are resolved to a canonical Rubyist node (e.g., `"matz"` and `"Yukihiro Matsumoto"` map to the same node)
+- Module names are resolved to a canonical CoreModule or Stdlib node (e.g., case normalization, alias resolution)
+
+**4. Graph Writing** — Normalized triplets are written to the knowledge graph.
+
+- Subject and object are created as Nodes (upserted by canonical identity)
+- The relationship is upserted as an Edge; an observation record is appended to the `observations` array in `properties`:
+  - `observed_at`: the `created_on` timestamp from the source Issue or Journal
+  - `source_entity_type`: `issue` or `journal`
+  - `source_entity_id`: the ID of the source entity
 
 **Retry behavior**:
 
@@ -292,19 +328,20 @@ The system treats all authors uniformly. Role distinction (Committer vs Rubyist)
 
 ### Knowledge Graph Schema
 
-**Purpose**: Store entities and their relationships as a directed property graph.
+**Purpose**: Store entities and their relationships as a directed property graph, governed by the ontology.
 
 **Node table**:
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | Text (PK) | Unique node identifier |
-| `type` | Text (NOT NULL) | Node classification (e.g., `issue`, `journal`, `author`, `module`) |
+| `type` | Text (NOT NULL) | Node classification — constrained to ontology types: `Rubyist`, `CoreModule`, `Stdlib` |
 | `data` | Text (JSON) | Flexible metadata as JSON |
 | `created_at` | DateTime | Creation timestamp |
 | `updated_at` | DateTime | Last update timestamp |
 
 - `type` is indexed for efficient filtering
+- `type` values are constrained by the ontology (see [Ontology](docs/ontology.md))
 
 **Edge table**:
 
@@ -312,25 +349,49 @@ The system treats all authors uniformly. Role distinction (Committer vs Rubyist)
 |-------|------|-------------|
 | `source` | Text (NOT NULL, FK → nodes.id) | Source node |
 | `target` | Text (NOT NULL, FK → nodes.id) | Target node |
-| `relationship` | Text (NOT NULL) | Relationship type |
-| `properties` | Text (JSON) | Flexible metadata as JSON |
+| `relationship` | Text (NOT NULL) | Relationship type — constrained to ontology types: `Maintenance`, `Contribute` |
+| `properties` | Text (JSON) | Edge metadata as JSON, including temporal qualifiers |
 | `created_at` | DateTime | Creation timestamp |
 | `updated_at` | DateTime | Last update timestamp |
 
 - Directed: `source → target`
 - `UNIQUE(source, target, relationship)` — one relationship type per node pair
 - Indexes on `source` and `target` for traversal performance
+- `relationship` values are constrained by the ontology (see [Ontology](docs/ontology.md))
+
+**Edge `properties` qualifiers**:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `observations` | Array | List of observation records, one per source entity that produced this edge |
+
+Each observation record contains:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `observed_at` | DateTime | Timestamp of the source Issue or Journal (`created_on`) |
+| `source_entity_type` | String | `issue` or `journal` — provenance of this observation |
+| `source_entity_id` | Integer | ID of the source entity |
+
+**Edge upsert behavior**: When a triplet matches an existing edge (`UNIQUE(source, target, relationship)`), the new observation is appended to the `observations` array. Existing observations are preserved. Duplicate observations (same `source_entity_type` + `source_entity_id`) are not added.
 
 **CTE Query patterns**:
 
 1. **Neighbor query** — Find all nodes connected to a given node (outbound, inbound, or both)
 2. **Traversal query** — Recursive CTE to walk the graph N hops from a starting node
 
+**Time-based query filtering**:
+
+- Queries may specify a time range to filter edges by `observed_at` values in the `observations` array
+- An edge is included if at least one of its observations falls within the specified time range
+- When no time range is specified, all edges are included
+
 **Constraints**:
 
-- Node `type` and Edge `relationship` values are not constrained by the schema
+- Node `type` values must be one of the types defined in the ontology
+- Edge `relationship` values must be one of the relationships defined in the ontology
+- Edge `source` and `target` must satisfy the domain-range constraints for the given `relationship`
 - Multiple edges with different `relationship` types between the same node pair are allowed
-- Self-referencing edges (source = target) are permitted
 
 ### Error Scenarios
 
@@ -354,6 +415,9 @@ The system treats all authors uniformly. Role distinction (Committer vs Rubyist)
 | Analysis record write failure | Retry with exponential backoff |
 | Maximum retry attempts exceeded | Mark job as permanently failed, log error |
 | Unexpected error during processing | Retry or mark as failed depending on remaining attempts |
+| LLM extraction failure (timeout, API error) | Retry with exponential backoff (counts as a job attempt) |
+| LLM output fails ontology validation | Reject the invalid triplet, log warning; valid triplets from the same response are still written |
+| Module name not in curated list | Reject the triplet, log warning with the unrecognized module name |
 
 ### Global Error Handling
 
@@ -443,10 +507,19 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Job | A deferred work unit carrying analysis data, stored in the database for asynchronous processing |
 | Job Queue | A database-backed queue that holds pending analysis jobs |
 | Analysis Service | A background worker service that dequeues and processes analysis jobs |
-| Ruby Core Module | A core module of Ruby (e.g., String, Array, IO), represented as a node in the knowledge graph |
-| Node | A vertex in the knowledge graph representing an entity (e.g., Issue, Author, Module) |
+| Rubyist | A person who participates in Ruby development discussions, represented as a node in the knowledge graph |
+| CoreModule | A core module built into the Ruby interpreter (e.g., String, Array, IO), represented as a node in the knowledge graph |
+| Stdlib | A standard library shipped with Ruby (e.g., net/http, json, openssl), represented as a node in the knowledge graph |
+| Maintenance | A relationship indicating a Ruby committer maintains or is responsible for a module |
+| Contribute | A relationship indicating a Rubyist contributes to or interacts with a module |
+| Node | A vertex in the knowledge graph representing an entity (e.g., Rubyist, CoreModule, Stdlib) |
 | Edge | A directed connection between two Nodes representing a relationship |
 | Property Graph | A graph model where both Nodes and Edges can carry key-value metadata |
+| Triplet | A (subject, relationship, object) triple — the fundamental unit of the knowledge graph |
+| Domain-Range Constraint | A rule defining which node types a relationship may legally connect (domain = source type, range = target type) |
+| Entity Normalization | Resolving different textual representations to a single canonical entity (e.g., mapping aliases to one node) |
+| Ontology Entailment | The degree to which extracted triplets conform to the predefined ontology constraints |
+| Qualifier | Contextual metadata attached to an Edge (e.g., observation time, provenance) |
 
 ## Patterns
 
@@ -460,10 +533,16 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Safe error response | Unhandled exceptions are converted into a generic error message, never leaking internal details | Global Error Handling |
 | Polymorphic tracking | A single table using `type` + `id` columns to track multiple entity types | Analysis Records tracking Issue and Journal |
 | Property graph | Nodes and Edges store flexible metadata as JSON, enabling schema evolution without migrations | Knowledge Graph Schema |
+| Ontology-guided extraction | Use a predefined ontology (types + constraints) to guide LLM extraction, ensuring structural consistency of outputs | Triplet extraction |
+| Temporal qualifier | Edges carry an observation timestamp, enabling time-range filtering to exclude stale relationships | Knowledge Graph edges |
 
 ## Architecture
 
 See [Architecture](docs/architecture.md) for component structure, layers, and data flow design.
+
+## Ontology
+
+See [Ontology](docs/ontology.md) for complete node/relationship enumerations, domain-range constraints, curated module lists, and theoretical background.
 
 ## Technical Decisions
 
@@ -486,7 +565,7 @@ See [Architecture](docs/architecture.md) for component structure, layers, and da
 | Deployment method | Container (Docker) | Portable, reproducible, consistent across environments |
 | Container build | Multi-stage build | Smaller image size, separates build and runtime dependencies |
 | Webhook processing model | Fetch from Redmine API then enqueue analysis jobs asynchronously | Decouples data fetching from analysis processing |
-| Job data strategy | Jobs carry all data needed for analysis | Analysis Service does not need to call external APIs |
+| Job data strategy | Jobs carry all Redmine data needed for analysis | Analysis Service does not call the Redmine API; LLM API is called separately for extraction |
 | Job granularity | One job per entity | Fine-grained retry, independent failure handling |
 | Job queue storage | SQLite (same database) | Zero external dependencies |
 | Worker concurrency | Single worker, sequential processing | Simple, minimizes SQLite write contention |
@@ -498,6 +577,8 @@ See [Architecture](docs/architecture.md) for component structure, layers, and da
 | Edge directionality | Directed graph | Relationships have explicit source and target |
 | Metadata storage | JSON text columns | Flexible, schema-free properties |
 | Graph traversal | SQL CTE | Leverages SQLite's recursive CTE support, no external engine needed |
+| Ontology approach | Wikontic-inspired (static ontology + LLM extraction + validation) | Predefined types ensure consistent graph structure; LLM handles unstructured text |
+| Ontology enumeration storage | `docs/ontology.md` | Keeps SPEC.md focused on decisions; detailed enumerations live in a dedicated document |
 
 ### To Be Decided
 
@@ -507,3 +588,5 @@ See [Architecture](docs/architecture.md) for component structure, layers, and da
 | Logging solution | Ruby Logger / dry-logger | Logging framework to be selected |
 | Job cleanup strategy | TTL-based deletion / archival / manual purge | How to handle completed and permanently failed jobs over time |
 | Node ID generation strategy | UUID / ULID / custom | Format to be chosen during implementation |
+| LLM provider | OpenAI / Anthropic / local model | Provider and model to be selected during implementation |
+| Entity normalization strategy | Alias table / embedding similarity | Implementation mechanism for mapping author and module name variants to canonical entities |
