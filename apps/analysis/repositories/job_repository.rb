@@ -32,7 +32,7 @@ module Analysis
       def save(job)
         with_error_wrapping do
           dataset.where(id: job.id).update(
-            status: job.status, attempts: job.attempts,
+            status: job.status.to_s, attempts: job.attempts,
             error: job.error, scheduled_at: job.scheduled_at,
             updated_at: job.updated_at || Time.now
           )
@@ -44,7 +44,7 @@ module Analysis
       def job_attributes(job, now)
         {
           arguments: JSON.generate(job.arguments),
-          status: job.status, attempts: job.attempts,
+          status: job.status.to_s, attempts: job.attempts,
           max_attempts: job.max_attempts, scheduled_at: job.scheduled_at,
           created_at: now, updated_at: now
         }
@@ -54,15 +54,15 @@ module Analysis
         job_id = pending_query(now).get(:id)
         return nil unless job_id
 
-        updated = dataset.where(id: job_id, status: 'pending')
-                         .update(status: 'claimed', updated_at: now)
+        updated = dataset.where(id: job_id, status: Entities::JobStatus::PENDING.to_s)
+                         .update(status: Entities::JobStatus::CLAIMED.to_s, updated_at: now)
         return nil if updated.zero?
 
         dataset.where(id: job_id).first
       end
 
       def pending_query(now)
-        dataset.where(status: 'pending')
+        dataset.where(status: Entities::JobStatus::PENDING.to_s)
                .where { scheduled_at <= now }
                .order(:scheduled_at).limit(1)
       end
@@ -73,6 +73,7 @@ module Analysis
           :scheduled_at, :updated_at
         )
         attrs[:arguments] = JSON.parse(row[:arguments], symbolize_names: true)
+        attrs[:status] = Entities::JobStatus.new(value: attrs[:status])
         Entities::Job.new(**attrs)
       end
     end

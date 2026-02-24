@@ -13,7 +13,7 @@ RSpec.describe Analysis::Repositories::JobRepository do
 
       row = Lapidary::Container['database'][:jobs].first
       expect(JSON.parse(row[:arguments], symbolize_names: true)).to eq(entity_type: 'issue', entity_id: 1)
-      expect(row[:status]).to eq('pending')
+      expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
     end
 
     it 'sets created_at and updated_at' do
@@ -44,7 +44,7 @@ RSpec.describe Analysis::Repositories::JobRepository do
         repository.claim_next
 
         row = Lapidary::Container['database'][:jobs].first
-        expect(row[:status]).to eq('claimed')
+        expect(row[:status]).to eq(Analysis::Entities::JobStatus::CLAIMED.to_s)
       end
     end
 
@@ -88,7 +88,7 @@ RSpec.describe Analysis::Repositories::JobRepository do
       repository.save(claimed)
 
       row = Lapidary::Container['database'][:jobs].where(id: claimed.id).first
-      expect(row[:status]).to eq('done')
+      expect(row[:status]).to eq(Analysis::Entities::JobStatus::DONE.to_s)
     end
 
     it 'updates scheduled_at in the database' do

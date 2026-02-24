@@ -39,7 +39,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         use_case.call
 
         row = Lapidary::Container['database'][:jobs].first
-        expect(row[:status]).to eq('done')
+        expect(row[:status]).to eq(Analysis::Entities::JobStatus::DONE.to_s)
       end
     end
 
@@ -59,8 +59,8 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         use_case.call
 
         db = Lapidary::Container['database']
-        expect(db[:jobs].where(status: 'done').count).to eq(1)
-        expect(db[:jobs].where(status: 'pending').count).to eq(1)
+        expect(db[:jobs].where(status: Analysis::Entities::JobStatus::DONE.to_s).count).to eq(1)
+        expect(db[:jobs].where(status: Analysis::Entities::JobStatus::PENDING.to_s).count).to eq(1)
       end
     end
 
@@ -78,7 +78,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         use_case.call
 
         row = Lapidary::Container['database'][:jobs].first
-        expect(row[:status]).to eq('pending')
+        expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
         expect(row[:attempts]).to eq(1)
       end
 
@@ -104,7 +104,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         use_case.call
 
         row = Lapidary::Container['database'][:jobs].first
-        expect(row[:status]).to eq('failed')
+        expect(row[:status]).to eq(Analysis::Entities::JobStatus::FAILED.to_s)
       end
 
       it 'logs an error' do
