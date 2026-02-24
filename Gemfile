@@ -13,6 +13,10 @@ gem 'sinatra'
 gem 'sqlite3'
 gem 'zeitwerk'
 
+group :development do
+  gem 'dotenv'
+end
+
 group :development, :test do
   gem 'rubocop', require: false
 end
