@@ -3,6 +3,6 @@
 
 module Analysis
   module Entities
-    class GraphError < StandardError; end
+    class GraphError < ProcessingError; end
   end
 end

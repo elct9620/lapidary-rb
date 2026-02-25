@@ -3,6 +3,6 @@
 
 module Analysis
   module Entities
-    class JobError < StandardError; end
+    class JobError < ProcessingError; end
   end
 end

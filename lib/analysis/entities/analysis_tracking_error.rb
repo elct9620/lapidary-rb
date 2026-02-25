@@ -3,6 +3,6 @@
 
 module Analysis
   module Entities
-    class AnalysisTrackingError < StandardError; end
+    class AnalysisTrackingError < ProcessingError; end
   end
 end

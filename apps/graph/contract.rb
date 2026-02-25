@@ -22,16 +22,13 @@ module Graph
       key.failure('must be outbound, inbound, or both') if key? && !%w[outbound inbound both].include?(value)
     end
 
-    rule(:observed_after) do
+    register_macro(:iso8601_datetime) do
       Time.iso8601(value) if key?
     rescue ArgumentError
       key.failure('must be a valid ISO 8601 datetime')
     end
 
-    rule(:observed_before) do
-      Time.iso8601(value) if key?
-    rescue ArgumentError
-      key.failure('must be a valid ISO 8601 datetime')
-    end
+    rule(:observed_after).validate(:iso8601_datetime)
+    rule(:observed_before).validate(:iso8601_datetime)
   end
 end

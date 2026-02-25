@@ -3,6 +3,6 @@
 
 module Analysis
   module Entities
-    class ExtractionError < ProcessingError; end
+    class ProcessingError < StandardError; end
   end
 end
