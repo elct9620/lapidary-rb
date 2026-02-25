@@ -8,7 +8,7 @@ Lapidary::Container.register_provider(:llm) do
   start do
     RubyLLM.configure do |config|
       config.openai_api_key = ENV.fetch('OPENAI_API_KEY', nil)
-      config.default_model = 'gpt-5-mini'
+      config.default_model = ENV.fetch('OPENAI_MODEL', 'gpt-5-mini')
     end
 
     register('llm', RubyLLM)

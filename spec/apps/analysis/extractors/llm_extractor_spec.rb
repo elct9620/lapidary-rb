@@ -16,7 +16,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
   describe '#call' do
     context 'with a valid LLM response' do
-      let(:job_arguments) { { entity_type: 'issue', entity_id: 12_345 } }
+      let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 12_345) }
 
       before do
         allow(response).to receive(:content).and_return(
@@ -84,7 +84,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end
 
       it 'returns an empty array' do
-        expect(extractor.call({ entity_type: 'issue', entity_id: 1 })).to eq([])
+        expect(extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))).to eq([])
       end
     end
 
@@ -94,7 +94,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end
 
       it 'returns an empty array' do
-        expect(extractor.call({ entity_type: 'issue', entity_id: 1 })).to eq([])
+        expect(extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))).to eq([])
       end
     end
 
@@ -104,7 +104,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end
 
       it 'returns an empty array' do
-        expect(extractor.call({ entity_type: 'issue', entity_id: 1 })).to eq([])
+        expect(extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))).to eq([])
       end
     end
 
@@ -134,7 +134,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end
 
       it 'skips incomplete triplets and returns only valid ones' do
-        triplets = extractor.call({ entity_type: 'issue', entity_id: 1 })
+        triplets = extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
 
         expect(triplets.size).to eq(1)
         expect(triplets.first.subject.name).to eq('matz')
@@ -158,7 +158,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
       it 'raises ExtractionError wrapping the KeyError' do
         expect do
-          extractor.call({ entity_type: 'issue', entity_id: 1 })
+          extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
         end.to raise_error(Analysis::Entities::ExtractionError)
       end
     end
@@ -180,7 +180,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
       it 'raises ExtractionError wrapping the KeyError' do
         expect do
-          extractor.call({ entity_type: 'issue', entity_id: 1 })
+          extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
         end.to raise_error(Analysis::Entities::ExtractionError)
       end
     end
@@ -196,13 +196,14 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end
 
       it 'delegates prompt building to PromptBuilder' do
-        extractor.call({ entity_type: 'issue', entity_id: 1 })
+        extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
 
-        expect(prompt_builder).to have_received(:call).with({ entity_type: 'issue', entity_id: 1 })
+        expect(prompt_builder).to have_received(:call).with(Analysis::Entities::JobArguments.new(entity_type: 'issue',
+                                                                                                 entity_id: 1))
       end
 
       it 'sends the built prompt to the LLM' do
-        extractor.call({ entity_type: 'issue', entity_id: 1 })
+        extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
 
         expect(chat).to have_received(:ask).with('test prompt')
       end
@@ -210,12 +211,12 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
     context 'when LLM API fails' do
       before do
-        allow(chat).to receive(:ask).and_raise(StandardError, 'API connection failed')
+        allow(chat).to receive(:ask).and_raise(RubyLLM::Error.new(nil, 'API connection failed'))
       end
 
       it 'wraps the error as ExtractionError' do
         expect do
-          extractor.call({ entity_type: 'issue', entity_id: 1 })
+          extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
         end.to raise_error(Analysis::Entities::ExtractionError, 'API connection failed')
       end
     end

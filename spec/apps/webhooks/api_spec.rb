@@ -101,7 +101,6 @@ RSpec.describe Webhooks::API do
           entity_id: 102,
           content: 'Second comment',
           author_username: 'ko1',
-          author_display_name: nil,
           issue_id: 1,
           issue_content: 'Test issue'
         )

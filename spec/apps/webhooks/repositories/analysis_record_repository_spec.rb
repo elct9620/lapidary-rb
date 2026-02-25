@@ -11,20 +11,6 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
     db[:analysis_records].insert(entity_type: entity_type, entity_id: entity_id, analyzed_at: Time.now)
   end
 
-  describe '#exists?' do
-    it 'returns false when no record exists' do
-      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 999)
-      expect(repository.exists?(record)).to be false
-    end
-
-    it 'returns true when a record exists' do
-      insert_record(entity_type: 'issue', entity_id: 1)
-
-      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
-      expect(repository.exists?(record)).to be true
-    end
-  end
-
   describe '#untracked' do
     def build_journal_records(*ids)
       ids.map { |id| Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: id) }
@@ -80,12 +66,6 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
       Lapidary::Container['database'].drop_table(:analysis_records)
     end
 
-    it '#exists? raises AnalysisTrackingError' do
-      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
-
-      expect { repository.exists?(record) }.to raise_error(Webhooks::Entities::AnalysisTrackingError)
-    end
-
     it '#untracked raises AnalysisTrackingError' do
       records = [Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 1)]
       expect { repository.untracked(records) }.to raise_error(Webhooks::Entities::AnalysisTrackingError)
@@ -93,15 +73,6 @@ RSpec.describe Webhooks::Repositories::AnalysisRecordRepository do
   end
 
   describe 'error wrapping' do
-    it 'wraps Sequel::DatabaseError from #exists? as AnalysisTrackingError' do
-      record = Webhooks::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
-      allow(db).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')
-
-      expect do
-        repository.exists?(record)
-      end.to raise_error(Webhooks::Entities::AnalysisTrackingError, 'connection lost')
-    end
-
     it 'wraps Sequel::DatabaseError from #untracked as AnalysisTrackingError' do
       records = [Webhooks::Entities::AnalysisRecord.new(entity_type: 'journal', entity_id: 1)]
       allow(db).to receive(:[]).and_raise(Sequel::DatabaseError, 'connection lost')

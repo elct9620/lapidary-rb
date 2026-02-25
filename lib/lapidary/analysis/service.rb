@@ -28,7 +28,9 @@ module Lapidary
         loop do
           processed = use_case.call
           sleep POLL_INTERVAL unless processed
-        rescue StandardError => e
+        rescue ::Analysis::Entities::AnalysisTrackingError,
+               ::Analysis::Entities::JobError,
+               ::Analysis::Entities::ExtractionError => e
           logger.error(self) { "Job processing error: #{e.class}: #{e.message}" }
           sleep POLL_INTERVAL
         end

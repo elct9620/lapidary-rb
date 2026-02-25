@@ -22,7 +22,8 @@ RSpec.describe Analysis::UseCases::ProcessJob do
   describe '#call' do
     context 'when there is a pending job' do
       before do
-        job = Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 })
+        job = Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(entity_type: 'issue',
+                                                                                          entity_id: 1))
         job_repository.enqueue(job)
       end
 
@@ -55,8 +56,12 @@ RSpec.describe Analysis::UseCases::ProcessJob do
 
     context 'with multiple pending jobs' do
       before do
-        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
-        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'journal', entity_id: 101 }))
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1
+        )))
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'journal', entity_id: 101
+        )))
       end
 
       it 'processes one job per call' do
@@ -70,7 +75,9 @@ RSpec.describe Analysis::UseCases::ProcessJob do
 
     context 'when processing fails' do
       before do
-        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1
+        )))
         allow(analysis_record_repository).to receive(:save)
           .and_raise(Analysis::Entities::AnalysisTrackingError, 'connection lost')
       end
@@ -98,7 +105,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
     context 'when processing fails and max attempts reached' do
       before do
         job = Analysis::Entities::Job.new(
-          arguments: { entity_type: 'issue', entity_id: 1 },
+          arguments: Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1),
           attempts: 2, max_attempts: 3
         )
         job_repository.enqueue(job)
@@ -122,7 +129,9 @@ RSpec.describe Analysis::UseCases::ProcessJob do
 
     context 'when extraction produces valid triplets' do
       before do
-        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1
+        )))
       end
 
       it 'does not log any warnings' do
@@ -149,7 +158,9 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       before do
-        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1
+        )))
       end
 
       it 'logs warnings for invalid triplets' do
@@ -174,7 +185,9 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       before do
-        job_repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1
+        )))
       end
 
       it 'retries the job via existing error handling' do

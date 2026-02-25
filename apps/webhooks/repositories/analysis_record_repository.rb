@@ -10,12 +10,6 @@ module Webhooks
       table :analysis_records
       wraps_errors Entities::AnalysisTrackingError
 
-      def exists?(record)
-        with_error_wrapping do
-          dataset.where(entity_type: record.entity_type.to_s, entity_id: record.entity_id).any?
-        end
-      end
-
       def untracked(records)
         return [] if records.empty?
 

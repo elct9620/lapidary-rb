@@ -11,6 +11,8 @@ module Analysis
       wraps_errors Entities::AnalysisTrackingError
 
       def save(record)
+        raise Entities::AnalysisTrackingError, 'cannot save unanalyzed record' unless record.analyzed_at
+
         with_error_wrapping do
           dataset.insert_conflict(target: %i[entity_type entity_id]).insert(
             entity_type: record.entity_type.to_s,

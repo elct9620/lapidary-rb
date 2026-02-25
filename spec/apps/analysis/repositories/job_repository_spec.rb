@@ -5,7 +5,7 @@ require 'spec_helper'
 RSpec.describe Analysis::Repositories::JobRepository do
   subject(:repository) { Lapidary::Container['analysis.repositories.job_repository'] }
 
-  let(:job) { Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }) }
+  let(:job) { Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1)) }
 
   describe '#enqueue' do
     it 'inserts a pending job into the database' do
@@ -37,7 +37,8 @@ RSpec.describe Analysis::Repositories::JobRepository do
 
       it 'returns the job with correct attributes' do
         claimed = repository.claim_next
-        expect(claimed.arguments).to eq(entity_type: 'issue', entity_id: 1)
+        expect(claimed.arguments.entity_type).to eq('issue')
+        expect(claimed.arguments.entity_id).to eq(1)
       end
 
       it 'marks the job as claimed in the database' do
@@ -56,7 +57,10 @@ RSpec.describe Analysis::Repositories::JobRepository do
 
     context 'when jobs are scheduled in the future' do
       let(:future_job) do
-        Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }, scheduled_at: Time.now + 3600)
+        Analysis::Entities::Job.new(
+          arguments: Analysis::Entities::JobArguments.new(entity_type: 'issue',
+                                                          entity_id: 1), scheduled_at: Time.now + 3600
+        )
       end
 
       before { repository.enqueue(future_job) }
@@ -68,13 +72,17 @@ RSpec.describe Analysis::Repositories::JobRepository do
 
     context 'with multiple pending jobs' do
       before do
-        repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }))
-        repository.enqueue(Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 2 }))
+        repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1
+        )))
+        repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 2
+        )))
       end
 
       it 'claims the oldest job first' do
         claimed = repository.claim_next
-        expect(claimed.arguments[:entity_id]).to eq(1)
+        expect(claimed.arguments.entity_id).to eq(1)
       end
     end
   end

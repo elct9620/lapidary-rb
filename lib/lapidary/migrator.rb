@@ -8,6 +8,11 @@ module Lapidary
   class Migrator
     include Dependency['database', 'logger']
 
+    def initialize(migrations_path: nil, **deps)
+      super(**deps)
+      @migrations_path = migrations_path
+    end
+
     def check
       return unless migrations_available?
       return if Sequel::Migrator.is_current?(database, migrations_path)

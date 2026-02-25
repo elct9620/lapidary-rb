@@ -17,37 +17,35 @@ module Webhooks
 
       def build_issue(data)
         issue_data = data['issue']
-        username, display_name = parse_author_name(issue_data.dig('author', 'name'))
+        author = parse_author(issue_data.dig('author', 'name'))
         journals = (issue_data['journals'] || []).map { |j| build_journal(j) }
 
         Entities::Issue.new(
           id: issue_data['id'],
           subject: issue_data['subject'],
-          author_username: username,
-          author_display_name: display_name,
+          author: author,
           journals: journals
         )
       end
 
       def build_journal(data)
-        username, display_name = parse_author_name(data.dig('user', 'name'))
+        author = parse_author(data.dig('user', 'name'))
 
         Entities::Journal.new(
           id: data['id'],
           notes: data['notes'],
-          author_username: username,
-          author_display_name: display_name
+          author: author
         )
       end
 
-      def parse_author_name(name)
-        return [nil, nil] unless name
+      def parse_author(name)
+        return nil unless name
 
         match = name.match(/\A(.+?)\s*\((.+)\)\z/)
         if match
-          [match[1].strip, match[2].strip]
+          Entities::Author.new(username: match[1].strip, display_name: match[2].strip)
         else
-          [name.strip, nil]
+          Entities::Author.new(username: name.strip, display_name: nil)
         end
       end
     end

@@ -24,11 +24,12 @@ RSpec.describe Webhooks::Entities::Journal do
 
   describe '#author_username' do
     it 'returns the author username' do
-      journal = described_class.new(id: 101, author_username: 'nobu')
+      author = Webhooks::Entities::Author.new(username: 'nobu', display_name: nil)
+      journal = described_class.new(id: 101, author: author)
       expect(journal.author_username).to eq('nobu')
     end
 
-    it 'defaults to nil' do
+    it 'defaults to nil when no author' do
       journal = described_class.new(id: 101)
       expect(journal.author_username).to be_nil
     end
@@ -36,11 +37,12 @@ RSpec.describe Webhooks::Entities::Journal do
 
   describe '#author_display_name' do
     it 'returns the author display name' do
-      journal = described_class.new(id: 101, author_display_name: 'Nobuyoshi Nakada')
+      author = Webhooks::Entities::Author.new(username: 'nobu', display_name: 'Nobuyoshi Nakada')
+      journal = described_class.new(id: 101, author: author)
       expect(journal.author_display_name).to eq('Nobuyoshi Nakada')
     end
 
-    it 'defaults to nil' do
+    it 'defaults to nil when no author' do
       journal = described_class.new(id: 101)
       expect(journal.author_display_name).to be_nil
     end

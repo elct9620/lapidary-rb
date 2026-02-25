@@ -16,7 +16,7 @@ module Analysis
 
           ## Content
 
-          #{job_arguments[:entity_type].capitalize} ##{job_arguments[:entity_id]}
+          #{job_arguments.entity_type.capitalize} ##{job_arguments.entity_id}
         PROMPT
       end
 

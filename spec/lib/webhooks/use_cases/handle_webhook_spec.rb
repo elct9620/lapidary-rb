@@ -16,15 +16,22 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
 
   let(:journals) do
     [
-      Webhooks::Entities::Journal.new(id: 101, notes: 'First comment', author_username: 'nobu',
-                                      author_display_name: 'Nobuyoshi Nakada'),
-      Webhooks::Entities::Journal.new(id: 102, notes: 'Second comment', author_username: 'ko1',
-                                      author_display_name: 'Koichi Sasada')
+      Webhooks::Entities::Journal.new(
+        id: 101, notes: 'First comment',
+        author: Webhooks::Entities::Author.new(username: 'nobu', display_name: 'Nobuyoshi Nakada')
+      ),
+      Webhooks::Entities::Journal.new(
+        id: 102, notes: 'Second comment',
+        author: Webhooks::Entities::Author.new(username: 'ko1', display_name: 'Koichi Sasada')
+      )
     ]
   end
   let(:issue) do
-    Webhooks::Entities::Issue.new(id: 42, subject: 'Add new feature', author_username: 'matz',
-                                  author_display_name: 'Yukihiro Matsumoto', journals: journals)
+    Webhooks::Entities::Issue.new(
+      id: 42, subject: 'Add new feature',
+      author: Webhooks::Entities::Author.new(username: 'matz', display_name: 'Yukihiro Matsumoto'),
+      journals: journals
+    )
   end
   let(:issue_repository) { instance_double(Webhooks::Repositories::IssueRepository, find: issue) }
 

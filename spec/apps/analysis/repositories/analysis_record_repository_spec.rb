@@ -22,6 +22,14 @@ RSpec.describe Analysis::Repositories::AnalysisRecordRepository do
       expect(row[:analyzed_at]).not_to be_nil
     end
 
+    it 'raises AnalysisTrackingError for unanalyzed record' do
+      record = Analysis::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
+
+      expect { repository.save(record) }.to raise_error(
+        Analysis::Entities::AnalysisTrackingError, 'cannot save unanalyzed record'
+      )
+    end
+
     it 'does not raise on duplicate insert' do
       record = build_record(entity_type: 'issue', entity_id: 1)
       repository.save(record)

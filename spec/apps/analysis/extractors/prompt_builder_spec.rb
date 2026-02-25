@@ -9,7 +9,7 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
     let(:prompt) { prompt_builder.call(job_arguments) }
 
     context 'with an issue job' do
-      let(:job_arguments) { { entity_type: 'issue', entity_id: 12_345 } }
+      let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 12_345) }
 
       it 'includes issue content in the prompt' do
         expect(prompt).to match(/Issue #12345/)
@@ -17,7 +17,7 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
     end
 
     context 'with a journal job' do
-      let(:job_arguments) { { entity_type: 'journal', entity_id: 67_890 } }
+      let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'journal', entity_id: 67_890) }
 
       it 'includes journal content in the prompt' do
         expect(prompt).to match(/Journal #67890/)
@@ -25,7 +25,7 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
     end
 
     context 'with ontology definitions' do
-      let(:job_arguments) { { entity_type: 'issue', entity_id: 1 } }
+      let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1) }
 
       it 'includes relationship types' do
         expect(prompt).to match(/Maintenance/)
@@ -40,7 +40,7 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
     end
 
     context 'with module names from ModuleRegistry' do
-      let(:job_arguments) { { entity_type: 'issue', entity_id: 1 } }
+      let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1) }
 
       it 'includes core module names' do
         expect(prompt).to match(/String/)

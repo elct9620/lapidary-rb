@@ -40,7 +40,7 @@ module Analysis
       def call(job_arguments)
         response = llm.chat.with_schema(TripletSchema).ask(@prompt_builder.call(job_arguments))
         parse_response(response.content)
-      rescue StandardError => e
+      rescue RubyLLM::Error, KeyError => e
         raise Entities::ExtractionError, e.message
       end
 
