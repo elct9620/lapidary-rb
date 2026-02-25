@@ -50,6 +50,63 @@ RSpec.describe Webhooks::API do
   end
 
   describe 'POST /webhook' do
+    context 'when WEBHOOK_SECRET is set' do
+      around do |example|
+        ENV['WEBHOOK_SECRET'] = 'test-secret'
+        example.run
+      ensure
+        ENV.delete('WEBHOOK_SECRET')
+      end
+
+      context 'with missing token' do
+        before do
+          post '/webhook',
+               JSON.generate(issue_id: 1),
+               'CONTENT_TYPE' => 'application/json'
+        end
+
+        it 'returns 401 Unauthorized' do
+          expect(last_response.status).to eq(401)
+        end
+
+        it 'returns JSON error body' do
+          body = JSON.parse(last_response.body)
+          expect(body).to eq('error' => 'unauthorized')
+        end
+      end
+
+      context 'with wrong token' do
+        before do
+          post '/webhook?token=wrong-secret',
+               JSON.generate(issue_id: 1),
+               'CONTENT_TYPE' => 'application/json'
+        end
+
+        it 'returns 401 Unauthorized' do
+          expect(last_response.status).to eq(401)
+        end
+
+        it 'returns JSON error body' do
+          body = JSON.parse(last_response.body)
+          expect(body).to eq('error' => 'unauthorized')
+        end
+      end
+
+      context 'with correct token' do
+        before do
+          stub_redmine_success
+
+          post '/webhook?token=test-secret',
+               JSON.generate(issue_id: 1),
+               'CONTENT_TYPE' => 'application/json'
+        end
+
+        it 'returns 202 Accepted' do
+          expect(last_response.status).to eq(202)
+        end
+      end
+    end
+
     context 'with a valid request' do
       before do
         stub_redmine_success

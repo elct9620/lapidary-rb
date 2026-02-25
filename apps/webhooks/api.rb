@@ -5,6 +5,7 @@ module Webhooks
   # Webhook endpoint for receiving external issue notifications
   class API < Lapidary::BaseController
     post '/webhook' do
+      authenticate!
       payload = parse_json_body!
       result = validate_payload!(payload)
 
@@ -24,6 +25,17 @@ module Webhooks
     end
 
     private
+
+    def authenticate!
+      secret = ENV.fetch('WEBHOOK_SECRET', nil)
+      return unless secret
+
+      token = params['token'].to_s
+      return if Rack::Utils.secure_compare(token, secret)
+
+      logger.warn(self, 'Authentication failure')
+      halt_json 401, error: 'unauthorized'
+    end
 
     def parse_json_body!
       unless request.content_type&.include?('application/json')
