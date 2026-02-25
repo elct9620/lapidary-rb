@@ -59,6 +59,7 @@ The complete system encompasses four capabilities:
 10. **Triplet extraction** — Use an LLM to extract (Rubyist, Relationship, Module) triplets from Issue and Journal content
 11. **Ontology validation** — Validate extracted triplets against ontology constraints before writing to the knowledge graph
 12. **Graph neighbor query** — Query the knowledge graph to find nodes connected to a given node, with optional time-range filtering on edge observations
+13. **Job cleanup** — TTL-based cleanup of expired jobs, executed periodically by the Analysis Service
 
 ## User Journeys
 
@@ -103,6 +104,12 @@ The complete system encompasses four capabilities:
 - **Context**: The Analysis Service fails to process a job
 - **Action**: The job is rescheduled for retry with exponential backoff
 - **Outcome**: The job is retried at a later time; if the maximum number of attempts is exceeded, the job is marked as permanently failed and the error is logged
+
+### Job Cleanup
+
+- **Context**: Completed or permanently failed jobs accumulate in the database over time
+- **Action**: The Analysis Service periodically checks for and deletes jobs that have exceeded the configured retention period
+- **Outcome**: Terminal-state jobs (done/failed) and stale claimed jobs older than the TTL are removed, keeping the database lean
 
 ---
 
@@ -286,6 +293,23 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 
 **Data strategy**: Each job carries all data needed from the Redmine API. The Analysis Service does not call the Redmine API, but does call an LLM API for triplet extraction.
 
+#### Job Cleanup
+
+**Trigger**: The Analysis Service poll loop periodically executes job cleanup. Cleanup does not need to run on every poll iteration — it may run at a configured interval (e.g., every N polls or a fixed time interval).
+
+**Retention period**: Configured via the `JOB_RETENTION` environment variable, formatted as a number followed by a unit suffix (`12h`, `1d`, `7d`). Default: `7d`.
+
+- Supported units: `h` (hours), `d` (days)
+- Invalid values are treated as errors: a warning is logged at startup and the default value is used
+
+**Cleanup rules**:
+
+- Delete jobs in `done` status whose `updated_at` exceeds the retention period
+- Delete jobs in `failed` status whose `updated_at` exceeds the retention period
+- Delete jobs in `claimed` status whose `updated_at` exceeds the retention period (treated as stale/abandoned)
+
+**Deletion method**: Hard delete — rows are removed directly from the jobs table. No archival is performed, as job data has no value after the graph has been written.
+
 ### Analysis Service
 
 **Purpose**: A background worker service that dequeues and processes analysis jobs from the job queue.
@@ -296,6 +320,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 - Dequeues a job, writes the analysis record, and marks the job as done
 - The analysis record marks the entity in the tracking table as analyzed
 - Job Arguments carry entity data for knowledge graph construction
+- Periodically executes job cleanup to remove expired jobs from the queue (see Job Queue § Job Cleanup)
 
 **Analysis domain model**:
 
@@ -541,6 +566,7 @@ Each observation record contains:
 | Module name not in curated list | Reject the triplet, log warning with the unrecognized module name |
 | LLM outputs `Maintenance` relationship | Downgrade to `Contribute`, log info (no committer data source yet) |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
+| Job cleanup database error | Log error, continue processing — cleanup failure must not block job processing |
 
 **Graph API Errors**:
 
@@ -590,6 +616,9 @@ Each observation record contains:
 | Graph API invalid request (400) | `warn` | Request origin, validation errors |
 | Graph API node not found (404) | `info` | Requested node ID |
 | Graph API database query failure | `error` | Query parameters, error message |
+| Job cleanup execution | `info` | Number of jobs cleaned, retention period |
+| Job cleanup failure | `error` | Error message |
+| Invalid `JOB_RETENTION` value | `warn` | Provided value, using default |
 
 **Principles**:
 
@@ -633,6 +662,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `WEBHOOK_SECRET` | No | — | When set, webhook requests must include `?token=<value>` matching this secret; when unset, authentication is bypassed |
 | `REDMINE_URL` | No | `https://bugs.ruby-lang.org` | Base URL for the Redmine JSON API |
 | `OPENAI_API_KEY` | Yes | — | API key for OpenAI LLM used in triplet extraction |
+| `JOB_RETENTION` | No | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `12h`, `1d`, `7d` |
 
 #### Port
 
@@ -679,6 +709,8 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Ontology Entailment | The degree to which extracted triplets conform to the predefined ontology constraints |
 | Qualifier | Contextual metadata attached to an Edge (e.g., observation time, provenance) |
 | Neighbor | A node directly connected to a given node by one or more edges |
+| Job Cleanup | The process of removing expired jobs from the database based on a configured retention period |
+| TTL (Time to Live) | A configured duration after which data is eligible for deletion |
 
 ## Patterns
 
@@ -695,6 +727,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Ontology-guided extraction | Use a predefined ontology (types + constraints) to guide LLM extraction, ensuring structural consistency of outputs | Triplet extraction |
 | Temporal qualifier | Edges carry an observation timestamp, enabling time-range filtering to exclude stale relationships | Knowledge Graph edges |
 | Neighbor query | Find all nodes directly connected to a given node by traversing edges in specified directions | Graph Neighbor Query Endpoint |
+| TTL-based cleanup | Delete records older than a configured retention period, preventing unbounded data growth | Job Cleanup |
 
 ## Architecture
 
@@ -748,10 +781,9 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Node ID in query | URI format passed as query parameter | Reuses existing `type://name` node ID convention; human-readable |
 | Webhook authentication | Static token via query parameter (`?token=`) | Simple, no cryptographic overhead; optional via env var presence |
 | Logging solution | `console` gem (via DI) | Falcon 預設整合，結構化日誌輸出；透過 dry-system provider 註冊，各層以 DI 注入 |
+| Job cleanup strategy | TTL-based hard delete, built into Analysis Service | Simple and effective — no extra process or cron needed; hard delete because job data has no value after graph writing |
 
 ### To Be Decided
 
-| Item | Candidate Options | Notes |
-|------|-------------------|-------|
-| Job cleanup strategy | TTL-based deletion / archival / manual purge | How to handle completed and permanently failed jobs over time |
+*No pending decisions.*
 

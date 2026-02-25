@@ -246,3 +246,4 @@ Errors propagate naturally through the layers and are caught at the boundary:
 | `OPENAI_API_KEY` | `nil` | OpenAI API key for LLM extraction pipeline |
 | `OPENAI_MODEL` | `gpt-5-mini` | OpenAI model for triplet extraction |
 | `WEBHOOK_SECRET` | `nil` | When set, webhook requests must include `?token=<value>` matching this secret |
+| `JOB_RETENTION` | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
