@@ -25,6 +25,13 @@ module Lapidary
       halt status_code, { 'Content-Type' => 'application/json' }, JSON.generate(body)
     end
 
+    not_found do
+      unless response['Content-Type']&.include?('application/json')
+        content_type :json
+        JSON.generate(error: 'not found')
+      end
+    end
+
     error do
       error = env['sinatra.error']
       logger.error(self, "#{error.class}: #{error.message}", error)

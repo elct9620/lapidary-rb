@@ -19,6 +19,25 @@ RSpec.describe Lapidary::BaseController do
     test_app
   end
 
+  describe 'not found handler' do
+    before do
+      get '/nonexistent'
+    end
+
+    it 'returns 404 status' do
+      expect(last_response.status).to eq(404)
+    end
+
+    it 'returns JSON content type' do
+      expect(last_response.content_type).to include('application/json')
+    end
+
+    it 'returns error message in JSON body' do
+      body = JSON.parse(last_response.body)
+      expect(body).to eq('error' => 'not found')
+    end
+  end
+
   describe 'global error handler' do
     before do
       get '/explode'
