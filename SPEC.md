@@ -24,6 +24,7 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Ontology-guided extraction pipeline extracts (Rubyist, Maintenance|Contribute, CoreModule|Stdlib) triplets from Issue/Journal content via LLM
 - Extracted triplets are validated against ontology constraints before writing to the knowledge graph
 - Graph neighbor query returns connected nodes with edge observations, supporting direction and time-range filtering
+- Expired jobs are automatically removed from the database based on a configurable retention period
 
 ## Non-goals
 
@@ -522,7 +523,7 @@ Each observation record contains:
 **CTE Query patterns**:
 
 1. **Neighbor query** — Find all nodes connected to a given node (outbound, inbound, or both)
-2. **Traversal query** — Recursive CTE to walk the graph N hops from a starting node
+2. **Traversal query** — Recursive CTE to walk the graph N hops from a starting node (schema capability; not yet exposed via API)
 
 **Time-based query filtering**:
 
@@ -662,6 +663,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `WEBHOOK_SECRET` | No | — | When set, webhook requests must include `?token=<value>` matching this secret; when unset, authentication is bypassed |
 | `REDMINE_URL` | No | `https://bugs.ruby-lang.org` | Base URL for the Redmine JSON API |
 | `OPENAI_API_KEY` | Yes | — | API key for OpenAI LLM used in triplet extraction |
+| `OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model used for triplet extraction |
 | `JOB_RETENTION` | No | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `12h`, `1d`, `7d` |
 
 #### Port
