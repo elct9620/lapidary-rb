@@ -12,14 +12,6 @@ module Webhooks
         @notes = notes
         @author = author
       end
-
-      def author_username
-        author&.username
-      end
-
-      def author_display_name
-        author&.display_name
-      end
     end
   end
 end

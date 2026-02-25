@@ -14,14 +14,6 @@ module Webhooks
         @journals = journals
       end
 
-      def author_username
-        author&.username
-      end
-
-      def author_display_name
-        author&.display_name
-      end
-
       def journal_ids
         journals.map(&:id)
       end

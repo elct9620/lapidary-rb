@@ -49,8 +49,8 @@ module Webhooks
           entity_type: Entities::EntityType::ISSUE.to_s,
           entity_id: issue.id,
           content: issue.subject,
-          author_username: issue.author_username,
-          author_display_name: issue.author_display_name
+          author_username: issue.author&.username,
+          author_display_name: issue.author&.display_name
         }
       end
 
@@ -60,8 +60,8 @@ module Webhooks
           entity_type: Entities::EntityType::JOURNAL.to_s,
           entity_id: journal.id,
           content: journal.notes,
-          author_username: journal.author_username,
-          author_display_name: journal.author_display_name,
+          author_username: journal.author&.username,
+          author_display_name: journal.author&.display_name,
           issue_id: issue.id,
           issue_content: issue.subject
         }

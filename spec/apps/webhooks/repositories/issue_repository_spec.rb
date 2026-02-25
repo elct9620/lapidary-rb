@@ -40,8 +40,8 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
 
     it 'parses author username and display name' do
       issue = repository.find(42)
-      expect(issue.author_username).to eq('matz')
-      expect(issue.author_display_name).to eq('Yukihiro Matsumoto')
+      expect(issue.author.username).to eq('matz')
+      expect(issue.author.display_name).to eq('Yukihiro Matsumoto')
     end
 
     it 'includes journals with notes and author info' do
@@ -49,8 +49,8 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
       journal = issue.journals.first
       expect(journal.id).to eq(101)
       expect(journal.notes).to eq('First comment')
-      expect(journal.author_username).to eq('nobu')
-      expect(journal.author_display_name).to eq('Nobuyoshi Nakada')
+      expect(journal.author.username).to eq('nobu')
+      expect(journal.author.display_name).to eq('Nobuyoshi Nakada')
     end
 
     it 'includes all journal ids' do
@@ -72,8 +72,8 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
 
       it 'sets display name to nil' do
         issue = repository.find(42)
-        expect(issue.author_username).to eq('matz')
-        expect(issue.author_display_name).to be_nil
+        expect(issue.author.username).to eq('matz')
+        expect(issue.author.display_name).to be_nil
       end
     end
 
@@ -94,8 +94,8 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
       it 'sets journal author display name to nil' do
         issue = repository.find(42)
         journal = issue.journals.first
-        expect(journal.author_username).to eq('nobu')
-        expect(journal.author_display_name).to be_nil
+        expect(journal.author.username).to eq('nobu')
+        expect(journal.author.display_name).to be_nil
       end
     end
 
