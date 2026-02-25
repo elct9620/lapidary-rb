@@ -293,6 +293,7 @@ The pipeline processes each job through four stages:
 - *Output*: Zero or more triplets of the form `{ subject: Rubyist, relationship: Maintenance | Contribute, object: CoreModule | Stdlib }`
 - The LLM prompt includes the ontology schema (permitted types and constraints) to guide extraction
 - The LLM may return zero triplets if the content does not describe a relevant relationship
+- Jobs with empty `content` (e.g., journals with no notes) are sent to the LLM normally; the expected result is zero triplets
 
 **2. Ontology Validation** — Each candidate triplet is validated against the ontology constraints.
 
@@ -300,13 +301,24 @@ The pipeline processes each job through four stages:
 - Object node type must be `CoreModule` or `Stdlib`
 - Relationship must be `Maintenance` or `Contribute`
 - The relationship's domain-range constraint must be satisfied (see [Ontology](docs/ontology.md))
+- `Maintenance` requires the subject to have `is_committer = true`; since the system has no authoritative committer data source yet, `Maintenance` triplets are downgraded to `Contribute` during validation and logged at `info` level — this preserves the relationship while deferring committer classification until sufficient knowledge is accumulated
 - Object name must exist in the curated module list
 - Triplets that fail validation are rejected and logged at `warn` level
 
-**3. Entity Normalization** — Validated triplets are normalized to canonical entities.
+**3. Entity Normalization** — Validated triplets are normalized to canonical entities using Job Arguments context.
 
-- Author names are resolved to a canonical Rubyist node (e.g., `"matz"` and `"Yukihiro Matsumoto"` map to the same node)
-- Module names are resolved to a canonical CoreModule or Stdlib node (e.g., case normalization, alias resolution)
+*Rubyist Normalization (Job-context resolution):*
+
+- Matching uses case-insensitive string comparison (LLM output may vary in casing)
+- Canonical identity for a Rubyist is `username` (see [Ontology](docs/ontology.md) § Rubyist Identity)
+- If the extracted subject name matches the Job's `author_username`, use `author_username` as the canonical username
+- If the extracted subject name matches the Job's `author_display_name`, resolve to `author_username`
+- If neither matches, use the extracted name directly as the canonical username (represents a different Rubyist mentioned in the content)
+
+*Module Normalization:*
+
+- Validation (Stage 2) already ensures the object name exists in the curated module list via case-sensitive exact match (consistent with [Ontology](docs/ontology.md) § CoreModule/Stdlib Identity)
+- Normalization passes the validated name through as-is — no additional transformation is applied
 
 **4. Graph Writing** — Normalized triplets are written to the knowledge graph.
 
@@ -418,6 +430,8 @@ Each observation record contains:
 | LLM extraction failure (timeout, API error) | Retry with exponential backoff (counts as a job attempt) |
 | LLM output fails ontology validation | Reject the invalid triplet, log warning; valid triplets from the same response are still written |
 | Module name not in curated list | Reject the triplet, log warning with the unrecognized module name |
+| LLM outputs `Maintenance` relationship | Downgrade to `Contribute`, log info (no committer data source yet) |
+| Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 
 ### Global Error Handling
 
@@ -449,6 +463,9 @@ Each observation record contains:
 | Job permanently failed | `error` | Job identity, error message, total attempts |
 | Redmine API failure | `warn` | Request URL, HTTP status code |
 | Invalid request (422/415) | `warn` | Request origin information, validation errors |
+| Ontology validation rejection | `warn` | Rejected triplet, validation rule violated, job identity |
+| Maintenance downgraded to Contribute | `info` | Original triplet, job identity |
+| Duplicate edge observation skipped | `info` | Edge identity, source entity, job identity |
 
 **Principles**:
 
@@ -517,7 +534,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Property Graph | A graph model where both Nodes and Edges can carry key-value metadata |
 | Triplet | A (subject, relationship, object) triple — the fundamental unit of the knowledge graph |
 | Domain-Range Constraint | A rule defining which node types a relationship may legally connect (domain = source type, range = target type) |
-| Entity Normalization | Resolving different textual representations to a single canonical entity (e.g., mapping aliases to one node) |
+| Entity Normalization | Resolving different textual representations to a single canonical entity using the node type's identity rule (e.g., resolving a display name to a username for Rubyist nodes) |
 | Ontology Entailment | The degree to which extracted triplets conform to the predefined ontology constraints |
 | Qualifier | Contextual metadata attached to an Edge (e.g., observation time, provenance) |
 
@@ -579,6 +596,7 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph traversal | SQL CTE | Leverages SQLite's recursive CTE support, no external engine needed |
 | Ontology approach | Wikontic-inspired (static ontology + LLM extraction + validation) | Predefined types ensure consistent graph structure; LLM handles unstructured text |
 | Ontology enumeration storage | `docs/ontology.md` | Keeps SPEC.md focused on decisions; detailed enumerations live in a dedicated document |
+| Entity normalization strategy | Job-context resolution (author fields) + passthrough for unknown Rubyists | Simple, deterministic, no external lookup required; leverages existing Job Arguments data |
 
 ### To Be Decided
 
@@ -589,4 +607,4 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Job cleanup strategy | TTL-based deletion / archival / manual purge | How to handle completed and permanently failed jobs over time |
 | Node ID generation strategy | UUID / ULID / custom | Format to be chosen during implementation |
 | LLM provider | OpenAI / Anthropic / local model | Provider and model to be selected during implementation |
-| Entity normalization strategy | Alias table / embedding similarity | Implementation mechanism for mapping author and module name variants to canonical entities |
+

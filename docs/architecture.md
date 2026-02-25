@@ -124,6 +124,12 @@ Analysis Service (background worker)
 Dequeue job
   │
   ▼
+Triplet extraction (LLM) → Validation → Normalization
+  │
+  ▼
+Write validated triplets to knowledge graph
+  │
+  ▼
 Write analysis tracking record
   │
   ▼

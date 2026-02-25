@@ -104,8 +104,6 @@ The following table summarizes valid (source type, relationship, target type) co
 
 The following are valid `CoreModule` names. This list covers Ruby's built-in classes and modules.
 
-<!-- Placeholder: to be completed with the full list from Ruby source -->
-
 - Array
 - BasicObject
 - Binding
@@ -155,8 +153,6 @@ The following are valid `CoreModule` names. This list covers Ruby's built-in cla
 ### Standard Libraries
 
 The following are valid `Stdlib` names. This list covers Ruby's standard libraries.
-
-<!-- Placeholder: to be completed with the full list from Ruby distribution -->
 
 - abbrev
 - base64
