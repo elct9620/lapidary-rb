@@ -596,6 +596,20 @@ Each observation record contains:
 - Do not log sensitive information (e.g., full request body)
 - Each error log entry must include sufficient context to trace the problem
 
+### Logging Infrastructure
+
+**Provider**: The `console` gem is registered as `Container['logger']` (`Console.logger`) via a dry-system provider.
+
+**Injection by layer**:
+
+- **Controller layer**: `BaseController` resolves the logger lazily via `container['logger']` (Controllers are not container-managed, so they do not use `Lapidary::Dependency`)
+- **Use Case layer (inner layer)**: Receives the logger through plain Ruby constructor injection (adhering to Clean Architecture dependency rule — inner layers must not depend on framework infrastructure)
+- **Outer-layer components**: Inject via `Lapidary::Dependency['logger']`
+
+**Sinatra built-in logging**: Explicitly disabled (`set :logging, false`) to avoid duplicate output; all logging goes through the DI-injected `console` logger.
+
+**Testing**: Tests use `Console::Logger.new(Console::Output::Null.new)` to silence log output.
+
 ### Deployment
 
 #### Container Image
@@ -733,11 +747,11 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph query endpoint style | Query parameters (`GET /graph/neighbors?node_id=...`) | Simple, cacheable, fits RESTful conventions for read-only queries |
 | Node ID in query | URI format passed as query parameter | Reuses existing `type://name` node ID convention; human-readable |
 | Webhook authentication | Static token via query parameter (`?token=`) | Simple, no cryptographic overhead; optional via env var presence |
+| Logging solution | `console` gem (via DI) | Falcon 預設整合，結構化日誌輸出；透過 dry-system provider 註冊，各層以 DI 注入 |
 
 ### To Be Decided
 
 | Item | Candidate Options | Notes |
 |------|-------------------|-------|
-| Logging solution | Ruby Logger / dry-logger | Logging framework to be selected |
 | Job cleanup strategy | TTL-based deletion / archival / manual purge | How to handle completed and permanently failed jobs over time |
 
