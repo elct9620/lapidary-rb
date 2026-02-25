@@ -5,7 +5,7 @@ require 'dry/validation'
 module Graph
   # Validates query parameters for the graph neighbors endpoint
   class Contract < Dry::Validation::Contract
-    NODE_ID_FORMAT = %r{\A[a-z_]+://\S+\z}
+    NODE_ID_FORMAT = Lapidary::NodeId::FORMAT
 
     params do
       required(:node_id).filled(:string)

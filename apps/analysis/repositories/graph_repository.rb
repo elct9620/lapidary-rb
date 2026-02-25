@@ -32,8 +32,7 @@ module Analysis
       end
 
       def build_node_id(node)
-        type_slug = node.type.to_s.gsub(/([a-z])([A-Z])/, '\1_\2').downcase
-        "#{type_slug}://#{node.name}"
+        Lapidary::NodeId.build(node.type, node.name)
       end
 
       def upsert_node(node:)
