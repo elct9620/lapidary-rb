@@ -57,6 +57,7 @@ The complete system encompasses four capabilities:
 9. **Ontology definition** — Define permitted node types, relationship types, and domain-range constraints that govern the knowledge graph structure
 10. **Triplet extraction** — Use an LLM to extract (Rubyist, Relationship, Module) triplets from Issue and Journal content
 11. **Ontology validation** — Validate extracted triplets against ontology constraints before writing to the knowledge graph
+12. **Graph neighbor query** — Query the knowledge graph to find nodes connected to a given node, with optional time-range filtering on edge observations
 
 ## User Journeys
 
@@ -84,11 +85,17 @@ The complete system encompasses four capabilities:
 - **Action**: The system sends the job content to an LLM for triplet extraction, validates extracted triplets against the ontology, normalizes entities, and writes valid triplets to the knowledge graph as Nodes and Edges
 - **Outcome**: The knowledge graph contains validated (Rubyist, Maintenance|Contribute, CoreModule|Stdlib) relationships with temporal qualifiers linking back to the source entity
 
+### Graph Neighbor Exploration
+
+- **Context**: A researcher wants to understand which modules a specific Rubyist works with
+- **Action**: The researcher queries the graph neighbor API with a node ID to retrieve all directly connected nodes and their edges
+- **Outcome**: The API returns the queried node along with all neighbor nodes and edges, enabling the researcher to explore relationship patterns
+
 ### Time-based Query Filtering
 
-- **Context**: A researcher queries the knowledge graph for relationships related to a specific Module
-- **Action**: The query specifies a time range to filter edges by their `observed_at` qualifier
-- **Outcome**: Only relationships observed within the specified time range are returned, enabling analysis of how involvement patterns change over time
+- **Context**: A researcher wants to see how a Rubyist's module involvement has changed over a specific period
+- **Action**: The researcher queries the graph neighbor API with a node ID and a time range (`observed_after` / `observed_before`) to filter edges by their observation timestamps
+- **Outcome**: Only edges with at least one observation within the specified time range are returned, enabling analysis of how involvement patterns change over time
 
 ### Job Retry on Failure
 
@@ -340,6 +347,84 @@ The pipeline processes each job through four stages:
 - On shutdown signal, the service finishes the current in-progress job or releases it back to the queue
 - No new jobs are claimed after shutdown is initiated
 
+### Graph Neighbor Query Endpoint
+
+**Endpoint**: `GET /graph/neighbors`
+
+**Purpose**: Query the knowledge graph to find all nodes directly connected to a given node, with optional time-range filtering on edge observations.
+
+**Query parameters**:
+
+| Parameter | Required | Type | Default | Description |
+|-----------|----------|------|---------|-------------|
+| `node_id` | Yes | String | — | Node ID in `type://name` format (e.g., `Rubyist://matz`) |
+| `direction` | No | String | `both` | Edge direction filter: `outbound`, `inbound`, or `both` |
+| `observed_after` | No | String | — | ISO 8601 datetime — include edges with at least one observation after this time |
+| `observed_before` | No | String | — | ISO 8601 datetime — include edges with at least one observation before this time |
+
+**Response 200**:
+
+```json
+{
+  "node": {
+    "id": "Rubyist://matz",
+    "type": "Rubyist",
+    "data": { "display_name": "Yukihiro Matsumoto" }
+  },
+  "neighbors": [
+    {
+      "node": {
+        "id": "CoreModule://String",
+        "type": "CoreModule",
+        "data": {}
+      },
+      "edges": [
+        {
+          "source": "Rubyist://matz",
+          "target": "CoreModule://String",
+          "relationship": "Contribute",
+          "observations": [
+            {
+              "observed_at": "2024-01-15T10:30:00Z",
+              "source_entity_type": "issue",
+              "source_entity_id": 12345,
+              "evidence": "Discussed String encoding improvements"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Content-Type: `application/json`
+
+**Behavior**:
+
+- Returns the queried node and all neighbor nodes with connecting edges
+- When `direction` is `outbound`, only edges where the queried node is the source are included
+- When `direction` is `inbound`, only edges where the queried node is the target are included
+- When `direction` is `both`, edges in either direction are included
+- When time-range parameters are specified, only edges with at least one observation within the range are included; the `observations` array in the response is filtered to contain only matching observations
+- When no time-range parameters are specified, all edges and observations are included
+- Neighbors with no matching edges after filtering are excluded from the response
+
+**Validation rules**:
+
+- `node_id` is required and must match the `type://name` format
+- `direction` must be one of `outbound`, `inbound`, or `both`
+- `observed_after` and `observed_before` must be valid ISO 8601 datetime strings when provided
+
+**Responses**:
+
+| Condition | Status Code | Body |
+|-----------|-------------|------|
+| Query processed successfully | `200 OK` | `{ "node": {...}, "neighbors": [...] }` |
+| Missing or invalid parameters | `400 Bad Request` | `{ "error": "..." }` |
+| Node not found | `404 Not Found` | `{ "error": "node not found" }` |
+| Internal processing failure | `500 Internal Server Error` | `{ "error": "internal server error" }` |
+
 ### Knowledge Graph Schema
 
 **Purpose**: Store entities and their relationships as a directed property graph, governed by the ontology.
@@ -446,6 +531,17 @@ Each observation record contains:
 | LLM outputs `Maintenance` relationship | Downgrade to `Contribute`, log info (no committer data source yet) |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 
+**Graph API Errors**:
+
+| Scenario | Behavior |
+|----------|----------|
+| Missing `node_id` parameter | Respond 400, do not query |
+| `node_id` does not match `type://name` format | Respond 400, do not query |
+| Invalid `direction` value | Respond 400, do not query |
+| Invalid `observed_after` or `observed_before` format | Respond 400, do not query |
+| `node_id` references a node that does not exist | Respond 404 |
+| Database query failure | Respond 500, log error |
+
 ### Global Error Handling
 
 **Scope**: All Controller endpoints
@@ -550,6 +646,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Entity Normalization | Resolving different textual representations to a single canonical entity using the node type's identity rule (e.g., resolving a display name to a username for Rubyist nodes) |
 | Ontology Entailment | The degree to which extracted triplets conform to the predefined ontology constraints |
 | Qualifier | Contextual metadata attached to an Edge (e.g., observation time, provenance) |
+| Neighbor | A node directly connected to a given node by one or more edges |
 
 ## Patterns
 
@@ -565,6 +662,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Property graph | Nodes and Edges store flexible metadata as JSON, enabling schema evolution without migrations | Knowledge Graph Schema |
 | Ontology-guided extraction | Use a predefined ontology (types + constraints) to guide LLM extraction, ensuring structural consistency of outputs | Triplet extraction |
 | Temporal qualifier | Edges carry an observation timestamp, enabling time-range filtering to exclude stale relationships | Knowledge Graph edges |
+| Neighbor query | Find all nodes directly connected to a given node by traversing edges in specified directions | Graph Neighbor Query Endpoint |
 
 ## Architecture
 
@@ -613,6 +711,9 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Node ID generation strategy | URI format (`type://name`) | Human-readable, deterministic, avoids external ID generators |
 | LLM provider | OpenAI | Widely available, sufficient for triplet extraction task |
 | Node metadata merge strategy | Field-level merge (latest non-nil wins) | Metadata accumulates naturally over time; no data loss from partial updates |
+| Graph API bounded context | New `graph` BC | Separates query concerns from analysis concerns; follows existing BC pattern |
+| Graph query endpoint style | Query parameters (`GET /graph/neighbors?node_id=...`) | Simple, cacheable, fits RESTful conventions for read-only queries |
+| Node ID in query | URI format passed as query parameter | Reuses existing `type://name` node ID convention; human-readable |
 
 ### To Be Decided
 
