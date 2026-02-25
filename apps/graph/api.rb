@@ -32,8 +32,8 @@ module Graph
       result = container['graph.contract'].call(params)
 
       if result.failure?
-        errors = result.errors.to_h.values.flatten
-        halt_json 400, error: errors.first
+        field, messages = result.errors.to_h.first
+        halt_json 400, error: "#{field} #{messages.first}"
       end
 
       result

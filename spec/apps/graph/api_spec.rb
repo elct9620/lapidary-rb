@@ -153,9 +153,9 @@ RSpec.describe Graph::API do
         expect(last_response.status).to eq(400)
       end
 
-      it 'returns JSON error body' do
+      it 'returns error message with field name' do
         body = JSON.parse(last_response.body)
-        expect(body).to have_key('error')
+        expect(body['error']).to eq('node_id is missing')
       end
     end
 
@@ -168,7 +168,7 @@ RSpec.describe Graph::API do
 
       it 'returns JSON error body' do
         body = JSON.parse(last_response.body)
-        expect(body['error']).to eq('must match type://name format')
+        expect(body['error']).to eq('node_id must match type://name format')
       end
     end
 
