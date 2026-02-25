@@ -100,5 +100,35 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
 
       expect(db[:jobs].count).to eq(0)
     end
+
+    context 'when entity type is unknown' do
+      let(:analysis_record_repository) do
+        repo = Lapidary::Container['webhooks.repositories.analysis_record_repository']
+        allow(repo).to receive(:untracked).and_return(
+          [Webhooks::Entities::AnalysisRecord.new(entity_type: Webhooks::Entities::EntityType.new(value: 'unknown'),
+                                                  entity_id: 99)]
+        )
+        repo
+      end
+
+      it 'raises ArgumentError' do
+        expect { use_case.call(42) }.to raise_error(ArgumentError, /unknown entity type/)
+      end
+    end
+
+    context 'when journal ID is not found in issue' do
+      let(:analysis_record_repository) do
+        repo = Lapidary::Container['webhooks.repositories.analysis_record_repository']
+        allow(repo).to receive(:untracked).and_return(
+          [Webhooks::Entities::AnalysisRecord.new(entity_type: Webhooks::Entities::EntityType::JOURNAL,
+                                                  entity_id: 999)]
+        )
+        repo
+      end
+
+      it 'raises ArgumentError' do
+        expect { use_case.call(42) }.to raise_error(ArgumentError, /journal 999 not found/)
+      end
+    end
   end
 end

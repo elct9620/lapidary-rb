@@ -12,7 +12,7 @@ module Analysis
       def initialize(entity_type:, entity_id:, **rest)
         super(content: nil, author_username: nil, author_display_name: nil,
               issue_id: nil, issue_content: nil,
-              entity_type: entity_type, entity_id: Integer(entity_id), **rest)
+              entity_type: String(entity_type), entity_id: Integer(entity_id), **rest)
       end
     end
   end
