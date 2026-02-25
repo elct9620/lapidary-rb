@@ -1,0 +1,221 @@
+# frozen_string_literal: true
+
+require 'spec_helper'
+require 'rack/test'
+require_relative '../../../config/web'
+
+RSpec.describe Graph::API do
+  include Rack::Test::Methods
+
+  def app
+    described_class
+  end
+
+  let(:db) { Lapidary::Container['database'] }
+
+  def seed_nodes(db)
+    now = Time.now
+    db[:nodes].insert(id: 'rubyist://matz', type: 'Rubyist',
+                      data: '{"display_name":"Yukihiro Matsumoto"}', created_at: now, updated_at: now)
+    db[:nodes].insert(id: 'core_module://String', type: 'CoreModule', data: '{}',
+                      created_at: now, updated_at: now)
+    db[:nodes].insert(id: 'core_module://Array', type: 'CoreModule', data: '{}',
+                      created_at: now, updated_at: now)
+  end
+
+  def seed_edges(db) # rubocop:disable Metrics/MethodLength
+    now = Time.now
+    db[:edges].insert(
+      source: 'rubyist://matz', target: 'core_module://String', relationship: 'Contribute',
+      properties: JSON.generate([
+                                  { observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue',
+                                    source_entity_id: 1, evidence: 'Discussed String encoding' },
+                                  { observed_at: '2024-07-01T00:00:00Z', source_entity_type: 'journal',
+                                    source_entity_id: 10, evidence: 'Follow-up comment' }
+                                ]),
+      created_at: now, updated_at: now
+    )
+    db[:edges].insert(
+      source: 'core_module://Array', target: 'rubyist://matz', relationship: 'MaintainedBy',
+      properties: JSON.generate([{ observed_at: '2024-06-01T00:00:00Z', source_entity_type: 'issue',
+                                   source_entity_id: 2 }]),
+      created_at: now, updated_at: now
+    )
+  end
+
+  def seed_graph
+    seed_nodes(db)
+    seed_edges(db)
+  end
+
+  describe 'GET /graph/neighbors' do
+    context 'with a valid request' do
+      before do
+        seed_graph
+        get '/graph/neighbors', node_id: 'rubyist://matz'
+      end
+
+      it 'returns 200 OK' do
+        expect(last_response.status).to eq(200)
+      end
+
+      it 'returns JSON content type' do
+        expect(last_response.content_type).to include('application/json')
+      end
+
+      it 'returns the queried node' do
+        body = JSON.parse(last_response.body)
+        expect(body['node']['id']).to eq('rubyist://matz')
+        expect(body['node']['type']).to eq('Rubyist')
+        expect(body['node']['data']['display_name']).to eq('Yukihiro Matsumoto')
+      end
+
+      it 'returns neighbors with edges' do
+        body = JSON.parse(last_response.body)
+        expect(body['neighbors'].size).to eq(2)
+
+        ids = body['neighbors'].map { |n| n['node']['id'] }
+        expect(ids).to contain_exactly('core_module://String', 'core_module://Array')
+      end
+    end
+
+    context 'with direction=outbound' do
+      before do
+        seed_graph
+        get '/graph/neighbors', node_id: 'rubyist://matz', direction: 'outbound'
+      end
+
+      it 'returns only outbound neighbors' do
+        body = JSON.parse(last_response.body)
+        expect(body['neighbors'].size).to eq(1)
+        expect(body['neighbors'].first['node']['id']).to eq('core_module://String')
+      end
+    end
+
+    context 'with direction=inbound' do
+      before do
+        seed_graph
+        get '/graph/neighbors', node_id: 'rubyist://matz', direction: 'inbound'
+      end
+
+      it 'returns only inbound neighbors' do
+        body = JSON.parse(last_response.body)
+        expect(body['neighbors'].size).to eq(1)
+        expect(body['neighbors'].first['node']['id']).to eq('core_module://Array')
+      end
+    end
+
+    context 'with time-range filtering' do
+      before do
+        seed_graph
+        get '/graph/neighbors', node_id: 'rubyist://matz',
+                                observed_after: '2024-06-01T00:00:00Z',
+                                observed_before: '2024-12-31T23:59:59Z'
+      end
+
+      it 'filters observations within the time range' do
+        body = JSON.parse(last_response.body)
+        string_neighbor = body['neighbors'].find { |n| n['node']['id'] == 'core_module://String' }
+        observations = string_neighbor['edges'].first['observations']
+
+        expect(observations.size).to eq(1)
+        expect(observations.first['source_entity_id']).to eq(10)
+      end
+
+      it 'includes neighbors with matching observations' do
+        body = JSON.parse(last_response.body)
+        ids = body['neighbors'].map { |n| n['node']['id'] }
+        expect(ids).to contain_exactly('core_module://String', 'core_module://Array')
+      end
+    end
+
+    context 'with time-range excluding all observations' do
+      before do
+        seed_graph
+        get '/graph/neighbors', node_id: 'rubyist://matz', observed_after: '2025-01-01T00:00:00Z'
+      end
+
+      it 'returns empty neighbors' do
+        body = JSON.parse(last_response.body)
+        expect(body['neighbors']).to be_empty
+      end
+
+      it 'still returns the queried node' do
+        body = JSON.parse(last_response.body)
+        expect(body['node']['id']).to eq('rubyist://matz')
+      end
+    end
+
+    context 'with missing node_id' do
+      before { get '/graph/neighbors' }
+
+      it 'returns 400 Bad Request' do
+        expect(last_response.status).to eq(400)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body).to have_key('error')
+      end
+    end
+
+    context 'with invalid node_id format' do
+      before { get '/graph/neighbors', node_id: 'invalid-format' }
+
+      it 'returns 400 Bad Request' do
+        expect(last_response.status).to eq(400)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body['error']).to eq('must match type://name format')
+      end
+    end
+
+    context 'with invalid direction' do
+      before { get '/graph/neighbors', node_id: 'rubyist://matz', direction: 'sideways' }
+
+      it 'returns 400 Bad Request' do
+        expect(last_response.status).to eq(400)
+      end
+    end
+
+    context 'with invalid observed_after' do
+      before { get '/graph/neighbors', node_id: 'rubyist://matz', observed_after: 'not-a-date' }
+
+      it 'returns 400 Bad Request' do
+        expect(last_response.status).to eq(400)
+      end
+    end
+
+    context 'when node not found' do
+      before { get '/graph/neighbors', node_id: 'rubyist://unknown' }
+
+      it 'returns 404 Not Found' do
+        expect(last_response.status).to eq(404)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body).to eq('error' => 'node not found')
+      end
+    end
+
+    context 'when database error occurs' do
+      before do
+        allow(Lapidary::Container['database']).to receive(:[]).with(:nodes)
+                                                              .and_raise(Sequel::Error, 'db error')
+        get '/graph/neighbors', node_id: 'rubyist://matz'
+      end
+
+      it 'returns 500 Internal Server Error' do
+        expect(last_response.status).to eq(500)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body).to eq('error' => 'internal server error')
+      end
+    end
+  end
+end

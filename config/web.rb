@@ -5,5 +5,6 @@ module Lapidary
   class Web < Lapidary::BaseController
     use Health::API
     use Webhooks::API
+    use Graph::API
   end
 end
