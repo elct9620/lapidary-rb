@@ -37,8 +37,10 @@ module Webhooks
       def build_job_arguments(issue, record)
         if record.entity_type == Entities::EntityType::ISSUE
           build_issue_arguments(issue)
-        else
+        elsif record.entity_type == Entities::EntityType::JOURNAL
           build_journal_arguments(issue, record)
+        else
+          raise ArgumentError, "unknown entity type: #{record.entity_type}"
         end
       end
 
@@ -53,7 +55,7 @@ module Webhooks
       end
 
       def build_journal_arguments(issue, record)
-        journal = issue.journals.find { |j| j.id == record.entity_id }
+        journal = find_journal(issue, record)
         {
           entity_type: Entities::EntityType::JOURNAL.to_s,
           entity_id: journal.id,
@@ -63,6 +65,11 @@ module Webhooks
           issue_id: issue.id,
           issue_content: issue.subject
         }
+      end
+
+      def find_journal(issue, record)
+        issue.journals.find { |j| j.id == record.entity_id } ||
+          (raise ArgumentError, "journal #{record.entity_id} not found in issue #{issue.id}")
       end
 
       def build_issue_records(issue)

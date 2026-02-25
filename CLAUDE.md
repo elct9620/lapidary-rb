@@ -37,7 +37,7 @@ The application uses dry-system as an IoC container. Components are auto-registe
 - `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
 - `falcon.rb` — Defines two Falcon services: HTTP server (Rack app) and `analysis` background worker (async polling service)
 - `docs/architecture.md` — Detailed architecture documentation
-- `SPEC.md` — Behavioral specification for V1
+- `SPEC.md` — Behavioral specification
 
 ### Dependency Injection Boundaries
 

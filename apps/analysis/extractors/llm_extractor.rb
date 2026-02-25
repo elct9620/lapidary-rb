@@ -40,7 +40,7 @@ module Analysis
       def call(job_arguments)
         response = llm.chat.with_schema(TripletSchema).ask(@prompt_builder.call(job_arguments))
         parse_response(response.content)
-      rescue RubyLLM::Error, KeyError => e
+      rescue RubyLLM::Error => e
         raise Entities::ExtractionError, e.message
       end
 
@@ -60,7 +60,9 @@ module Analysis
 
         Entities::Triplet.new(
           subject: build_subject(raw['subject']),
-          relationship: RELATIONSHIP_MAP.fetch(raw['relationship']),
+          relationship: RELATIONSHIP_MAP.fetch(raw['relationship']) do
+            raise Entities::ExtractionError, "unknown relationship: #{raw['relationship']}"
+          end,
           object: build_object(raw['object'])
         )
       end
@@ -83,7 +85,9 @@ module Analysis
 
       def build_object(raw)
         Entities::Node.new(
-          type: NODE_TYPE_MAP.fetch(raw['type']),
+          type: NODE_TYPE_MAP.fetch(raw['type']) do
+            raise Entities::ExtractionError, "unknown node type: #{raw['type']}"
+          end,
           name: raw['name']
         )
       end

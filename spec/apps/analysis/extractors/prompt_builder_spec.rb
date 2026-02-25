@@ -9,18 +9,45 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
     let(:prompt) { prompt_builder.call(job_arguments) }
 
     context 'with an issue job' do
-      let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 12_345) }
+      let(:job_arguments) do
+        Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 12_345,
+          content: 'Bug in String#encode', author_username: 'matz', author_display_name: 'Yukihiro Matsumoto'
+        )
+      end
 
       it 'includes issue content in the prompt' do
         expect(prompt).to match(/Issue #12345/)
       end
+
+      it 'includes author information' do
+        expect(prompt).to match(/Author: matz \(Yukihiro Matsumoto\)/)
+      end
+
+      it 'includes the content text' do
+        expect(prompt).to include('Bug in String#encode')
+      end
     end
 
     context 'with a journal job' do
-      let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'journal', entity_id: 67_890) }
+      let(:job_arguments) do
+        Analysis::Entities::JobArguments.new(
+          entity_type: 'journal', entity_id: 67_890,
+          content: 'Patch submitted for review', author_username: 'nobu', author_display_name: 'Nobuyoshi Nakada',
+          issue_id: 12_345, issue_content: 'Bug in String#encode'
+        )
+      end
 
       it 'includes journal content in the prompt' do
         expect(prompt).to match(/Journal #67890/)
+      end
+
+      it 'includes the content text' do
+        expect(prompt).to include('Patch submitted for review')
+      end
+
+      it 'includes journal context with issue reference' do
+        expect(prompt).to match(/Issue #12345: Bug in String#encode/)
       end
     end
 

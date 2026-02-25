@@ -156,10 +156,10 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
         )
       end
 
-      it 'raises ExtractionError wrapping the KeyError' do
+      it 'raises ExtractionError with a descriptive message' do
         expect do
           extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
-        end.to raise_error(Analysis::Entities::ExtractionError)
+        end.to raise_error(Analysis::Entities::ExtractionError, 'unknown relationship: Unknown')
       end
     end
 
@@ -178,10 +178,10 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
         )
       end
 
-      it 'raises ExtractionError wrapping the KeyError' do
+      it 'raises ExtractionError with a descriptive message' do
         expect do
           extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
-        end.to raise_error(Analysis::Entities::ExtractionError)
+        end.to raise_error(Analysis::Entities::ExtractionError, 'unknown node type: InvalidType')
       end
     end
 

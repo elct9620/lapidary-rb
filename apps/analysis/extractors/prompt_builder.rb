@@ -17,6 +17,10 @@ module Analysis
           ## Content
 
           #{job_arguments.entity_type.capitalize} ##{job_arguments.entity_id}
+          Author: #{job_arguments.author_username} (#{job_arguments.author_display_name})
+
+          #{job_arguments.content}
+          #{journal_context(job_arguments)}
         PROMPT
       end
 
@@ -54,6 +58,14 @@ module Analysis
 
           ### Standard Libraries
           #{Ontology::ModuleRegistry::STDLIBS.to_a.sort.join(', ')}
+        TEXT
+      end
+
+      def journal_context(job_arguments)
+        return unless job_arguments.entity_type == 'journal'
+
+        <<~TEXT.chomp
+          Issue ##{job_arguments.issue_id}: #{job_arguments.issue_content}
         TEXT
       end
 
