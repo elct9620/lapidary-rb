@@ -5,14 +5,10 @@ module Analysis
   module UseCases
     # Claims and processes the next pending analysis job.
     class ProcessJob
-      def initialize(job_repository:, analysis_record_repository:, extractor:, validator:, # rubocop:disable Metrics/ParameterLists
-                     normalizer:, graph_repository:, logger:)
+      def initialize(job_repository:, analysis_record_repository:, pipeline:, logger:)
         @job_repository = job_repository
         @analysis_record_repository = analysis_record_repository
-        @extractor = extractor
-        @validator = validator
-        @normalizer = normalizer
-        @graph_repository = graph_repository
+        @pipeline = pipeline
         @logger = logger
       end
 
@@ -29,7 +25,8 @@ module Analysis
       def process(job)
         record = build_record(job)
         record.analyze
-        pipeline(job)
+        observation = build_observation(job)
+        @pipeline.call(job.arguments, observation)
         @analysis_record_repository.save(record)
 
         job.complete
@@ -46,31 +43,6 @@ module Analysis
           @logger.error(self) { "Job #{job.id} permanently failed: #{error.message}" }
         end
         @job_repository.save(job)
-      end
-
-      def pipeline(job)
-        observation = build_observation(job)
-        triplets = @extractor.call(job.arguments)
-        triplets.each { |triplet| process_triplet(triplet, job.arguments, observation) }
-      end
-
-      def process_triplet(triplet, arguments, observation)
-        result = @validator.call(triplet)
-        log_downgrades(result.downgrades)
-
-        if result.errors.any?
-          @logger.warn(self) { "Invalid triplet rejected: #{result.errors.join(', ')}" }
-          return
-        end
-
-        normalized = @normalizer.call(result.triplet, arguments)
-        triplet_observation = observation.merge(evidence: normalized.evidence)
-        write_result = @graph_repository.save_triplet(normalized, triplet_observation)
-        @logger.info(self) { 'Duplicate observation skipped' } if write_result == :duplicate
-      end
-
-      def log_downgrades(downgrades)
-        downgrades.each { |msg| @logger.info(self) { msg } }
       end
 
       def build_observation(job)

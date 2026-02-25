@@ -7,10 +7,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
     described_class.new(
       job_repository: job_repository,
       analysis_record_repository: analysis_record_repository,
-      extractor: extractor,
-      validator: validator,
-      normalizer: normalizer,
-      graph_repository: graph_repository,
+      pipeline: pipeline,
       logger: logger
     )
   end
@@ -22,6 +19,16 @@ RSpec.describe Analysis::UseCases::ProcessJob do
   let(:validator) { Analysis::Ontology::Validator.new }
   let(:normalizer) { Analysis::Ontology::Normalizer.new }
   let(:logger) { instance_double(Console::Logger, error: nil, warn: nil, info: nil) }
+
+  let(:pipeline) do
+    Analysis::UseCases::TripletPipeline.new(
+      extractor: extractor,
+      validator: validator,
+      normalizer: normalizer,
+      graph_repository: graph_repository,
+      logger: logger
+    )
+  end
 
   describe '#call' do
     context 'when there is a pending job' do
@@ -170,7 +177,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       it 'logs warnings for invalid triplets' do
         use_case.call
 
-        expect(logger).to have_received(:warn).with(use_case)
+        expect(logger).to have_received(:warn).with(pipeline)
       end
 
       it 'does not write invalid triplets to the graph' do
@@ -320,7 +327,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       it 'logs the downgrade at info level' do
         use_case.call
 
-        expect(logger).to have_received(:info).with(use_case).at_least(:once)
+        expect(logger).to have_received(:info).with(pipeline).at_least(:once)
       end
     end
 
@@ -402,7 +409,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         db = Lapidary::Container['database']
         expect(db[:nodes].count).to eq(2)
         expect(db[:edges].count).to eq(1)
-        expect(logger).to have_received(:warn).with(use_case)
+        expect(logger).to have_received(:warn).with(pipeline)
       end
     end
 

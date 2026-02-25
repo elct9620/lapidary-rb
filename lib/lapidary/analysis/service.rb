@@ -38,6 +38,13 @@ module Lapidary
         ::Analysis::UseCases::ProcessJob.new(
           job_repository: container['analysis.repositories.job_repository'],
           analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
+          pipeline: build_pipeline,
+          logger: container['logger']
+        )
+      end
+
+      def build_pipeline
+        ::Analysis::UseCases::TripletPipeline.new(
           extractor: container['analysis.extractors.llm_extractor'],
           # Validator and Normalizer are inner-layer domain objects, not container-managed
           validator: ::Analysis::Ontology::Validator.new,

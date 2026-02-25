@@ -109,13 +109,18 @@ RSpec.describe Webhooks::API do
 
     context 'with incremental journal tracking' do
       let(:process_job) do
-        Analysis::UseCases::ProcessJob.new(
-          job_repository: Lapidary::Container['analysis.repositories.job_repository'],
-          analysis_record_repository: Lapidary::Container['analysis.repositories.analysis_record_repository'],
+        pipeline = Analysis::UseCases::TripletPipeline.new(
           extractor: ->(_args) { [] },
           validator: Analysis::Ontology::Validator.new,
           normalizer: Analysis::Ontology::Normalizer.new,
           graph_repository: Lapidary::Container['analysis.repositories.graph_repository'],
+          logger: Lapidary::Container['logger']
+        )
+
+        Analysis::UseCases::ProcessJob.new(
+          job_repository: Lapidary::Container['analysis.repositories.job_repository'],
+          analysis_record_repository: Lapidary::Container['analysis.repositories.analysis_record_repository'],
+          pipeline: pipeline,
           logger: Lapidary::Container['logger']
         )
       end
