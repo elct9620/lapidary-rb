@@ -40,6 +40,15 @@ RSpec.describe Analysis::Ontology::Normalizer do
 
         expect(result.subject.name).to eq('matz')
       end
+
+      it 'sets display_name property when author has display_name' do
+        triplet = build_triplet(subject_name: 'matz')
+        arguments = build_arguments(author_username: 'matz', author_display_name: 'Yukihiro Matsumoto')
+
+        result = normalizer.call(triplet, arguments)
+
+        expect(result.subject.properties[:display_name]).to eq('Yukihiro Matsumoto')
+      end
     end
 
     context 'when subject name matches author_display_name' do
@@ -50,6 +59,15 @@ RSpec.describe Analysis::Ontology::Normalizer do
         result = normalizer.call(triplet, arguments)
 
         expect(result.subject.name).to eq('matz')
+      end
+
+      it 'sets display_name property' do
+        triplet = build_triplet(subject_name: 'Yukihiro Matsumoto')
+        arguments = build_arguments(author_username: 'matz', author_display_name: 'Yukihiro Matsumoto')
+
+        result = normalizer.call(triplet, arguments)
+
+        expect(result.subject.properties[:display_name]).to eq('Yukihiro Matsumoto')
       end
     end
 

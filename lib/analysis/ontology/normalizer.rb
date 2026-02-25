@@ -6,27 +6,37 @@ module Analysis
     # Resolves Rubyist names to canonical usernames using job context.
     class Normalizer
       def call(triplet, arguments)
-        normalized_name = resolve_subject_name(triplet.subject.name, arguments)
-        return triplet if normalized_name == triplet.subject.name
+        return triplet unless arguments
 
-        triplet.with(subject: triplet.subject.with(name: normalized_name))
+        normalized_subject = resolve_subject(triplet.subject, arguments)
+        return triplet if normalized_subject.equal?(triplet.subject)
+
+        triplet.with(subject: normalized_subject)
       end
 
       private
 
-      def resolve_subject_name(name, arguments)
-        return name unless arguments
-
+      def resolve_subject(subject, arguments)
         username = arguments.author_username
         display_name = arguments.author_display_name
 
-        if username && name.downcase == username.downcase
-          username
-        elsif display_name && name.downcase == display_name.downcase
-          username || name
+        if matches_author?(subject.name, username, display_name)
+          merge_display_name(subject.with(name: username || subject.name), display_name)
         else
-          name
+          subject
         end
+      end
+
+      def matches_author?(name, username, display_name)
+        downcased = name.downcase
+        (username && downcased == username.downcase) ||
+          (display_name && downcased == display_name.downcase)
+      end
+
+      def merge_display_name(subject, display_name)
+        return subject unless display_name
+
+        subject.with(properties: subject.properties.merge(display_name: display_name))
       end
     end
   end

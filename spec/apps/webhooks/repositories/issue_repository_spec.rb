@@ -14,9 +14,12 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
           id: 42,
           subject: 'Add new feature',
           author: { id: 1, name: 'matz (Yukihiro Matsumoto)' },
+          created_on: '2024-01-15T10:30:00Z',
           journals: [
-            { id: 101, user: { id: 2, name: 'nobu (Nobuyoshi Nakada)' }, notes: 'First comment' },
-            { id: 102, user: { id: 3, name: 'ko1 (Koichi Sasada)' }, notes: 'Second comment' }
+            { id: 101, user: { id: 2, name: 'nobu (Nobuyoshi Nakada)' }, notes: 'First comment',
+              created_on: '2024-01-16T08:00:00Z' },
+            { id: 102, user: { id: 3, name: 'ko1 (Koichi Sasada)' }, notes: 'Second comment',
+              created_on: '2024-01-17T09:00:00Z' }
           ]
         }
       }
@@ -44,6 +47,11 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
       expect(issue.author.display_name).to eq('Yukihiro Matsumoto')
     end
 
+    it 'extracts created_on from the issue' do
+      issue = repository.find(42)
+      expect(issue.created_on).to eq('2024-01-15T10:30:00Z')
+    end
+
     it 'includes journals with notes and author info' do
       issue = repository.find(42)
       journal = issue.journals.first
@@ -51,6 +59,12 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
       expect(journal.notes).to eq('First comment')
       expect(journal.author.username).to eq('nobu')
       expect(journal.author.display_name).to eq('Nobuyoshi Nakada')
+    end
+
+    it 'extracts created_on from journals' do
+      issue = repository.find(42)
+      expect(issue.journals.first.created_on).to eq('2024-01-16T08:00:00Z')
+      expect(issue.journals.last.created_on).to eq('2024-01-17T09:00:00Z')
     end
 
     it 'includes all journal ids' do

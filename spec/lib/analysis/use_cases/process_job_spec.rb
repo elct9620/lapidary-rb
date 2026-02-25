@@ -220,6 +220,74 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
     end
 
+    context 'when triplet includes evidence' do
+      let(:extractor) do
+        triplet = Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::RUBYIST,
+            name: 'matz',
+            properties: { is_committer: true }
+          ),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::CORE_MODULE,
+            name: 'String'
+          ),
+          evidence: 'matz maintains the String class'
+        )
+        instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
+      end
+
+      before do
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1, author_username: 'matz'
+        )))
+      end
+
+      it 'includes evidence in the edge observation' do
+        use_case.call
+
+        db = Lapidary::Container['database']
+        edge = db[:edges].first
+        observations = JSON.parse(edge[:properties], symbolize_names: true)
+        expect(observations.first[:evidence]).to eq('matz maintains the String class')
+      end
+    end
+
+    context 'when job has created_on timestamp' do
+      let(:extractor) do
+        triplet = Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::RUBYIST,
+            name: 'matz',
+            properties: { is_committer: true }
+          ),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::CORE_MODULE,
+            name: 'String'
+          )
+        )
+        instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
+      end
+
+      before do
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1, author_username: 'matz',
+          created_on: '2024-01-15T10:30:00Z'
+        )))
+      end
+
+      it 'uses created_on as observed_at in the observation' do
+        use_case.call
+
+        db = Lapidary::Container['database']
+        edge = db[:edges].first
+        observations = JSON.parse(edge[:properties], symbolize_names: true)
+        expect(observations.first[:observed_at]).to eq('2024-01-15T10:30:00Z')
+      end
+    end
+
     context 'when a Maintenance triplet is downgraded to Contribute' do
       let(:extractor) do
         triplet = Analysis::Entities::Triplet.new(

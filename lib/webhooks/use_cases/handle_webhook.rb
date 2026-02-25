@@ -49,8 +49,8 @@ module Webhooks
           entity_type: Entities::EntityType::ISSUE.to_s,
           entity_id: issue.id,
           content: issue.subject,
-          author_username: issue.author&.username,
-          author_display_name: issue.author&.display_name
+          created_on: issue.created_on,
+          **author_fields(issue.author)
         }
       end
 
@@ -60,11 +60,14 @@ module Webhooks
           entity_type: Entities::EntityType::JOURNAL.to_s,
           entity_id: journal.id,
           content: journal.notes,
-          author_username: journal.author&.username,
-          author_display_name: journal.author&.display_name,
-          issue_id: issue.id,
-          issue_content: issue.subject
+          issue_id: issue.id, issue_content: issue.subject,
+          created_on: journal.created_on,
+          **author_fields(journal.author)
         }
+      end
+
+      def author_fields(author)
+        { author_username: author&.username, author_display_name: author&.display_name }
       end
 
       def find_journal(issue, record)

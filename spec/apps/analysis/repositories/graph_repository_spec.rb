@@ -61,6 +61,22 @@ RSpec.describe Analysis::Repositories::GraphRepository do
       expect(data[:role]).to eq('creator')
     end
 
+    it 'preserves existing fields not present in new data during node upsert' do
+      repository.save_triplet(triplet, observation)
+
+      # Second save with only a new field, no is_committer
+      partial_triplet = triplet.with(
+        subject: triplet.subject.with(properties: { display_name: 'Yukihiro Matsumoto' })
+      )
+      other_observation = { observed_at: Time.now.iso8601, source_entity_type: 'journal', source_entity_id: 2 }
+      repository.save_triplet(partial_triplet, other_observation)
+
+      node = db[:nodes].where(id: 'rubyist://matz').first
+      data = JSON.parse(node[:data], symbolize_names: true)
+      expect(data[:is_committer]).to be true
+      expect(data[:display_name]).to eq('Yukihiro Matsumoto')
+    end
+
     it 'appends observation to existing edge' do
       repository.save_triplet(triplet, observation)
 

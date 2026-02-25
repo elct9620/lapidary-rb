@@ -18,11 +18,13 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
     [
       Webhooks::Entities::Journal.new(
         id: 101, notes: 'First comment',
-        author: Webhooks::Entities::Author.new(username: 'nobu', display_name: 'Nobuyoshi Nakada')
+        author: Webhooks::Entities::Author.new(username: 'nobu', display_name: 'Nobuyoshi Nakada'),
+        created_on: '2024-01-16T08:00:00Z'
       ),
       Webhooks::Entities::Journal.new(
         id: 102, notes: 'Second comment',
-        author: Webhooks::Entities::Author.new(username: 'ko1', display_name: 'Koichi Sasada')
+        author: Webhooks::Entities::Author.new(username: 'ko1', display_name: 'Koichi Sasada'),
+        created_on: '2024-01-17T09:00:00Z'
       )
     ]
   end
@@ -30,6 +32,7 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
     Webhooks::Entities::Issue.new(
       id: 42, subject: 'Add new feature',
       author: Webhooks::Entities::Author.new(username: 'matz', display_name: 'Yukihiro Matsumoto'),
+      created_on: '2024-01-15T10:30:00Z',
       journals: journals
     )
   end
@@ -51,7 +54,8 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
         entity_id: 42,
         content: 'Add new feature',
         author_username: 'matz',
-        author_display_name: 'Yukihiro Matsumoto'
+        author_display_name: 'Yukihiro Matsumoto',
+        created_on: '2024-01-15T10:30:00Z'
       )
     end
 
@@ -67,7 +71,8 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
         author_username: 'nobu',
         author_display_name: 'Nobuyoshi Nakada',
         issue_id: 42,
-        issue_content: 'Add new feature'
+        issue_content: 'Add new feature',
+        created_on: '2024-01-16T08:00:00Z'
       )
       expect(jobs).to include(
         entity_type: 'journal',
@@ -76,7 +81,8 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
         author_username: 'ko1',
         author_display_name: 'Koichi Sasada',
         issue_id: 42,
-        issue_content: 'Add new feature'
+        issue_content: 'Add new feature',
+        created_on: '2024-01-17T09:00:00Z'
       )
     end
 

@@ -64,7 +64,8 @@ module Analysis
         end
 
         normalized = @normalizer.call(result.triplet, arguments)
-        write_result = @graph_repository.save_triplet(normalized, observation)
+        triplet_observation = observation.merge(evidence: normalized.evidence)
+        write_result = @graph_repository.save_triplet(normalized, triplet_observation)
         @logger.info(self) { 'Duplicate observation skipped' } if write_result == :duplicate
       end
 
@@ -74,7 +75,7 @@ module Analysis
 
       def build_observation(job)
         {
-          observed_at: Time.now.iso8601,
+          observed_at: job.arguments.created_on || Time.now.iso8601,
           source_entity_type: job.arguments.entity_type,
           source_entity_id: job.arguments.entity_id
         }

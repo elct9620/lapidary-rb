@@ -28,6 +28,7 @@ module Analysis
               string :type, enum: NODE_TYPE_MAP.keys
               string :name, description: 'Canonical module name'
             end
+            string :evidence, description: 'Brief rationale for this triplet extracted from the source text'
           end
         end
       end
@@ -63,7 +64,8 @@ module Analysis
           relationship: RELATIONSHIP_MAP.fetch(raw['relationship']) do
             raise Entities::ExtractionError, "unknown relationship: #{raw['relationship']}"
           end,
-          object: build_object(raw['object'])
+          object: build_object(raw['object']),
+          evidence: raw['evidence']
         )
       end
 

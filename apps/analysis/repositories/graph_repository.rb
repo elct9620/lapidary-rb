@@ -39,9 +39,18 @@ module Analysis
       def upsert_node(node:)
         now = Time.now
         id = build_node_id(node)
-        data = JSON.generate(node.properties)
+        merged_data = merge_node_data(id, node.properties)
+        data = JSON.generate(merged_data)
         dataset.insert_conflict(target: :id, update: { data: data, updated_at: now })
                .insert(id: id, type: node.type.to_s, data: data, created_at: now, updated_at: now)
+      end
+
+      def merge_node_data(id, new_properties)
+        existing = dataset.where(id: id).first
+        return new_properties unless existing
+
+        existing_data = JSON.parse(existing[:data], symbolize_names: true)
+        existing_data.merge(new_properties) { |_key, old_val, new_val| new_val.nil? ? old_val : new_val }
       end
 
       def upsert_edge(source:, target:, relationship:, observation:)

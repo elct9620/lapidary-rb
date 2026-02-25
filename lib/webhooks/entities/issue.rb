@@ -5,12 +5,13 @@ module Webhooks
   module Entities
     # Domain entity representing an issue with its journals.
     class Issue
-      attr_reader :id, :subject, :author, :journals
+      attr_reader :id, :subject, :author, :created_on, :journals
 
-      def initialize(id:, subject: nil, author: nil, journals: [])
+      def initialize(id:, subject: nil, author: nil, created_on: nil, journals: [])
         @id = id
         @subject = subject
         @author = author
+        @created_on = created_on
         @journals = journals
       end
 

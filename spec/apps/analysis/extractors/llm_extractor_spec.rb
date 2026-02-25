@@ -25,12 +25,14 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
               {
                 'subject' => { 'name' => 'matz', 'is_committer' => true },
                 'relationship' => 'Maintenance',
-                'object' => { 'type' => 'CoreModule', 'name' => 'String' }
+                'object' => { 'type' => 'CoreModule', 'name' => 'String' },
+                'evidence' => 'matz maintains the String class'
               },
               {
                 'subject' => { 'name' => 'contributor', 'is_committer' => false },
                 'relationship' => 'Contribute',
-                'object' => { 'type' => 'Stdlib', 'name' => 'json' }
+                'object' => { 'type' => 'Stdlib', 'name' => 'json' },
+                'evidence' => 'contributor worked on json stdlib'
               }
             ]
           }
@@ -66,6 +68,13 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
         expect(triplets.first.object.name).to eq('String')
         expect(triplets.last.object.type).to eq(Analysis::Entities::NodeType::STDLIB)
         expect(triplets.last.object.name).to eq('json')
+      end
+
+      it 'carries evidence through to the triplet' do
+        triplets = extractor.call(job_arguments)
+
+        expect(triplets.first.evidence).to eq('matz maintains the String class')
+        expect(triplets.last.evidence).to eq('contributor worked on json stdlib')
       end
 
       it 'returns triplets that pass ontology validation' do

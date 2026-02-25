@@ -24,6 +24,7 @@ module Webhooks
           id: issue_data['id'],
           subject: issue_data['subject'],
           author: author,
+          created_on: issue_data['created_on'],
           journals: journals
         )
       end
@@ -34,7 +35,8 @@ module Webhooks
         Entities::Journal.new(
           id: data['id'],
           notes: data['notes'],
-          author: author
+          author: author,
+          created_on: data['created_on']
         )
       end
 
