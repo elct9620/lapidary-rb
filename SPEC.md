@@ -23,6 +23,7 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Knowledge graph schema supports storing entities and relationships as Nodes and Edges with flexible metadata
 - Ontology-guided extraction pipeline extracts (Rubyist, Maintenance|Contribute, CoreModule|Stdlib) triplets from Issue/Journal content via LLM
 - Extracted triplets are validated against ontology constraints before writing to the knowledge graph
+- Graph neighbor query returns connected nodes with edge observations, supporting direction and time-range filtering
 
 ## Non-goals
 
@@ -359,8 +360,8 @@ The pipeline processes each job through four stages:
 |-----------|----------|------|---------|-------------|
 | `node_id` | Yes | String | — | Node ID in `type://name` format (e.g., `Rubyist://matz`) |
 | `direction` | No | String | `both` | Edge direction filter: `outbound`, `inbound`, or `both` |
-| `observed_after` | No | String | — | ISO 8601 datetime — include edges with at least one observation after this time |
-| `observed_before` | No | String | — | ISO 8601 datetime — include edges with at least one observation before this time |
+| `observed_after` | No | String | — | ISO 8601 datetime — include edges where `observed_at >= observed_after` (inclusive) |
+| `observed_before` | No | String | — | ISO 8601 datetime — include edges where `observed_at <= observed_before` (inclusive) |
 
 **Response 200**:
 
@@ -575,6 +576,9 @@ Each observation record contains:
 | Ontology validation rejection | `warn` | Rejected triplet, validation rule violated, job identity |
 | Maintenance downgraded to Contribute | `info` | Original triplet, job identity |
 | Duplicate edge observation skipped | `info` | Edge identity, source entity, job identity |
+| Graph API invalid request (400) | `warn` | Request origin, validation errors |
+| Graph API node not found (404) | `info` | Requested node ID |
+| Graph API database query failure | `error` | Query parameters, error message |
 
 **Principles**:
 

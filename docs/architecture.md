@@ -70,6 +70,7 @@ Domain directories:
 
 - `analysis` — Job processing and analysis tracking
 - `webhooks` — Webhook processing (issue notifications)
+- `graph` — Knowledge graph query API
 - `health` — Health check endpoint (outer layer only)
 
 | Component | Location | `auto_register: false`? | Uses `Lapidary::Dependency`? | Description |
@@ -181,6 +182,11 @@ apps/                    # Outer layer only (adapters, controllers, contracts, s
     repositories/
       analysis_record_repository.rb
       issue_repository.rb
+  graph/
+    api.rb               # Controller
+    contract.rb          # Contract
+    repositories/
+      node_repository.rb
   health/
     api.rb               # Controller
 config/
