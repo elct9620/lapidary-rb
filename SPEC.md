@@ -29,7 +29,7 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 
 - Ontology evolution — The ontology is static and predefined; automatic discovery or modification of node types and relationship types is out of scope
 - Multi-hop reasoning — No inference chains or logical deduction across multiple edges; graph traversal queries are supported for exploration but do not derive new knowledge
-- User authentication and access control
+- End-user authentication and access control
 - Frontend UI
 - Multi-worker concurrency
 - Job priority queues
@@ -124,6 +124,12 @@ Content-Type: `application/json`
 
 **Endpoint**: `POST /webhook`
 
+**Authentication**:
+
+- When the `WEBHOOK_SECRET` environment variable is set, requests must include a `?token=<value>` query parameter matching the configured secret
+- When `WEBHOOK_SECRET` is not set, all requests are accepted without token verification
+- Token comparison uses constant-time comparison to prevent timing attacks
+
 **Request format**:
 
 ```json
@@ -140,17 +146,19 @@ Content-Type: `application/json`
 
 **Processing flow**:
 
-1. Validate the request
-2. Fetch Issue data from the Redmine API (including journals)
-3. Determine which entities (Issue and Journals) are not yet tracked
-4. Create one analysis job per untracked entity, each carrying the fields defined in the Job Arguments field mapping (see Issue Data Fetching)
-5. Respond with 202 Accepted
+1. Verify authentication (when `WEBHOOK_SECRET` is set)
+2. Validate the request
+3. Fetch Issue data from the Redmine API (including journals)
+4. Determine which entities (Issue and Journals) are not yet tracked
+5. Create one analysis job per untracked entity, each carrying the fields defined in the Job Arguments field mapping (see Issue Data Fetching)
+6. Respond with 202 Accepted
 
 **Responses**:
 
 | Condition | Status Code | Body |
 |-----------|-------------|------|
 | Request processed successfully (zero or more analysis jobs enqueued) | `202 Accepted` | `{ "status": "accepted" }` |
+| Missing or invalid token (when `WEBHOOK_SECRET` is set) | `401 Unauthorized` | `{ "error": "unauthorized" }` |
 | Non-JSON request | `415 Unsupported Media Type` | `{ "error": "Content-Type must be application/json" }` |
 | Invalid payload (malformed JSON or missing `issue_id`) | `422 Unprocessable Entity` | `{ "error": "..." }` |
 | Redmine API unreachable or non-200 response | `502 Bad Gateway` | `{ "error": "failed to fetch issue from Redmine" }` |
@@ -510,6 +518,8 @@ Each observation record contains:
 
 | Scenario | Behavior |
 |----------|----------|
+| Missing token when `WEBHOOK_SECRET` is set | Respond 401, do not process |
+| Invalid token when `WEBHOOK_SECRET` is set | Respond 401, do not process |
 | Content-Type is not `application/json` | Respond 415, do not process |
 | Invalid JSON payload | Respond 422, do not process |
 | Missing `issue_id` or not a positive integer | Respond 422, do not process |
@@ -572,6 +582,7 @@ Each observation record contains:
 | Job execution failure | `error` | Job identity, error message, attempt count |
 | Job permanently failed | `error` | Job identity, error message, total attempts |
 | Redmine API failure | `warn` | Request URL, HTTP status code |
+| Authentication failure (401) | `warn` | Request origin information |
 | Invalid request (422/415) | `warn` | Request origin information, validation errors |
 | Ontology validation rejection | `warn` | Rejected triplet, validation rule violated, job identity |
 | Maintenance downgraded to Contribute | `info` | Original triplet, job identity |
@@ -605,6 +616,9 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `PORT`   | No       | `9292`  | HTTP listen port |
+| `WEBHOOK_SECRET` | No | — | When set, webhook requests must include `?token=<value>` matching this secret; when unset, authentication is bypassed |
+| `REDMINE_URL` | No | `https://bugs.ruby-lang.org` | Base URL for the Redmine JSON API |
+| `OPENAI_API_KEY` | Yes | — | API key for OpenAI LLM used in triplet extraction |
 
 #### Port
 
@@ -718,12 +732,12 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph API bounded context | New `graph` BC | Separates query concerns from analysis concerns; follows existing BC pattern |
 | Graph query endpoint style | Query parameters (`GET /graph/neighbors?node_id=...`) | Simple, cacheable, fits RESTful conventions for read-only queries |
 | Node ID in query | URI format passed as query parameter | Reuses existing `type://name` node ID convention; human-readable |
+| Webhook authentication | Static token via query parameter (`?token=`) | Simple, no cryptographic overhead; optional via env var presence |
 
 ### To Be Decided
 
 | Item | Candidate Options | Notes |
 |------|-------------------|-------|
-| Webhook authentication | HMAC signature / IP whitelist | Whether source verification is needed |
 | Logging solution | Ruby Logger / dry-logger | Logging framework to be selected |
 | Job cleanup strategy | TTL-based deletion / archival / manual purge | How to handle completed and permanently failed jobs over time |
 
