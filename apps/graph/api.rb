@@ -12,7 +12,7 @@ module Graph
       )
       output = use_case.call(
         node_id: result[:node_id],
-        direction: result[:direction] || 'both',
+        direction: result[:direction] ? Entities::Direction.new(value: result[:direction]) : Entities::Direction::BOTH,
         observed_after: result[:observed_after],
         observed_before: result[:observed_before]
       )

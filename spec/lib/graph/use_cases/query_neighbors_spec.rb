@@ -29,7 +29,7 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
     context 'when node exists' do
       before do
         allow(repository).to receive(:find_node).with('rubyist://matz').and_return(matz_node)
-        allow(repository).to receive(:find_edges).with('rubyist://matz', direction: 'both')
+        allow(repository).to receive(:find_edges).with('rubyist://matz', direction: Graph::Entities::Direction::BOTH)
                                                  .and_return([outbound_edge, inbound_edge])
         allow(repository).to receive(:find_nodes_by_ids)
           .with(match_array(%w[core_module://String core_module://Array]))
@@ -60,7 +60,7 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
     context 'with direction filtering' do
       before do
         allow(repository).to receive(:find_node).with('rubyist://matz').and_return(matz_node)
-        allow(repository).to receive(:find_edges).with('rubyist://matz', direction: 'outbound')
+        allow(repository).to receive(:find_edges).with('rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND)
                                                  .and_return([outbound_edge])
         allow(repository).to receive(:find_nodes_by_ids)
           .with(%w[core_module://String])
@@ -68,7 +68,7 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
       end
 
       it 'passes direction to repository' do
-        result = use_case.call(node_id: 'rubyist://matz', direction: 'outbound')
+        result = use_case.call(node_id: 'rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND)
 
         expect(result[:neighbors].size).to eq(1)
         expect(result[:neighbors].first.node.id).to eq('core_module://String')
@@ -88,7 +88,7 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
 
       before do
         allow(repository).to receive(:find_node).with('rubyist://matz').and_return(matz_node)
-        allow(repository).to receive(:find_edges).with('rubyist://matz', direction: 'both')
+        allow(repository).to receive(:find_edges).with('rubyist://matz', direction: Graph::Entities::Direction::BOTH)
                                                  .and_return([multi_obs_edge, inbound_edge])
         allow(repository).to receive(:find_nodes_by_ids).and_return({
                                                                       'core_module://String' => string_node,

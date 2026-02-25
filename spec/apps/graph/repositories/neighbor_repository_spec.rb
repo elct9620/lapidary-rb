@@ -54,7 +54,7 @@ RSpec.describe Graph::Repositories::NeighborRepository do
 
   describe '#find_edges' do
     it 'returns outbound edges' do
-      edges = repository.find_edges('rubyist://matz', direction: 'outbound')
+      edges = repository.find_edges('rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND)
 
       expect(edges.size).to eq(1)
       expect(edges.first.source).to eq('rubyist://matz')
@@ -62,7 +62,7 @@ RSpec.describe Graph::Repositories::NeighborRepository do
     end
 
     it 'returns inbound edges' do
-      edges = repository.find_edges('rubyist://matz', direction: 'inbound')
+      edges = repository.find_edges('rubyist://matz', direction: Graph::Entities::Direction::INBOUND)
 
       expect(edges.size).to eq(1)
       expect(edges.first.source).to eq('core_module://Array')
@@ -76,7 +76,7 @@ RSpec.describe Graph::Repositories::NeighborRepository do
     end
 
     it 'parses observations from properties JSON' do
-      edges = repository.find_edges('rubyist://matz', direction: 'outbound')
+      edges = repository.find_edges('rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND)
 
       expect(edges.first.observations).to eq([{
                                                observed_at: '2024-01-15T10:30:00Z',

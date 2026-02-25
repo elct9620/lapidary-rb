@@ -21,7 +21,7 @@ module Graph
         end
       end
 
-      def find_edges(node_id, direction: 'both')
+      def find_edges(node_id, direction: Entities::Direction::BOTH)
         with_error_wrapping do
           rows = query_edges(node_id, direction)
           rows.map { |row| build_edge(row) }
@@ -46,9 +46,9 @@ module Graph
 
       def query_edges(node_id, direction)
         case direction
-        when 'outbound'
+        when Entities::Direction::OUTBOUND
           edges.where(source: node_id).all
-        when 'inbound'
+        when Entities::Direction::INBOUND
           edges.where(target: node_id).all
         else
           edges.where(Sequel.|({ source: node_id }, { target: node_id })).all

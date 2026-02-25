@@ -10,7 +10,7 @@ module Graph
         @neighbor_repository = neighbor_repository
       end
 
-      def call(node_id:, direction: 'both', observed_after: nil, observed_before: nil)
+      def call(node_id:, direction: Entities::Direction::BOTH, observed_after: nil, observed_before: nil)
         node = @neighbor_repository.find_node(node_id)
         return nil unless node
 

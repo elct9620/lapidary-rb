@@ -27,54 +27,12 @@ module Webhooks
       end
 
       def schedule(issue, records)
+        builder = JobArgumentBuilder.new(issue)
         records.each do |record|
-          arguments = build_job_arguments(issue, record)
+          arguments = builder.call(record)
           @analysis_scheduler.schedule(**arguments)
         end
         nil
-      end
-
-      def build_job_arguments(issue, record)
-        if record.entity_type == Entities::EntityType::ISSUE
-          build_issue_arguments(issue)
-        elsif record.entity_type == Entities::EntityType::JOURNAL
-          build_journal_arguments(issue, record)
-        else
-          raise ArgumentError, "unknown entity type: #{record.entity_type}"
-        end
-      end
-
-      def build_issue_arguments(issue)
-        {
-          entity_type: Entities::EntityType::ISSUE.to_s,
-          entity_id: issue.id,
-          content: issue.subject,
-          created_on: issue.created_on,
-          **author_fields(issue.author)
-        }
-      end
-
-      def build_journal_arguments(issue, record)
-        journal = find_journal(issue, record)
-        {
-          entity_type: Entities::EntityType::JOURNAL.to_s,
-          entity_id: journal.id,
-          content: journal.notes,
-          issue_id: issue.id, issue_content: issue.subject,
-          created_on: journal.created_on,
-          **author_fields(journal.author)
-        }
-      end
-
-      def author_fields(author)
-        { author_username: author&.username, author_display_name: author&.display_name }
-      end
-
-      def find_journal(issue, record)
-        journal = issue.journals.find { |j| j.id == record.entity_id }
-        raise ArgumentError, "journal #{record.entity_id} not found in issue #{issue.id}" unless journal
-
-        journal
       end
 
       def build_issue_records(issue)
