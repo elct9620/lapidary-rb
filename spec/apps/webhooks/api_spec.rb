@@ -114,6 +114,8 @@ RSpec.describe Webhooks::API do
           analysis_record_repository: Lapidary::Container['analysis.repositories.analysis_record_repository'],
           extractor: ->(_args) { [] },
           validator: Analysis::Ontology::Validator.new,
+          normalizer: Analysis::Ontology::Normalizer.new,
+          graph_repository: Lapidary::Container['analysis.repositories.graph_repository'],
           logger: Lapidary::Container['logger']
         )
       end

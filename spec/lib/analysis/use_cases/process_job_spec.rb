@@ -9,15 +9,19 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       analysis_record_repository: analysis_record_repository,
       extractor: extractor,
       validator: validator,
+      normalizer: normalizer,
+      graph_repository: graph_repository,
       logger: logger
     )
   end
 
   let(:job_repository) { Lapidary::Container['analysis.repositories.job_repository'] }
   let(:analysis_record_repository) { Lapidary::Container['analysis.repositories.analysis_record_repository'] }
+  let(:graph_repository) { Lapidary::Container['analysis.repositories.graph_repository'] }
   let(:extractor) { instance_double(Analysis::Extractors::LlmExtractor, call: []) }
   let(:validator) { Analysis::Ontology::Validator.new }
-  let(:logger) { instance_double(Console::Logger, error: nil, warn: nil) }
+  let(:normalizer) { Analysis::Ontology::Normalizer.new }
+  let(:logger) { instance_double(Console::Logger, error: nil, warn: nil, info: nil) }
 
   describe '#call' do
     context 'when there is a pending job' do
@@ -145,13 +149,13 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       let(:extractor) do
         invalid_triplet = Analysis::Entities::Triplet.new(
           subject: Analysis::Entities::Node.new(
-            type: Analysis::Entities::NodeType::RUBYIST,
-            name: 'someone'
-          ),
-          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
-          object: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::CORE_MODULE,
             name: 'String'
+          ),
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::RUBYIST,
+            name: 'someone'
           )
         )
         instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet])
@@ -169,11 +173,168 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         expect(logger).to have_received(:warn).with(use_case)
       end
 
+      it 'does not write invalid triplets to the graph' do
+        use_case.call
+
+        expect(Lapidary::Container['database'][:nodes].count).to eq(0)
+      end
+
       it 'still completes the job' do
         use_case.call
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::DONE.to_s)
+      end
+    end
+
+    context 'when a valid triplet is extracted' do
+      let(:extractor) do
+        triplet = Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::RUBYIST,
+            name: 'matz',
+            properties: { is_committer: true }
+          ),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::CORE_MODULE,
+            name: 'String'
+          )
+        )
+        instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
+      end
+
+      before do
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1, author_username: 'matz'
+        )))
+      end
+
+      it 'writes the triplet to the knowledge graph' do
+        use_case.call
+
+        db = Lapidary::Container['database']
+        expect(db[:nodes].where(id: 'rubyist://matz').count).to eq(1)
+        expect(db[:nodes].where(id: 'core_module://String').count).to eq(1)
+        expect(db[:edges].count).to eq(1)
+      end
+    end
+
+    context 'when a Maintenance triplet is downgraded to Contribute' do
+      let(:extractor) do
+        triplet = Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::RUBYIST,
+            name: 'contributor'
+          ),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::CORE_MODULE,
+            name: 'String'
+          )
+        )
+        instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
+      end
+
+      before do
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1
+        )))
+      end
+
+      it 'writes the downgraded triplet with Contribute relationship' do
+        use_case.call
+
+        edge = Lapidary::Container['database'][:edges].first
+        expect(edge[:relationship]).to eq('Contribute')
+      end
+
+      it 'logs the downgrade at info level' do
+        use_case.call
+
+        expect(logger).to have_received(:info).with(use_case).at_least(:once)
+      end
+    end
+
+    context 'when graph write fails' do
+      let(:graph_repository) do
+        repo = instance_double(Analysis::Repositories::GraphRepository)
+        allow(repo).to receive(:save_triplet).and_raise(Analysis::Entities::GraphError, 'db error')
+        repo
+      end
+
+      let(:extractor) do
+        triplet = Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::RUBYIST,
+            name: 'matz',
+            properties: { is_committer: true }
+          ),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::CORE_MODULE,
+            name: 'String'
+          )
+        )
+        instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
+      end
+
+      before do
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1
+        )))
+      end
+
+      it 'retries the job' do
+        use_case.call
+
+        row = Lapidary::Container['database'][:jobs].first
+        expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
+        expect(row[:error]).to eq('db error')
+      end
+    end
+
+    context 'when multiple triplets are extracted with mixed validity' do
+      let(:extractor) do
+        valid_triplet = Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::RUBYIST,
+            name: 'matz',
+            properties: { is_committer: true }
+          ),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::CORE_MODULE,
+            name: 'String'
+          )
+        )
+        invalid_triplet = Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::CORE_MODULE,
+            name: 'Array'
+          ),
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: Analysis::Entities::Node.new(
+            type: Analysis::Entities::NodeType::RUBYIST,
+            name: 'someone'
+          )
+        )
+        instance_double(Analysis::Extractors::LlmExtractor, call: [valid_triplet, invalid_triplet])
+      end
+
+      before do
+        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
+          entity_type: 'issue', entity_id: 1
+        )))
+      end
+
+      it 'writes valid triplets and skips invalid ones' do
+        use_case.call
+
+        db = Lapidary::Container['database']
+        expect(db[:nodes].count).to eq(2)
+        expect(db[:edges].count).to eq(1)
+        expect(logger).to have_received(:warn).with(use_case)
       end
     end
 

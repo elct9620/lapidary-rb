@@ -5,7 +5,11 @@ module Analysis
   module Ontology
     # Validates triplets against the ontology entailment rules.
     class Validator
-      ValidationResult = Data.define(:triplet, :errors)
+      ValidationResult = Data.define(:triplet, :errors, :downgrades) do
+        def initialize(triplet:, errors:, downgrades: [])
+          super
+        end
+      end
 
       VALID_SUBJECT_TYPES = Entities::NodeType::SUBJECT_TYPES
       VALID_OBJECT_TYPES = Entities::NodeType::OBJECT_TYPES
@@ -13,12 +17,13 @@ module Analysis
 
       def call(triplet)
         errors = []
+        downgrades = []
         validate_subject_type(triplet, errors)
         validate_object_type(triplet, errors)
         validate_relationship(triplet, errors)
-        validate_committer_constraint(triplet, errors)
+        triplet = validate_committer_constraint(triplet, downgrades)
         validate_module_name(triplet, errors)
-        ValidationResult.new(triplet: triplet, errors: errors)
+        ValidationResult.new(triplet: triplet, errors: errors, downgrades: downgrades)
       end
 
       private
@@ -41,11 +46,12 @@ module Analysis
         errors << "relationship must be Maintenance or Contribute, got #{triplet.relationship}"
       end
 
-      def validate_committer_constraint(triplet, errors)
-        return unless triplet.relationship == Entities::RelationshipType::MAINTENANCE
-        return if triplet.subject.properties[:is_committer]
+      def validate_committer_constraint(triplet, downgrades)
+        return triplet unless triplet.relationship == Entities::RelationshipType::MAINTENANCE
+        return triplet if triplet.subject.properties[:is_committer]
 
-        errors << 'Maintenance relationship requires subject to be a committer'
+        downgrades << 'Maintenance downgraded to Contribute: subject is not a committer'
+        triplet.with(relationship: Entities::RelationshipType::CONTRIBUTE)
       end
 
       def validate_module_name(triplet, errors)

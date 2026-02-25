@@ -5,11 +5,14 @@ module Analysis
   module UseCases
     # Claims and processes the next pending analysis job.
     class ProcessJob
-      def initialize(job_repository:, analysis_record_repository:, extractor:, validator:, logger:)
+      def initialize(job_repository:, analysis_record_repository:, extractor:, validator:, # rubocop:disable Metrics/ParameterLists
+                     normalizer:, graph_repository:, logger:)
         @job_repository = job_repository
         @analysis_record_repository = analysis_record_repository
         @extractor = extractor
         @validator = validator
+        @normalizer = normalizer
+        @graph_repository = graph_repository
         @logger = logger
       end
 
@@ -26,12 +29,12 @@ module Analysis
       def process(job)
         record = build_record(job)
         record.analyze
-        extract_and_validate(job)
+        pipeline(job)
         @analysis_record_repository.save(record)
 
         job.complete
         @job_repository.save(job)
-      rescue Entities::AnalysisTrackingError, Entities::JobError, Entities::ExtractionError => e
+      rescue Entities::AnalysisTrackingError, Entities::JobError, Entities::ExtractionError, Entities::GraphError => e
         handle_failure(job, e)
       end
 
@@ -45,14 +48,36 @@ module Analysis
         @job_repository.save(job)
       end
 
-      def extract_and_validate(job)
+      def pipeline(job)
+        observation = build_observation(job)
         triplets = @extractor.call(job.arguments)
-        triplets.each do |triplet|
-          result = @validator.call(triplet)
-          next if result.errors.empty?
+        triplets.each { |triplet| process_triplet(triplet, job.arguments, observation) }
+      end
 
+      def process_triplet(triplet, arguments, observation)
+        result = @validator.call(triplet)
+        log_downgrades(result.downgrades)
+
+        if result.errors.any?
           @logger.warn(self) { "Invalid triplet rejected: #{result.errors.join(', ')}" }
+          return
         end
+
+        normalized = @normalizer.call(result.triplet, arguments)
+        write_result = @graph_repository.save_triplet(normalized, observation)
+        @logger.info(self) { 'Duplicate observation skipped' } if write_result == :duplicate
+      end
+
+      def log_downgrades(downgrades)
+        downgrades.each { |msg| @logger.info(self) { msg } }
+      end
+
+      def build_observation(job)
+        {
+          observed_at: Time.now.iso8601,
+          source_entity_type: job.arguments.entity_type,
+          source_entity_id: job.arguments.entity_id
+        }
       end
 
       def build_record(job)

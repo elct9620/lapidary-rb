@@ -112,20 +112,32 @@ RSpec.describe Analysis::Ontology::Validator do
     end
 
     context 'when Maintenance subject is not a committer' do
-      it 'returns a committer constraint error' do
-        non_committer = Analysis::Entities::Node.new(
+      let(:non_committer) do
+        Analysis::Entities::Node.new(
           type: Analysis::Entities::NodeType::RUBYIST,
           name: 'contributor'
         )
-        triplet = Analysis::Entities::Triplet.new(
+      end
+
+      let(:triplet) do
+        Analysis::Entities::Triplet.new(
           subject: non_committer,
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: core_module
         )
+      end
 
+      it 'downgrades to Contribute instead of rejecting' do
         result = validator.call(triplet)
 
-        expect(result.errors).to include('Maintenance relationship requires subject to be a committer')
+        expect(result.errors).to be_empty
+        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::CONTRIBUTE)
+      end
+
+      it 'records a downgrade message' do
+        result = validator.call(triplet)
+
+        expect(result.downgrades).to include('Maintenance downgraded to Contribute: subject is not a committer')
       end
     end
 
