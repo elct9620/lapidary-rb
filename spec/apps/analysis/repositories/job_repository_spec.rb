@@ -87,6 +87,73 @@ RSpec.describe Analysis::Repositories::JobRepository do
     end
   end
 
+  describe '#delete_expired' do
+    let(:db) { Lapidary::Container['database'] }
+
+    it 'deletes done jobs older than cutoff' do
+      repository.enqueue(job)
+      claimed = repository.claim_next
+      claimed.complete
+      repository.save(claimed)
+      db[:jobs].where(id: claimed.id).update(updated_at: Time.now - 86_400)
+
+      deleted = repository.delete_expired(cutoff: Time.now - 3600)
+
+      expect(deleted).to eq(1)
+      expect(db[:jobs].count).to eq(0)
+    end
+
+    it 'deletes failed jobs older than cutoff' do
+      repository.enqueue(job)
+      claimed = repository.claim_next
+      claimed.fail('permanent error')
+      repository.save(claimed)
+      db[:jobs].where(id: claimed.id).update(updated_at: Time.now - 86_400)
+
+      deleted = repository.delete_expired(cutoff: Time.now - 3600)
+
+      expect(deleted).to eq(1)
+      expect(db[:jobs].count).to eq(0)
+    end
+
+    it 'deletes stale claimed jobs older than cutoff' do
+      repository.enqueue(job)
+      repository.claim_next
+      db[:jobs].update(updated_at: Time.now - 86_400)
+
+      deleted = repository.delete_expired(cutoff: Time.now - 3600)
+
+      expect(deleted).to eq(1)
+      expect(db[:jobs].count).to eq(0)
+    end
+
+    it 'does not delete pending jobs' do
+      repository.enqueue(job)
+      db[:jobs].update(updated_at: Time.now - 86_400)
+
+      deleted = repository.delete_expired(cutoff: Time.now - 3600)
+
+      expect(deleted).to eq(0)
+      expect(db[:jobs].count).to eq(1)
+    end
+
+    it 'does not delete jobs newer than cutoff' do
+      repository.enqueue(job)
+      claimed = repository.claim_next
+      claimed.complete
+      repository.save(claimed)
+
+      deleted = repository.delete_expired(cutoff: Time.now - 3600)
+
+      expect(deleted).to eq(0)
+      expect(db[:jobs].count).to eq(1)
+    end
+
+    it 'returns zero when no jobs match' do
+      expect(repository.delete_expired(cutoff: Time.now)).to eq(0)
+    end
+  end
+
   describe '#save' do
     before { repository.enqueue(job) }
 

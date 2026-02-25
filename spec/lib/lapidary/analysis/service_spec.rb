@@ -34,11 +34,79 @@ RSpec.describe Lapidary::Analysis::Service do
       end
     end
 
-    context 'when ProcessJob raises JobError' do
-      let(:job_repository) { double('JobRepository') }
+    context 'with job cleanup' do
+      let(:job_repository) { double('JobRepository', claim_next: nil, delete_expired: 0) }
       let(:analysis_record_repository) { double('AnalysisRecordRepository') }
       let(:extractor) { double('Extractor') }
-      let(:logger) { double('Logger', info: nil, error: nil) }
+      let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
+
+      before do
+        Lapidary::Container.stub('analysis.repositories.job_repository', job_repository)
+        Lapidary::Container.stub('analysis.repositories.analysis_record_repository', analysis_record_repository)
+        Lapidary::Container.stub('analysis.extractors.llm_extractor', extractor)
+        Lapidary::Container.stub('logger', logger)
+      end
+
+      after do
+        Lapidary::Container.unstub('analysis.repositories.job_repository')
+        Lapidary::Container.unstub('analysis.repositories.analysis_record_repository')
+        Lapidary::Container.unstub('analysis.extractors.llm_extractor')
+        Lapidary::Container.unstub('logger')
+      end
+
+      it 'runs cleanup on first iteration' do
+        Async do |task|
+          result = service.run(instance, evaluator)
+          task.sleep(0.05)
+          result.stop
+
+          expect(job_repository).to have_received(:delete_expired).at_least(:once)
+        end
+      end
+
+      context 'when cleanup raises JobError' do
+        before do
+          allow(job_repository).to receive(:delete_expired).and_raise(
+            Analysis::Entities::JobError, 'cleanup failed'
+          )
+        end
+
+        it 'logs the error and continues polling' do
+          Async do |task|
+            result = service.run(instance, evaluator)
+            task.sleep(0.05)
+            result.stop
+
+            expect(logger).to have_received(:error).at_least(:once)
+          end
+        end
+      end
+
+      context 'when JOB_RETENTION is invalid' do
+        around do |example|
+          original = ENV.fetch('JOB_RETENTION', nil)
+          ENV['JOB_RETENTION'] = 'invalid'
+          example.run
+          ENV['JOB_RETENTION'] = original
+        end
+
+        it 'logs a warning and uses default retention' do
+          Async do |task|
+            result = service.run(instance, evaluator)
+            task.sleep(0.05)
+            result.stop
+
+            expect(logger).to have_received(:warn).at_least(:once)
+          end
+        end
+      end
+    end
+
+    context 'when ProcessJob raises JobError' do
+      let(:job_repository) { double('JobRepository', delete_expired: 0) }
+      let(:analysis_record_repository) { double('AnalysisRecordRepository') }
+      let(:extractor) { double('Extractor') }
+      let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
 
       before do
         Lapidary::Container.stub('analysis.repositories.job_repository', job_repository)

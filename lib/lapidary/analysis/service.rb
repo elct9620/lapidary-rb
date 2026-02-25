@@ -8,6 +8,7 @@ module Lapidary
     # Background worker that polls and processes analysis jobs.
     class Service < Async::Service::Managed::Service
       POLL_INTERVAL = 1
+      CLEANUP_INTERVAL = 600
 
       def run(_instance, _evaluator)
         Async do
@@ -25,13 +26,52 @@ module Lapidary
 
       def poll_loop(logger)
         use_case = build_use_case(logger)
+        cleanup = build_cleanup(logger)
+        last_cleanup_at = Time.now - CLEANUP_INTERVAL
+
         loop do
-          processed = use_case.call
-          sleep POLL_INTERVAL unless processed
-        rescue ::Analysis::Entities::JobError => e
-          logger.error(self) { "Job processing error: #{e.class}: #{e.message}" }
-          sleep POLL_INTERVAL
+          last_cleanup_at = maybe_cleanup(cleanup, last_cleanup_at, logger)
+          poll_once(use_case, logger)
         end
+      end
+
+      def poll_once(use_case, logger)
+        processed = use_case.call
+        sleep POLL_INTERVAL unless processed
+      rescue ::Analysis::Entities::JobError => e
+        logger.error(self) { "Job processing error: #{e.class}: #{e.message}" }
+        sleep POLL_INTERVAL
+      end
+
+      def maybe_cleanup(cleanup, last_cleanup_at, logger)
+        return last_cleanup_at if Time.now - last_cleanup_at < CLEANUP_INTERVAL
+
+        cleanup.call
+        Time.now
+      rescue ::Analysis::Entities::JobError => e
+        logger.error(self) { "Job cleanup error: #{e.class}: #{e.message}" }
+        Time.now
+      end
+
+      def parse_retention_period(logger)
+        raw = ENV.fetch('JOB_RETENTION', nil)
+        return ::Analysis::Entities::RetentionPeriod.default unless raw
+
+        period = ::Analysis::Entities::RetentionPeriod.parse(raw)
+        unless period
+          logger.warn(self) { "Invalid JOB_RETENTION '#{raw}', using default 7d" }
+          return ::Analysis::Entities::RetentionPeriod.default
+        end
+
+        period
+      end
+
+      def build_cleanup(logger)
+        ::Analysis::UseCases::CleanupJobs.new(
+          job_repository: container['analysis.repositories.job_repository'],
+          retention_period: parse_retention_period(logger),
+          logger: logger
+        )
       end
 
       def build_use_case(logger)
