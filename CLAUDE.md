@@ -32,8 +32,10 @@ The application uses dry-system as an IoC container. Components are auto-registe
 - `lib/lapidary/container.rb` — dry-system container with Zeitwerk plugin, auto-registers from both `lib/lapidary/` and `apps/`
 - `lib/lapidary/dependency.rb` — `Lapidary::Dependency` mixin (`Dry::AutoInject`)
 - `lib/lapidary/base_controller.rb` — `Sinatra::Base` subclass, base for all controllers
-- `lib/<domain>/` — Domain inner-layer components (entities, use cases) organized by bounded context (e.g., `lib/analysis/`, `lib/webhooks/`)
+- `lib/<domain>/` — Domain inner-layer components (entities, use cases) organized by bounded context
 - `apps/<domain>/` — Domain outer-layer components (controllers, contracts, repositories, adapters, subscribers) organized by bounded context
+
+**Bounded Contexts**: `webhooks` (webhook reception + Redmine API fetching), `analysis` (job processing + LLM extraction pipeline), `graph` (knowledge graph query API), `health` (liveness probe)
 - `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
 - `falcon.rb` — Defines two Falcon services: HTTP server (Rack app) and `analysis` background worker (async polling service)
 - `docs/architecture.md` — Detailed architecture documentation
@@ -61,6 +63,27 @@ use_case = UseCases::HandleWebhook.new(analysis_record_repository: container['we
 output = use_case.call(issue_id)
 ```
 
+### Value Object Convention
+
+Immutable value objects use Ruby's `Data.define` with a consistent enum-like pattern for domain constants:
+
+```ruby
+# Enum-like value object with constants
+Direction = Data.define(:value) do
+  def to_s = value
+end
+
+class Direction
+  OUTBOUND = new(value: 'outbound')
+  INBOUND = new(value: 'inbound')
+  BOTH = new(value: 'both')
+end
+```
+
+This pattern is used throughout: `EntityType`, `JobStatus`, `NodeType`, `RelationshipType`, `Direction`. Data value objects with optional fields use constructor defaults and type coercions (e.g., `String()`, `Integer()`).
+
+Other `Data.define` value objects: `Triplet`, `Node`, `Edge`, `Neighbor`, `Author`, `JobArguments`.
+
 ### Cross-Context Entity Strategy
 
 Each bounded context owns its own entity models. Structural similarity between entities across BCs (e.g., `Webhooks::Entities::AnalysisRecord` and `Analysis::Entities::AnalysisRecord`) is **intentional by design**, not accidental duplication. Each entity reflects only the behavior its BC needs. See `docs/architecture.md` § "Cross-Context Entity Strategy" for details.
@@ -77,6 +100,19 @@ unless repository.exists?(record)
   repository.save(record) # Repository accepts the Entity
 end
 ```
+
+### Analysis Pipeline
+
+The `Analysis::Service` (background worker via Falcon) polls the job queue and runs `ProcessJob`, which orchestrates a four-stage pipeline:
+
+1. **Extraction** — `LlmExtractor` sends job content to OpenAI via `ruby_llm` gem with structured output schema → candidate `Triplet` objects
+2. **Validation** — `Analysis::Ontology::Validator` checks ontology constraints; downgrades `Maintenance` → `Contribute` for non-committers; rejects invalid triplets
+3. **Normalization** — `Analysis::Ontology::Normalizer` resolves extracted Rubyist names to canonical usernames using job's author context
+4. **Graph Writing** — `GraphRepository` upserts Nodes and Edges, appending observation records; deduplicates by `(source_entity_type, source_entity_id)`
+
+The ontology subdomain (`lib/analysis/ontology/`) contains stateless domain objects: `Validator`, `Normalizer`, and `ModuleRegistry` (curated list of core modules and stdlibs).
+
+Node IDs use URI format: `type://name` (e.g., `rubyist://matz`, `core_module://Array`). Built via `Lapidary::NodeId.build(type, name)`.
 
 ### Adding a Component
 
@@ -178,7 +214,7 @@ Errors propagate naturally through the layers and are caught at the boundary:
 
 ## Database
 
-- **Providers**: `database.rb` → `Container['database']` (Sequel), `logger.rb` → `Container['logger']` (Console), `redmine.rb` → `Container['redmine_api']` (Redmine::API), `event_bus.rb` → `Container['event_bus']` (dry-events publisher)
+- **Providers**: `database.rb` → `Container['database']` (Sequel), `logger.rb` → `Container['logger']` (Console), `redmine.rb` → `Container['redmine_api']` (Redmine::API), `event_bus.rb` → `Container['event_bus']` (dry-events publisher), `llm.rb` → `Container['llm']` (RubyLLM/OpenAI)
 - **Test**: in-memory SQLite (`sqlite:/`) — no file on disk, fast and isolated
 - **Development/Production**: file-based SQLite (`data/<env>.sqlite3`) with WAL journal mode
 - **Migrations**: Sequel migrations in `db/migrations/`, named `YYYYMMDDHHMMSS_description.rb`
@@ -208,3 +244,5 @@ Errors propagate naturally through the layers and are caught at the boundary:
 | `PORT` | `9292` | HTTP listen port (Falcon only, configured in `falcon.rb`) |
 | `REDMINE_URL` | `https://bugs.ruby-lang.org` | Base URL for the Redmine JSON API |
 | `OPENAI_API_KEY` | `nil` | OpenAI API key for LLM extraction pipeline |
+| `OPENAI_MODEL` | `gpt-5-mini` | OpenAI model for triplet extraction |
+| `WEBHOOK_SECRET` | `nil` | When set, webhook requests must include `?token=<value>` matching this secret |
