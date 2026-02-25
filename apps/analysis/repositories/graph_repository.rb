@@ -22,6 +22,9 @@ module Analysis
 
       private
 
+      # Unlike other repositories, GraphRepository manages a multi-table aggregate (nodes + edges),
+      # so the `table` DSL is not used. `dataset` defaults to nodes; `edges` accesses the edges table.
+      # Both tables are written only by this repository (single-writer assumption).
       def dataset
         database[:nodes]
       end

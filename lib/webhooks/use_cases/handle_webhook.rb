@@ -71,8 +71,10 @@ module Webhooks
       end
 
       def find_journal(issue, record)
-        issue.journals.find { |j| j.id == record.entity_id } ||
-          (raise ArgumentError, "journal #{record.entity_id} not found in issue #{issue.id}")
+        journal = issue.journals.find { |j| j.id == record.entity_id }
+        raise ArgumentError, "journal #{record.entity_id} not found in issue #{issue.id}" unless journal
+
+        journal
       end
 
       def build_issue_records(issue)

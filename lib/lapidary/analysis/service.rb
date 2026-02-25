@@ -24,7 +24,7 @@ module Lapidary
       end
 
       def poll_loop(logger)
-        use_case = build_use_case
+        use_case = build_use_case(logger)
         loop do
           processed = use_case.call
           sleep POLL_INTERVAL unless processed
@@ -34,23 +34,23 @@ module Lapidary
         end
       end
 
-      def build_use_case
+      def build_use_case(logger)
         ::Analysis::UseCases::ProcessJob.new(
           job_repository: container['analysis.repositories.job_repository'],
           analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
-          pipeline: build_pipeline,
-          logger: container['logger']
+          pipeline: build_pipeline(logger),
+          logger: logger
         )
       end
 
-      def build_pipeline
+      def build_pipeline(logger)
         ::Analysis::UseCases::TripletPipeline.new(
           extractor: container['analysis.extractors.llm_extractor'],
           # Validator and Normalizer are inner-layer domain objects, not container-managed
           validator: ::Analysis::Ontology::Validator.new,
           normalizer: ::Analysis::Ontology::Normalizer.new,
           graph_repository: container['analysis.repositories.graph_repository'],
-          logger: container['logger']
+          logger: logger
         )
       end
     end

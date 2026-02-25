@@ -1,37 +1,11 @@
 # frozen_string_literal: true
 
-require 'ruby_llm/schema'
-
 module Analysis
   module Extractors
     # Extracts knowledge graph triplets from issue/journal content using LLM structured output.
     # Duck typing contract: #call(job_arguments) -> [Triplet]
     class LlmExtractor
       include Lapidary::Dependency['llm']
-
-      RELATIONSHIP_MAP = Entities::RelationshipType::ALL
-                         .each_with_object({}) { |r, h| h[r.to_s] = r }.freeze
-
-      NODE_TYPE_MAP = Entities::NodeType::OBJECT_TYPES
-                      .each_with_object({}) { |t, h| h[t.to_s] = t }.freeze
-
-      # Structured output schema for LLM triplet extraction.
-      class TripletSchema < RubyLLM::Schema
-        array :triplets do
-          object do
-            object :subject do
-              string :name, description: 'Username on bugs.ruby-lang.org'
-              boolean :is_committer, description: 'Whether this person is a known Ruby committer'
-            end
-            string :relationship, enum: RELATIONSHIP_MAP.keys
-            object :object do
-              string :type, enum: NODE_TYPE_MAP.keys
-              string :name, description: 'Canonical module name'
-            end
-            string :evidence, description: 'Brief rationale for this triplet extracted from the source text'
-          end
-        end
-      end
 
       def initialize(prompt_builder: PromptBuilder.new, **deps)
         super(**deps)
@@ -61,7 +35,7 @@ module Analysis
 
         Entities::Triplet.new(
           subject: build_subject(raw['subject']),
-          relationship: RELATIONSHIP_MAP.fetch(raw['relationship']) do
+          relationship: TripletSchema::RELATIONSHIP_MAP.fetch(raw['relationship']) do
             raise Entities::ExtractionError, "unknown relationship: #{raw['relationship']}"
           end,
           object: build_object(raw['object']),
@@ -87,7 +61,7 @@ module Analysis
 
       def build_object(raw)
         Entities::Node.new(
-          type: NODE_TYPE_MAP.fetch(raw['type']) do
+          type: TripletSchema::NODE_TYPE_MAP.fetch(raw['type']) do
             raise Entities::ExtractionError, "unknown node type: #{raw['type']}"
           end,
           name: raw['name']

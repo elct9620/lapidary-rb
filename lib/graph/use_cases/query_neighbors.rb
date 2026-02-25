@@ -30,19 +30,28 @@ module Graph
       def filter_observations(edges, observed_after:, observed_before:)
         return edges unless observed_after || observed_before
 
+        after_time, before_time = parse_time_bounds(observed_after, observed_before)
+
         edges.filter_map do |edge|
-          filtered = edge.observations.select { |obs| observation_in_range?(obs, observed_after, observed_before) }
+          filtered = edge.observations.select { |obs| observation_in_range?(obs, after_time, before_time) }
           edge.with(observations: filtered) unless filtered.empty?
         end
       end
 
-      def observation_in_range?(observation, observed_after, observed_before)
+      def parse_time_bounds(observed_after, observed_before)
+        [
+          observed_after  && Time.iso8601(observed_after),
+          observed_before && Time.iso8601(observed_before)
+        ]
+      end
+
+      def observation_in_range?(observation, after_time, before_time)
         observed_at = observation[:observed_at]
         return true unless observed_at
 
         time = Time.iso8601(observed_at)
-        return false if observed_after && time < Time.iso8601(observed_after)
-        return false if observed_before && time > Time.iso8601(observed_before)
+        return false if after_time  && time < after_time
+        return false if before_time && time > before_time
 
         true
       end

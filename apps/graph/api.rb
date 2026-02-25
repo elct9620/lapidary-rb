@@ -20,7 +20,7 @@ module Graph
       halt_json 404, error: 'node not found' unless output
 
       content_type :json
-      JSON.generate(serialize(output))
+      JSON.generate(container['graph.serializers.neighbor_serializer'].call(output))
     rescue Entities::GraphQueryError => e
       logger.warn(self, e.message)
       halt_json 500, error: 'internal server error'
@@ -37,33 +37,6 @@ module Graph
       end
 
       result
-    end
-
-    def serialize(output)
-      {
-        node: serialize_node(output[:node]),
-        neighbors: output[:neighbors].map { |neighbor| serialize_neighbor(neighbor) }
-      }
-    end
-
-    def serialize_node(node)
-      { id: node.id, type: node.type, data: node.data }
-    end
-
-    def serialize_neighbor(neighbor)
-      {
-        node: serialize_node(neighbor.node),
-        edges: neighbor.edges.map { |edge| serialize_edge(edge) }
-      }
-    end
-
-    def serialize_edge(edge)
-      {
-        source: edge.source,
-        target: edge.target,
-        relationship: edge.relationship,
-        observations: edge.observations
-      }
     end
   end
 end
