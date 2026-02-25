@@ -290,7 +290,7 @@ The pipeline processes each job through four stages:
 **1. Triplet Extraction** — An LLM receives the Job Arguments and outputs candidate triplets.
 
 - *Input*: `entity_type`, `content`, `author_username`, `author_display_name`, and for journals: `issue_id`, `issue_content`
-- *Output*: Zero or more triplets of the form `{ subject: Rubyist, relationship: Maintenance | Contribute, object: CoreModule | Stdlib }`
+- *Output*: Zero or more triplets of the form `{ subject: Rubyist, relationship: Maintenance | Contribute, object: CoreModule | Stdlib, evidence: String }`
 - The LLM prompt includes the ontology schema (permitted types and constraints) to guide extraction
 - The LLM may return zero triplets if the content does not describe a relevant relationship
 - Jobs with empty `content` (e.g., journals with no notes) are sent to the LLM normally; the expected result is zero triplets
@@ -314,6 +314,7 @@ The pipeline processes each job through four stages:
 - If the extracted subject name matches the Job's `author_username`, use `author_username` as the canonical username
 - If the extracted subject name matches the Job's `author_display_name`, resolve to `author_username`
 - If neither matches, use the extracted name directly as the canonical username (represents a different Rubyist mentioned in the content)
+- When the subject resolves to the Job's author, `author_display_name` from Job Arguments is carried forward as the Rubyist's `display_name` for node data
 
 *Module Normalization:*
 
@@ -322,11 +323,12 @@ The pipeline processes each job through four stages:
 
 **4. Graph Writing** — Normalized triplets are written to the knowledge graph.
 
-- Subject and object are created as Nodes (upserted by canonical identity)
+- Subject and object are created as Nodes (upserted by canonical identity); Rubyist node `data` is merged with `display_name` from normalization
 - The relationship is upserted as an Edge; an observation record is appended to the `observations` array in `properties`:
   - `observed_at`: the `created_on` timestamp from the source Issue or Journal
   - `source_entity_type`: `issue` or `journal`
   - `source_entity_id`: the ID of the source entity
+  - `evidence`: the LLM-generated summary from the triplet
 
 **Retry behavior**:
 
@@ -354,6 +356,16 @@ The pipeline processes each job through four stages:
 
 - `type` is indexed for efficient filtering
 - `type` values are constrained by the ontology (see [Ontology](docs/ontology.md))
+
+**Node `data` schema by type**:
+
+| Node Type | `data` Fields | Description |
+|-----------|---------------|-------------|
+| `Rubyist` | `{ display_name?, is_committer }` | `display_name` (String, optional): full display name, accumulated from observations — latest non-nil value wins. `is_committer` (Boolean): defaults to `false` if unknown. |
+| `CoreModule` | `{}` | No additional metadata beyond the node identity |
+| `Stdlib` | `{}` | No additional metadata beyond the node identity |
+
+**Node upsert behavior**: When a node is upserted by canonical identity, `data` fields are **merged** (not overwritten). New non-nil values update existing fields. Existing fields not present in the new data are preserved. This ensures that metadata accumulates over time as more observations arrive.
 
 **Edge table**:
 
@@ -384,6 +396,7 @@ Each observation record contains:
 | `observed_at` | DateTime | Timestamp of the source Issue or Journal (`created_on`) |
 | `source_entity_type` | String | `issue` or `journal` — provenance of this observation |
 | `source_entity_id` | Integer | ID of the source entity |
+| `evidence` | String | Brief LLM-generated summary explaining why this relationship was identified from the source content |
 
 **Edge upsert behavior**: When a triplet matches an existing edge (`UNIQUE(source, target, relationship)`), the new observation is appended to the `observations` array. Existing observations are preserved. Duplicate observations (same `source_entity_type` + `source_entity_id`) are not added.
 
@@ -597,6 +610,9 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Ontology approach | Wikontic-inspired (static ontology + LLM extraction + validation) | Predefined types ensure consistent graph structure; LLM handles unstructured text |
 | Ontology enumeration storage | `docs/ontology.md` | Keeps SPEC.md focused on decisions; detailed enumerations live in a dedicated document |
 | Entity normalization strategy | Job-context resolution (author fields) + passthrough for unknown Rubyists | Simple, deterministic, no external lookup required; leverages existing Job Arguments data |
+| Node ID generation strategy | URI format (`type://name`) | Human-readable, deterministic, avoids external ID generators |
+| LLM provider | OpenAI | Widely available, sufficient for triplet extraction task |
+| Node metadata merge strategy | Field-level merge (latest non-nil wins) | Metadata accumulates naturally over time; no data loss from partial updates |
 
 ### To Be Decided
 
@@ -605,6 +621,4 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Webhook authentication | HMAC signature / IP whitelist | Whether source verification is needed |
 | Logging solution | Ruby Logger / dry-logger | Logging framework to be selected |
 | Job cleanup strategy | TTL-based deletion / archival / manual purge | How to handle completed and permanently failed jobs over time |
-| Node ID generation strategy | UUID / ULID / custom | Format to be chosen during implementation |
-| LLM provider | OpenAI / Anthropic / local model | Provider and model to be selected during implementation |
 
