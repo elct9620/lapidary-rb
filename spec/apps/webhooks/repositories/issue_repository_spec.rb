@@ -99,6 +99,24 @@ RSpec.describe Webhooks::Repositories::IssueRepository do
       end
     end
 
+    context 'when author name is nil' do
+      let(:response_body) do
+        {
+          issue: {
+            id: 42,
+            subject: 'Test',
+            author: { id: 1, name: nil },
+            journals: []
+          }
+        }
+      end
+
+      it 'returns nil for the author' do
+        issue = repository.find(42)
+        expect(issue.author).to be_nil
+      end
+    end
+
     context 'when the issue has no journals' do
       let(:response_body) do
         { issue: { id: 42, subject: 'Test issue', author: { id: 1, name: 'matz' }, journals: [] } }

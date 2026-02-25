@@ -62,7 +62,7 @@ module Analysis
       end
 
       def journal_context(job_arguments)
-        return unless job_arguments.entity_type == 'journal'
+        return '' unless job_arguments.entity_type == 'journal'
 
         <<~TEXT.chomp
           Issue ##{job_arguments.issue_id}: #{job_arguments.issue_content}

@@ -70,9 +70,9 @@ module Analysis
       def complete_triplet?(raw)
         return false unless raw.is_a?(Hash)
 
-        raw['subject'].is_a?(Hash) &&
+        raw['subject'].is_a?(Hash) && raw['subject']['name'].is_a?(String) &&
           raw['relationship'].is_a?(String) &&
-          raw['object'].is_a?(Hash)
+          raw['object'].is_a?(Hash) && raw['object']['name'].is_a?(String)
       end
 
       def build_subject(raw)

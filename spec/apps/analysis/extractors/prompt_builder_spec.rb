@@ -27,6 +27,10 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       it 'includes the content text' do
         expect(prompt).to include('Bug in String#encode')
       end
+
+      it 'does not include journal context' do
+        expect(prompt).not_to match(/Issue #\d+:/)
+      end
     end
 
     context 'with a journal job' do

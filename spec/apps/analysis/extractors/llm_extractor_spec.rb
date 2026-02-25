@@ -108,6 +108,40 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end
     end
 
+    context 'when a triplet has nil name fields' do
+      before do
+        allow(response).to receive(:content).and_return(
+          {
+            'triplets' => [
+              {
+                'subject' => { 'name' => nil, 'is_committer' => true },
+                'relationship' => 'Maintenance',
+                'object' => { 'type' => 'CoreModule', 'name' => 'String' }
+              },
+              {
+                'subject' => { 'name' => 'matz', 'is_committer' => true },
+                'relationship' => 'Maintenance',
+                'object' => { 'type' => 'CoreModule', 'name' => nil }
+              },
+              {
+                'subject' => { 'name' => 'nobu', 'is_committer' => true },
+                'relationship' => 'Contribute',
+                'object' => { 'type' => 'CoreModule', 'name' => 'Array' }
+              }
+            ]
+          }
+        )
+      end
+
+      it 'skips triplets with nil names and returns only valid ones' do
+        triplets = extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
+
+        expect(triplets.size).to eq(1)
+        expect(triplets.first.subject.name).to eq('nobu')
+        expect(triplets.first.object.name).to eq('Array')
+      end
+    end
+
     context 'when a triplet has incomplete data' do
       before do
         allow(response).to receive(:content).and_return(
