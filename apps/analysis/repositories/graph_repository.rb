@@ -5,11 +5,11 @@ require 'json'
 module Analysis
   module Repositories
     # Repository for persisting knowledge graph nodes and edges.
+    # Manages both `nodes` and `edges` tables as a multi-table aggregate.
     class GraphRepository
       include Lapidary::Dependency['database']
       include Lapidary::RepositorySupport
 
-      table :nodes
       wraps_errors Entities::GraphError
 
       def save_triplet(triplet, observation)
@@ -21,6 +21,10 @@ module Analysis
       end
 
       private
+
+      def dataset
+        database[:nodes]
+      end
 
       def edges
         database[:edges]
