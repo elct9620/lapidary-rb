@@ -2,6 +2,7 @@
 
 Lapidary::Container.register_provider(:llm) do
   prepare do
+    require 'async/http/faraday/default'
     require 'ruby_llm'
   end
 

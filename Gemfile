@@ -2,6 +2,7 @@
 
 source 'https://rubygems.org'
 
+gem 'async-http-faraday'
 gem 'dry-events'
 gem 'dry-system'
 gem 'dry-validation'
