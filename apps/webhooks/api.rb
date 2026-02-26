@@ -20,7 +20,7 @@ module Webhooks
       content_type :json
       JSON.generate(status: 'accepted')
     rescue Webhooks::Entities::IssueFetchError => e
-      logger.warn(self, e.message)
+      logger.warn(self, "Issue fetch failed: #{e.message}")
       halt_json 502, error: 'upstream service error'
     end
 
@@ -38,22 +38,26 @@ module Webhooks
     end
 
     def parse_json_body!
-      unless request.content_type&.include?('application/json')
-        logger.warn(self, 'Rejected webhook with unsupported Content-Type')
-        halt_json 415, error: 'Content-Type must be application/json'
-      end
+      reject_unsupported_content_type!
 
       JSON.parse(request.body.read)
     rescue JSON::ParserError => e
-      logger.warn(self, 'Invalid JSON in webhook request', e)
+      logger.warn(self, "Invalid JSON in webhook request: #{e.message}")
       halt_json 422, error: 'invalid JSON'
+    end
+
+    def reject_unsupported_content_type!
+      return if request.content_type&.include?('application/json')
+
+      logger.warn(self, 'Rejected webhook with unsupported Content-Type', content_type: request.content_type)
+      halt_json 415, error: 'Content-Type must be application/json'
     end
 
     def validate_payload!(payload)
       result = container['webhooks.contract'].call(payload)
 
       if result.failure?
-        logger.warn(self, 'Webhook validation failed', result.errors.to_h)
+        logger.warn(self, 'Webhook validation failed')
         halt_json 422, errors: result.errors.to_h
       end
 

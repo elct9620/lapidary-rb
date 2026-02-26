@@ -13,7 +13,7 @@ module Lapidary
       def run(_instance, _evaluator)
         Async do
           logger = container['logger']
-          logger.info(self) { 'Analysis worker started' }
+          logger.info(self, 'Analysis worker started')
           poll_loop(logger)
         end
       end
@@ -39,7 +39,7 @@ module Lapidary
         processed = use_case.call
         sleep POLL_INTERVAL unless processed
       rescue ::Analysis::Entities::JobError => e
-        logger.error(self) { "Job processing error: #{e.class}: #{e.message}" }
+        logger.error(self, "Job processing error: #{e.class}: #{e.message}")
         sleep POLL_INTERVAL
       end
 
@@ -49,7 +49,7 @@ module Lapidary
         cleanup.call
         Time.now
       rescue ::Analysis::Entities::JobError => e
-        logger.error(self) { "Job cleanup error: #{e.class}: #{e.message}" }
+        logger.error(self, "Job cleanup error: #{e.class}: #{e.message}")
         Time.now
       end
 
@@ -59,7 +59,7 @@ module Lapidary
 
         period = ::Analysis::Entities::RetentionPeriod.parse(raw)
         unless period
-          logger.warn(self) { "Invalid JOB_RETENTION '#{raw}', using default 7d" }
+          logger.warn(self, "Invalid JOB_RETENTION '#{raw}', using default 7d", value: raw, default: '7d')
           return ::Analysis::Entities::RetentionPeriod.default
         end
 

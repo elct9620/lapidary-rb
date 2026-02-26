@@ -37,7 +37,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
       it 'logs a pipeline summary' do
         pipeline.call(arguments, observation)
 
-        expect(logger).to have_received(:info).with(pipeline)
+        expect(logger).to have_received(:info).with(pipeline, a_kind_of(String), anything)
       end
     end
 
@@ -87,7 +87,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
       it 'logs a warning and does not write to graph' do
         pipeline.call(arguments, observation)
 
-        expect(logger).to have_received(:warn).with(pipeline)
+        expect(logger).to have_received(:warn).with(pipeline, a_kind_of(String))
         expect(Lapidary::Container['database'][:nodes].count).to eq(0)
       end
     end
@@ -112,7 +112,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         pipeline.call(arguments, observation)
 
         expect(Lapidary::Container['database'][:edges].count).to eq(1)
-        expect(logger).to have_received(:info).with(pipeline)
+        expect(logger).to have_received(:info).with(pipeline, a_kind_of(String), anything)
       end
     end
   end

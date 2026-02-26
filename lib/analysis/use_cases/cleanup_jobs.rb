@@ -14,7 +14,8 @@ module Analysis
       def call(now: Time.now)
         cutoff = @retention_period.cutoff(now: now)
         deleted = @job_repository.delete_expired(cutoff: cutoff)
-        @logger.info(self) { "Job cleanup: deleted #{deleted} expired jobs (retention: #{@retention_period})" }
+        @logger.info(self, "Job cleanup: deleted #{deleted} expired jobs (retention: #{@retention_period})",
+                     deleted: deleted, retention: @retention_period.to_s)
         deleted
       end
     end

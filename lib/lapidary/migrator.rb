@@ -19,7 +19,7 @@ module Lapidary
 
       logger.warn(self, 'Database migrations are pending. Run: bundle exec rake db:migrate')
     rescue Sequel::Error => e
-      logger.warn(self, 'Unable to check migration status', e)
+      logger.warn(self, "Unable to check migration status: #{e.message}")
     end
 
     def migrate(target: nil)

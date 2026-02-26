@@ -41,22 +41,29 @@ module Analysis
       def complete(job)
         job.complete
         @job_repository.save(job)
-        @logger.info(self) { "Job #{job.id} completed" }
+        @logger.info(self, "Job #{job.id} completed", job_id: job.id)
       end
 
       def log_processing(job)
-        @logger.info(self) { "Processing job #{job.id} (#{job.arguments.entity_type}##{job.arguments.entity_id})" }
+        @logger.info(self, "Processing job #{job.id} (#{job.arguments.entity_type}##{job.arguments.entity_id})",
+                     job_id: job.id, entity_type: job.arguments.entity_type, entity_id: job.arguments.entity_id)
       end
 
       def handle_failure(job, error)
-        if job.retryable?
-          job.retry(error.message)
-          @logger.warn(self) { "Job #{job.id} retry scheduled (attempt #{job.attempts}): #{error.message}" }
-        else
-          job.fail(error.message)
-          @logger.error(self) { "Job #{job.id} permanently failed: #{error.message}" }
-        end
+        job.retryable? ? schedule_retry(job, error) : mark_failed(job, error)
         @job_repository.save(job)
+      end
+
+      def schedule_retry(job, error)
+        job.retry(error.message)
+        @logger.warn(self, "Job #{job.id} retry scheduled (attempt #{job.attempts}): #{error.message}",
+                     job_id: job.id, attempt: job.attempts)
+      end
+
+      def mark_failed(job, error)
+        job.fail(error.message)
+        @logger.error(self, "Job #{job.id} permanently failed: #{error.message}",
+                      job_id: job.id)
       end
 
       def build_observation(job)

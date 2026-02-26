@@ -34,7 +34,7 @@ module Lapidary
 
     error do
       error = env['sinatra.error']
-      logger.error(self, "#{error.class}: #{error.message}", error)
+      logger.error(self, "#{error.class}: #{error.message}")
 
       content_type :json
       status 500

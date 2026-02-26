@@ -17,10 +17,11 @@ module Analysis
         triplets = @extractor.call(arguments)
         counts = { written: 0, rejected: 0, duplicated: 0 }
         triplets.each { |triplet| process_triplet(triplet, arguments, observation, counts) }
-        @logger.info(self) do
-          "Extracted #{triplets.size} triplets: #{counts[:written]} written, " \
-            "#{counts[:rejected]} rejected, #{counts[:duplicated]} duplicated"
-        end
+        @logger.info(self,
+                     "Extracted #{triplets.size} triplets: #{counts[:written]} written, " \
+                     "#{counts[:rejected]} rejected, #{counts[:duplicated]} duplicated",
+                     total: triplets.size, written: counts[:written],
+                     rejected: counts[:rejected], duplicated: counts[:duplicated])
       end
 
       private
@@ -29,7 +30,7 @@ module Analysis
         result = @validator.call(triplet)
 
         if result.errors.any?
-          @logger.warn(self) { "Invalid triplet rejected: #{result.errors.join(', ')}" }
+          @logger.warn(self, "Invalid triplet rejected: #{result.errors.join(', ')}")
           counts[:rejected] += 1
           return
         end

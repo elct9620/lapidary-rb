@@ -22,7 +22,7 @@ module Graph
       content_type :json
       JSON.generate(container['graph.serializers.neighbor_serializer'].call(output))
     rescue Entities::GraphQueryError => e
-      logger.warn(self, e.message)
+      logger.warn(self, "Graph query error: #{e.message}")
       halt_json 500, error: 'internal server error'
     end
 

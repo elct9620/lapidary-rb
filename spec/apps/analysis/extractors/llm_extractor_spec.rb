@@ -110,7 +110,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       it 'logs a malformed response warning' do
         extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
 
-        expect(logger).to have_received(:warn).with(extractor)
+        expect(logger).to have_received(:warn).with(extractor, a_kind_of(String), anything)
       end
     end
 

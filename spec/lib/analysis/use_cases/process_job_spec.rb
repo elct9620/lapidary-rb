@@ -61,7 +61,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       it 'logs job processing and completion' do
         use_case.call
 
-        expect(logger).to have_received(:info).with(use_case).at_least(:once)
+        expect(logger).to have_received(:info).with(use_case, a_kind_of(String), anything).at_least(:once)
       end
     end
 
@@ -121,7 +121,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       it 'logs a retry warning' do
         use_case.call
 
-        expect(logger).to have_received(:warn).with(use_case)
+        expect(logger).to have_received(:warn).with(use_case, a_kind_of(String), anything)
       end
     end
 
@@ -146,7 +146,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       it 'logs an error' do
         use_case.call
 
-        expect(logger).to have_received(:error).with(use_case)
+        expect(logger).to have_received(:error).with(use_case, a_kind_of(String), anything)
       end
     end
 
@@ -189,7 +189,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       it 'logs warnings for invalid triplets' do
         use_case.call
 
-        expect(logger).to have_received(:warn).with(pipeline)
+        expect(logger).to have_received(:warn).with(pipeline, a_kind_of(String))
       end
 
       it 'does not write invalid triplets to the graph' do
@@ -339,7 +339,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       it 'logs the downgrade at info level' do
         use_case.call
 
-        expect(logger).to have_received(:info).with(pipeline).at_least(:once)
+        expect(logger).to have_received(:info).with(pipeline, a_kind_of(String), anything).at_least(:once)
       end
     end
 
@@ -421,7 +421,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         db = Lapidary::Container['database']
         expect(db[:nodes].count).to eq(2)
         expect(db[:edges].count).to eq(1)
-        expect(logger).to have_received(:warn).with(pipeline)
+        expect(logger).to have_received(:warn).with(pipeline, a_kind_of(String))
       end
     end
 

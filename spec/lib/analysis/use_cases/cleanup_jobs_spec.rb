@@ -13,7 +13,7 @@ RSpec.describe Analysis::UseCases::CleanupJobs do
 
   let(:job_repository) { instance_double(Analysis::Repositories::JobRepository) }
   let(:retention_period) { Analysis::Entities::RetentionPeriod.new(amount: 7, unit: 'd') }
-  let(:logger) { instance_double('Logger', info: nil) }
+  let(:logger) { instance_double(Console::Logger, info: nil) }
 
   describe '#call' do
     it 'deletes expired jobs via repository' do

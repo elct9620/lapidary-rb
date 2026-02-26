@@ -22,18 +22,26 @@ module Analysis
       private
 
       def parse_response(content)
-        unless content.is_a?(Hash)
-          logger.warn(self) { 'LLM response malformed: expected Hash with triplets Array' } unless content.nil?
-          return []
-        end
-
-        raw_triplets = content['triplets']
-        unless raw_triplets.is_a?(Array)
-          logger.warn(self) { 'LLM response malformed: expected Hash with triplets Array' }
-          return []
-        end
+        raw_triplets = extract_raw_triplets(content)
+        return [] unless raw_triplets
 
         raw_triplets.filter_map { |raw| build_triplet(raw) }
+      end
+
+      def extract_raw_triplets(content)
+        unless content.is_a?(Hash)
+          warn_malformed_response unless content.nil?
+          return
+        end
+
+        triplets = content['triplets']
+        warn_malformed_response unless triplets.is_a?(Array)
+        triplets if triplets.is_a?(Array)
+      end
+
+      def warn_malformed_response
+        logger.warn(self, 'LLM response malformed: expected Hash with triplets Array',
+                    expected: 'Hash with triplets Array')
       end
 
       def build_triplet(raw)
