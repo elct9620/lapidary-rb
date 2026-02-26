@@ -23,19 +23,29 @@ module Analysis
       private
 
       def process(job)
-        @logger.info(self) { "Processing job #{job.id} (#{job.arguments.entity_type}##{job.arguments.entity_id})" }
+        log_processing(job)
+        run_pipeline(job)
+        complete(job)
+      rescue Entities::ProcessingError => e
+        handle_failure(job, e)
+      end
 
+      def run_pipeline(job)
         record = build_record(job)
         record.analyze
         observation = build_observation(job)
         @pipeline.call(job.arguments, observation)
         @analysis_record_repository.save(record)
+      end
 
+      def complete(job)
         job.complete
         @job_repository.save(job)
         @logger.info(self) { "Job #{job.id} completed" }
-      rescue Entities::ProcessingError => e
-        handle_failure(job, e)
+      end
+
+      def log_processing(job)
+        @logger.info(self) { "Processing job #{job.id} (#{job.arguments.entity_type}##{job.arguments.entity_id})" }
       end
 
       def handle_failure(job, error)

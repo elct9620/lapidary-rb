@@ -34,14 +34,14 @@ module Analysis
           return
         end
 
-        normalized = @normalizer.call(result.triplet, arguments)
+        write_triplet(result.triplet, arguments, observation, counts)
+      end
+
+      def write_triplet(triplet, arguments, observation, counts)
+        normalized = @normalizer.call(triplet, arguments)
         triplet_observation = observation.merge(evidence: normalized.evidence)
         write_result = @graph_repository.save_triplet(normalized, triplet_observation)
-        if write_result == :duplicate
-          counts[:duplicated] += 1
-        else
-          counts[:written] += 1
-        end
+        write_result == :duplicate ? counts[:duplicated] += 1 : counts[:written] += 1
       end
     end
   end
