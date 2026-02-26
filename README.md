@@ -21,6 +21,7 @@ Lapidary builds a knowledge graph from [bugs.ruby-lang.org](https://bugs.ruby-la
 - **Incremental analysis** -- Tracks analyzed entities (Issues and Journals) to avoid redundant processing
 - **SQLite storage** -- Persists issue data, analysis records, and knowledge graph in SQLite with upsert semantics
 - **Health check** -- `GET /` returns application availability status
+- **Job cleanup** -- TTL-based cleanup of expired jobs with configurable retention period (`JOB_RETENTION`)
 - **Container deployment** -- Multi-stage Docker build for production deployment
 
 ## Tech Stack
@@ -150,6 +151,7 @@ See [docs/architecture.md](docs/architecture.md) for detailed architecture docum
 | `OPENAI_API_KEY` | `nil` | OpenAI API key for LLM extraction pipeline |
 | `OPENAI_MODEL` | `gpt-5-mini` | OpenAI model for triplet extraction |
 | `WEBHOOK_SECRET` | `nil` | When set, webhook requests must include `?token=<value>` matching this secret |
+| `JOB_RETENTION` | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
 
 ## License
 
