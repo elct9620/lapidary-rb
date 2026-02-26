@@ -5,7 +5,7 @@ module Analysis
     # Extracts knowledge graph triplets from issue/journal content using LLM structured output.
     # Duck typing contract: #call(job_arguments) -> [Triplet]
     class LlmExtractor
-      include Lapidary::Dependency['llm']
+      include Lapidary::Dependency['llm', 'logger']
 
       def initialize(prompt_builder: PromptBuilder.new, **deps)
         super(**deps)
@@ -22,10 +22,16 @@ module Analysis
       private
 
       def parse_response(content)
-        return [] unless content.is_a?(Hash)
+        unless content.is_a?(Hash)
+          logger.warn(self) { 'LLM response malformed: expected Hash with triplets Array' } unless content.nil?
+          return []
+        end
 
         raw_triplets = content['triplets']
-        return [] unless raw_triplets.is_a?(Array)
+        unless raw_triplets.is_a?(Array)
+          logger.warn(self) { 'LLM response malformed: expected Hash with triplets Array' }
+          return []
+        end
 
         raw_triplets.filter_map { |raw| build_triplet(raw) }
       end

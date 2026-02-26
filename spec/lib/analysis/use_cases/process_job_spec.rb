@@ -57,6 +57,12 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::DONE.to_s)
       end
+
+      it 'logs job processing and completion' do
+        use_case.call
+
+        expect(logger).to have_received(:info).with(use_case).at_least(:once)
+      end
     end
 
     context 'when there are no pending jobs' do
@@ -110,6 +116,12 @@ RSpec.describe Analysis::UseCases::ProcessJob do
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:error]).to eq('connection lost')
+      end
+
+      it 'logs a retry warning' do
+        use_case.call
+
+        expect(logger).to have_received(:warn).with(use_case)
       end
     end
 

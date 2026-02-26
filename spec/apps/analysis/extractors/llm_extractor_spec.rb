@@ -3,11 +3,12 @@
 require 'spec_helper'
 
 RSpec.describe Analysis::Extractors::LlmExtractor do
-  subject(:extractor) { described_class.new(llm: llm) }
+  subject(:extractor) { described_class.new(llm: llm, logger: logger) }
 
   let(:llm) { double('RubyLLM', chat: chat) }
   let(:chat) { double('RubyLLM::Chat', with_schema: nil, ask: response) }
   let(:response) { double('RubyLLM::Message') }
+  let(:logger) { instance_double(Console::Logger, warn: nil, info: nil) }
 
   before do
     allow(chat).to receive(:with_schema).and_return(chat)
@@ -105,6 +106,12 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       it 'returns an empty array' do
         expect(extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))).to eq([])
       end
+
+      it 'logs a malformed response warning' do
+        extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
+
+        expect(logger).to have_received(:warn).with(extractor)
+      end
     end
 
     context 'when LLM returns nil content' do
@@ -114,6 +121,12 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
       it 'returns an empty array' do
         expect(extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))).to eq([])
+      end
+
+      it 'does not log a warning for nil content' do
+        extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
+
+        expect(logger).not_to have_received(:warn)
       end
     end
 
@@ -231,7 +244,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
     context 'with prompt building' do
       let(:prompt_builder) { instance_double(Analysis::Extractors::PromptBuilder) }
 
-      subject(:extractor) { described_class.new(llm: llm, prompt_builder: prompt_builder) }
+      subject(:extractor) { described_class.new(llm: llm, logger: logger, prompt_builder: prompt_builder) }
 
       before do
         allow(prompt_builder).to receive(:call).and_return('test prompt')

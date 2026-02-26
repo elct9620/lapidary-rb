@@ -23,6 +23,8 @@ module Analysis
       private
 
       def process(job)
+        @logger.info(self) { "Processing job #{job.id} (#{job.arguments.entity_type}##{job.arguments.entity_id})" }
+
         record = build_record(job)
         record.analyze
         observation = build_observation(job)
@@ -31,6 +33,7 @@ module Analysis
 
         job.complete
         @job_repository.save(job)
+        @logger.info(self) { "Job #{job.id} completed" }
       rescue Entities::ProcessingError => e
         handle_failure(job, e)
       end
@@ -38,6 +41,7 @@ module Analysis
       def handle_failure(job, error)
         if job.retryable?
           job.retry(error.message)
+          @logger.warn(self) { "Job #{job.id} retry scheduled (attempt #{job.attempts}): #{error.message}" }
         else
           job.fail(error.message)
           @logger.error(self) { "Job #{job.id} permanently failed: #{error.message}" }

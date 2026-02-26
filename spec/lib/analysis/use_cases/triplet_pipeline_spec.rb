@@ -33,6 +33,12 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
         expect(Lapidary::Container['database'][:nodes].count).to eq(0)
       end
+
+      it 'logs a pipeline summary' do
+        pipeline.call(arguments, observation)
+
+        expect(logger).to have_received(:info).with(pipeline)
+      end
     end
 
     context 'when extractor returns a valid triplet' do
@@ -102,10 +108,11 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
       end
 
-      it 'logs the downgrade at info level' do
+      it 'still writes the triplet and logs summary with written count' do
         pipeline.call(arguments, observation)
 
-        expect(logger).to have_received(:info).with(pipeline).at_least(:once)
+        expect(Lapidary::Container['database'][:edges].count).to eq(1)
+        expect(logger).to have_received(:info).with(pipeline)
       end
     end
   end
