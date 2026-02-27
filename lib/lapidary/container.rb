@@ -3,12 +3,16 @@
 require 'dry/system'
 
 module Lapidary
+  def self.root
+    @root ||= Pathname(__dir__).join('../..').realpath
+  end
+
   # The IoC container for auto-registering components
   class Container < Dry::System::Container
     use :zeitwerk
 
     configure do |config|
-      config.root = Pathname(__dir__).join('../..').realpath
+      config.root = Lapidary.root
       config.component_dirs.add 'lib' do |dir|
         dir.namespaces.add 'lapidary', key: nil
       end

@@ -7,7 +7,7 @@ module Analysis
   module Ontology
     # Stateless registry of valid CoreModule and Stdlib names from the curated ontology.
     module ModuleRegistry
-      DATA_PATH = File.expand_path('../../../config/module_registry.yml', __dir__).freeze
+      DATA_PATH = Lapidary.root.join('config', 'module_registry.yml').freeze
       private_constant :DATA_PATH
 
       data = YAML.load_file(DATA_PATH)
