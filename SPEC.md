@@ -24,6 +24,7 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Ontology-guided extraction pipeline extracts (Rubyist, Maintenance|Contribute, CoreModule|Stdlib) triplets from Issue/Journal content via LLM
 - Extracted triplets are validated against ontology constraints before writing to the knowledge graph
 - Graph neighbor query returns connected nodes with edge observations, supporting direction and time-range filtering
+- Graph node query endpoint supports listing nodes by type, searching by name/display_name, and paginated results
 - Expired jobs are automatically removed from the database based on a configurable retention period
 
 ## Non-goals
@@ -61,6 +62,7 @@ The complete system encompasses four capabilities:
 11. **Ontology validation** — Validate extracted triplets against ontology constraints before writing to the knowledge graph
 12. **Graph neighbor query** — Query the knowledge graph to find nodes connected to a given node, with optional time-range filtering on edge observations
 13. **Job cleanup** — TTL-based cleanup of expired jobs, executed periodically by the Analysis Service
+14. **Graph node query** — List and search nodes in the knowledge graph, with optional type filtering, keyword search, and pagination
 
 ## User Journeys
 
@@ -111,6 +113,12 @@ The complete system encompasses four capabilities:
 - **Context**: Completed or permanently failed jobs accumulate in the database over time
 - **Action**: The Analysis Service periodically checks for and deletes jobs that have exceeded the configured retention period
 - **Outcome**: Terminal-state jobs (done/failed) and stale claimed jobs older than the TTL are removed, keeping the database lean
+
+### Node Listing and Search
+
+- **Context**: A researcher wants to browse all Rubyists in the knowledge graph or find a specific module
+- **Action**: The researcher queries the graph node API with optional type filter and/or search keyword
+- **Outcome**: The API returns a paginated list of matching nodes, enabling the researcher to discover entities in the knowledge graph
 
 ---
 
@@ -460,6 +468,62 @@ Content-Type: `application/json`
 | Node not found | `404 Not Found` | `{ "error": "node not found" }` |
 | Internal processing failure | `500 Internal Server Error` | `{ "error": "internal server error" }` |
 
+### Graph Node Query Endpoint
+
+**Endpoint**: `GET /graph/nodes`
+
+**Purpose**: List and search nodes in the knowledge graph, with optional type filtering, keyword search, and pagination.
+
+**Query parameters**:
+
+| Parameter | Required | Type | Default | Description |
+|-----------|----------|------|---------|-------------|
+| `type` | No | String | — | Filter by node type (e.g., `Rubyist`, `CoreModule`, `Stdlib`) |
+| `q` | No | String | — | Search keyword — matches against node name (extracted from ID) and `display_name` in node data |
+| `limit` | No | Integer | `20` | Maximum number of nodes per page (max: 100) |
+| `offset` | No | Integer | `0` | Number of nodes to skip |
+
+**Search behavior**:
+
+- Search uses case-insensitive substring matching
+- Search scope: the name portion of the node ID (`type://name`) and the `display_name` field in node data (currently only `Rubyist` nodes carry `display_name`; other node types have empty `data`)
+- `type` and `q` can be used together (AND logic)
+- When no filter parameters are provided, all nodes are returned (paginated)
+
+**Response 200**:
+
+```json
+{
+  "nodes": [
+    {
+      "id": "Rubyist://matz",
+      "type": "Rubyist",
+      "data": { "display_name": "Yukihiro Matsumoto" }
+    }
+  ],
+  "total": 42,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+Content-Type: `application/json`
+
+**Validation rules**:
+
+- `type` must be one of the ontology-defined node types (`Rubyist`, `CoreModule`, `Stdlib`)
+- `limit` must be a positive integer between 1 and 100
+- `offset` must be a non-negative integer
+- `q`, if provided, must be at least 1 character long
+
+**Responses**:
+
+| Condition | Status Code | Body |
+|-----------|-------------|------|
+| Query processed successfully | `200 OK` | `{ "nodes": [...], "total": N, "limit": N, "offset": N }` |
+| Invalid parameters | `400 Bad Request` | `{ "error": "..." }` |
+| Internal processing failure | `500 Internal Server Error` | `{ "error": "internal server error" }` |
+
 ### Knowledge Graph Schema
 
 **Purpose**: Store entities and their relationships as a directed property graph, governed by the ontology.
@@ -569,7 +633,7 @@ Each observation record contains:
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 | Job cleanup database error | Log error, continue processing — cleanup failure must not block job processing |
 
-**Graph API Errors**:
+**Graph Neighbor Query Errors**:
 
 | Scenario | Behavior |
 |----------|----------|
@@ -578,6 +642,16 @@ Each observation record contains:
 | Invalid `direction` value | Respond 400, do not query |
 | Invalid `observed_after` or `observed_before` format | Respond 400, do not query |
 | `node_id` references a node that does not exist | Respond 404 |
+| Database query failure | Respond 500, log error |
+
+**Graph Node Query Errors**:
+
+| Scenario | Behavior |
+|----------|----------|
+| Invalid `type` value (not in ontology) | Respond 400, do not query |
+| `limit` out of range or not an integer | Respond 400, do not query |
+| `offset` negative or not an integer | Respond 400, do not query |
+| Empty `q` parameter | Respond 400, do not query |
 | Database query failure | Respond 500, log error |
 
 ### Global Error Handling
@@ -614,9 +688,11 @@ Each observation record contains:
 | Ontology validation rejection | `warn` | Rejected triplet, validation rule violated, job identity |
 | Maintenance downgraded to Contribute | `info` | Original triplet, job identity |
 | Duplicate edge observation skipped | `info` | Edge identity, source entity, job identity |
-| Graph API invalid request (400) | `warn` | Request origin, validation errors |
-| Graph API node not found (404) | `info` | Requested node ID |
-| Graph API database query failure | `error` | Query parameters, error message |
+| Graph neighbor query invalid request (400) | `warn` | Request origin, validation errors |
+| Graph neighbor query node not found (404) | `info` | Requested node ID |
+| Graph neighbor query database failure | `error` | Query parameters, error message |
+| Graph node query invalid request (400) | `warn` | Request origin, validation errors |
+| Graph node query database failure | `error` | Query parameters, error message |
 | Job cleanup execution | `info` | Number of jobs cleaned, retention period |
 | Job cleanup failure | `error` | Error message |
 | Invalid `JOB_RETENTION` value | `warn` | Provided value, using default |
@@ -730,6 +806,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Temporal qualifier | Edges carry an observation timestamp, enabling time-range filtering to exclude stale relationships | Knowledge Graph edges |
 | Neighbor query | Find all nodes directly connected to a given node by traversing edges in specified directions | Graph Neighbor Query Endpoint |
 | TTL-based cleanup | Delete records older than a configured retention period, preventing unbounded data growth | Job Cleanup |
+| Paginated listing | Return a subset of records with total count, limit, and offset metadata for client-side pagination | Graph Node Query Endpoint |
 
 ## Architecture
 
@@ -784,6 +861,9 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Webhook authentication | Static token via query parameter (`?token=`) | Simple, no cryptographic overhead; optional via env var presence |
 | Logging solution | `console` gem (via DI) | Falcon 預設整合，結構化日誌輸出；透過 dry-system provider 註冊，各層以 DI 注入 |
 | Job cleanup strategy | TTL-based hard delete, built into Analysis Service | Simple and effective — no extra process or cron needed; hard delete because job data has no value after graph writing |
+| Node query pagination | `limit` + `offset` with total count | Simple, suitable for small datasets; consistent with project's simplicity philosophy |
+| Node search mechanism | Case-insensitive substring match on name and display_name | Simple SQL LIKE query; sufficient for knowledge graph scale |
+| Node query default page size | 20 (max 100) | Reasonable default balancing response size and usability |
 
 ### To Be Decided
 
