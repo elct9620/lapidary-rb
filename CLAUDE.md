@@ -82,7 +82,7 @@ end
 
 This pattern is used throughout: `EntityType`, `JobStatus`, `NodeType`, `RelationshipType`, `Direction`. Data value objects with optional fields use constructor defaults and type coercions (e.g., `String()`, `Integer()`).
 
-Other `Data.define` value objects: `Triplet`, `Node`, `Edge`, `Neighbor`, `Author`, `JobArguments`.
+Other `Data.define` value objects: `Triplet`, `Node`, `Edge`, `Neighbor`, `Author`, `JobArguments`, `Observation`, `RetentionPeriod`.
 
 ### Cross-Context Entity Strategy
 
@@ -228,6 +228,22 @@ Errors propagate naturally through the layers and are caught at the boundary:
 - RSpec runs in random order with `--format documentation`
 - SimpleCov is configured with HTML + Cobertura formatters (output in `coverage/`)
 - dry-system stubs are enabled via `Lapidary::Container.enable_stubs!` — use `Container.stub('key', mock)` in tests
+
+### Mock / Stub Boundaries
+
+Mock external boundaries, not internal collaborators. Use real repositories with real DB (transaction rollback handles isolation).
+
+| Test target | Injection style | OK to mock | Do NOT mock |
+|---|---|---|---|
+| Use Case (`lib/`) | Constructor injection | External services (LLM extractor), logger | Repository — resolve from real container |
+| Repository (`apps/`) | Container resolution | `db` only for error simulation | Normal data operations |
+| Controller (`apps/`) | `rack-test` + `webmock` | External HTTP (Redmine API) | Internal repositories / use cases |
+| Service (`lib/lapidary/`) | `Container.stub` | All deps — framework layer accesses container directly | — |
+
+**`Container.stub` rules**:
+- Only use in framework-layer specs (e.g., `Analysis::Service`) where the class accesses the container directly instead of constructor injection
+- `spec_helper.rb` sets suite-level stubs in `before(:suite)` (e.g., null logger) — these must remain active throughout the entire test suite
+- **Never use `Container.unstub`** — it permanently removes suite-level stubs, causing order-dependent test pollution. To restore in `after`, re-stub with the original value via `Container.stub`
 
 ## Conventions
 
