@@ -2,37 +2,38 @@
 
 [![CI](https://github.com/elct9620/lapidary-rb/actions/workflows/ci.yml/badge.svg)](https://github.com/elct9620/lapidary-rb/actions/workflows/ci.yml)
 
-An experimental project exploring the use of LLM and ontology techniques to analyze relationships between Ruby contributors and core modules.
+A knowledge graph builder that maps relationships between Ruby contributors and core modules from bugs.ruby-lang.org issue data.
 
 ## Overview
 
-Lapidary builds a knowledge graph from [bugs.ruby-lang.org](https://bugs.ruby-lang.org/) to help researchers understand the evolution of the Ruby language and community collaboration patterns. It ingests issue data via webhooks, fetches complete issue details (including journals for participant tracking) from the Redmine JSON API, and stores structured data in SQLite for future ontology and graph analysis.
+Lapidary helps researchers understand the evolution of the Ruby language and community collaboration patterns. It ingests issue data from [bugs.ruby-lang.org](https://bugs.ruby-lang.org/) via webhooks, extracts structured relationships using LLM, and builds a queryable knowledge graph of (Rubyist, Relationship, Module) triplets.
 
-## Features
+## How It Works
 
-- **Webhook endpoint** -- Receives issue change notifications (`POST /webhook`) with validation and optional token authentication (`WEBHOOK_SECRET`)
-- **Redmine API integration** -- Fetches complete issue data from the Redmine JSON API, including journals for participant tracking beyond the original author
-- **Job queue** -- Database-backed job queue for reliable async processing of analysis work
-- **Analysis service** -- Background worker (Falcon-managed) that dequeues and processes analysis jobs sequentially
-- **LLM triplet extraction** -- Ontology-guided extraction of (subject, predicate, object) triplets from issue data using OpenAI via `ruby_llm`
-- **Ontology validation** -- Domain-range constraints, committer-aware role validation, and a curated module registry for core modules and stdlibs
-- **Knowledge graph** -- Stores Nodes and Edges with flexible observation metadata; deduplicates by source entity
-- **Graph query API** -- `GET /graph/neighbors` returns neighbor nodes with relationship details and directional filtering
-- **Incremental analysis** -- Tracks analyzed entities (Issues and Journals) to avoid redundant processing
-- **SQLite storage** -- Persists issue data, analysis records, and knowledge graph in SQLite with upsert semantics
-- **Health check** -- `GET /` returns application availability status
-- **Job cleanup** -- TTL-based cleanup of expired jobs with configurable retention period (`JOB_RETENTION`)
-- **Container deployment** -- Multi-stage Docker build for production deployment
+### 1. Webhook Reception
 
-## Tech Stack
+An external system detects a change to an issue on bugs.ruby-lang.org and sends a webhook containing the Issue ID. Lapidary fetches the full issue data (including journals) from the Redmine JSON API and creates analysis jobs for each untracked entity.
 
-- **Ruby 3.4** with **Sinatra** (web framework) and **Falcon** (async HTTP server)
-- **dry-system** for dependency injection and component management
-- **dry-validation** for request validation contracts
-- **dry-events** for cross-context event communication
-- **ruby_llm** for OpenAI LLM integration
-- **Zeitwerk** for autoloading
-- **SQLite** + **Sequel** for data storage and migrations
+### 2. Analysis
+
+A background worker dequeues jobs and sends issue/journal content to an LLM for triplet extraction. The LLM identifies relationships like "matz Maintains Array" or "nobu Contributes to String" from the discussion text.
+
+### 3. Knowledge Graph Construction
+
+Extracted triplets are validated against a predefined ontology (permitted node types, relationship types, and domain-range constraints), normalized (e.g., resolving author names to canonical usernames), and written as Nodes and Edges with temporal observation metadata.
+
+### 4. Query
+
+Researchers query the graph to explore relationships — find which modules a Rubyist works with, which contributors are involved in a module, or how involvement patterns change over time with time-range filtering.
+
+## API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/` | Health check |
+| `POST` | `/webhook` | Receive issue change notifications |
+| `GET` | `/graph/neighbors` | Query neighbor nodes with direction and time-range filtering |
+| `GET` | `/graph/nodes` | List and search nodes by type, name, with pagination |
 
 ## Getting Started
 
@@ -47,111 +48,53 @@ bundle install
 bundle exec rake db:migrate
 ```
 
-### Run the server
+### Run
 
 ```bash
 falcon host
 ```
 
-The server binds to `0.0.0.0:9292` by default. Falcon manages both the HTTP server and the Analysis Service as supervised background processes.
+Falcon manages both the HTTP server (bound to `0.0.0.0:9292`) and the Analysis Service as supervised background processes.
 
-### Database
+### Docker
 
-```bash
-bundle exec rake db:migrate                # Run pending migrations
-bundle exec rake 'db:generate[description]' # Generate a new migration file
-```
-
-SQLite is used for all environments. Development and production use file-based databases (`data/<env>.sqlite3`) with WAL journal mode. Tests use in-memory SQLite for speed and isolation.
-
-### Run tests
+Pre-built images are available from GitHub Container Registry:
 
 ```bash
-bundle exec rspec
+docker run -p 9292:9292 ghcr.io/elct9620/lapidary-rb:latest
 ```
 
-### Lint
-
-```bash
-bundle exec rubocop
-```
-
-## Docker
-
-### Build
+Or build locally:
 
 ```bash
 docker build -t lapidary .
-```
-
-### Run
-
-```bash
 docker run -p 9292:9292 lapidary
 ```
 
-## Project Structure
+### Tests
 
-```
-apps/
-  analysis/              # Analysis bounded context (outer layer)
-    extractors/          # LLM extractor, prompt builder, triplet schema
-    repositories/        # Database adapters (job, analysis record, graph)
-    subscribers/         # Event-driven job creation
-  graph/                 # Graph bounded context (outer layer)
-    repositories/        # Neighbor query adapter
-    serializers/         # Response serializers
-    api.rb               # Graph query API controller
-    contract.rb          # Request validation
-  health/                # Health check controller
-  webhooks/              # Webhooks bounded context (outer layer)
-    adapters/            # Cross-context adapters (event publishing)
-    repositories/        # Database + API adapters
-    api.rb               # Webhook API controller
-    contract.rb          # Request validation
-lib/
-  lapidary/              # Shared infrastructure (auto-registered)
-    analysis/            # Falcon background worker service
-  analysis/              # Analysis domain (inner layer)
-    entities/            # Job, AnalysisRecord, Triplet, Node, etc.
-    ontology/            # Validator, Normalizer, ModuleRegistry
-    use_cases/           # ProcessJob, TripletPipeline
-  graph/                 # Graph domain (inner layer)
-    entities/            # Node, Edge, Neighbor, Direction
-    use_cases/           # QueryNeighbors
-  webhooks/              # Webhooks domain (inner layer)
-    entities/            # Issue, Journal, AnalysisRecord, Author
-    use_cases/           # HandleWebhook, JobArgumentBuilder
-  redmine/               # Redmine API client
-system/providers/        # External service providers (database, logger, redmine, event_bus, llm)
-db/migrations/           # Sequel database migrations
-docs/
-  architecture.md        # Detailed architecture documentation
-  ontology.md            # Ontology specification
-config/
-  environment.rb         # Environment loader
-  web.rb                 # Main Rack app, composes controllers
-config.ru                # Rack entry point
-falcon.rb                # Falcon server configuration (HTTP + analysis worker)
+```bash
+bundle exec rspec
+bundle exec rubocop
 ```
 
-## Architecture
-
-The application follows **Clean Architecture** organized by four **bounded contexts**: **Webhooks** (webhook reception + Redmine API fetching), **Analysis** (job processing + LLM extraction pipeline), **Graph** (knowledge graph query API), and **Health** (liveness probe). Inner layers (entities, use cases) live under `lib/<domain>/` and have no framework dependencies. Outer layers (controllers, repositories, adapters) live under `apps/<domain>/` and bridge the domain with infrastructure. Bounded contexts communicate through domain events via a `dry-events` event bus.
-
-See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation and [SPEC.md](SPEC.md) for behavioral specification.
-
-## Environment Variables
+## Configuration
 
 | Variable | Default | Description |
 |---|---|---|
-| `RACK_ENV` | `development` | Affects database path and Sinatra environment |
-| `PORT` | `9292` | HTTP listen port (Falcon only, configured in `falcon.rb`) |
-| `REDMINE_URL` | `https://bugs.ruby-lang.org` | Base URL for the Redmine JSON API |
-| `OPENAI_API_KEY` | `nil` | OpenAI API key for LLM extraction pipeline |
+| `RACK_ENV` | `development` | Environment (affects database path) |
+| `PORT` | `9292` | HTTP listen port (Falcon) |
+| `REDMINE_URL` | `https://bugs.ruby-lang.org` | Redmine JSON API base URL |
+| `OPENAI_API_KEY` | — | OpenAI API key for LLM extraction |
 | `OPENAI_MODEL` | `gpt-5-mini` | OpenAI model for triplet extraction |
-| `WEBHOOK_SECRET` | `nil` | When set, webhook requests must include `?token=<value>` matching this secret |
-| `JOB_RETENTION` | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
+| `WEBHOOK_SECRET` | — | Optional token authentication for webhooks |
+| `JOB_RETENTION` | `7d` | TTL for completed/failed jobs (`<number><unit>`: `h`/`d`) |
+
+## Documentation
+
+- [SPEC.md](SPEC.md) — Behavioral specification and user journeys
+- [docs/architecture.md](docs/architecture.md) — Architecture and bounded contexts
+- [docs/ontology.md](docs/ontology.md) — Ontology specification
 
 ## License
 
