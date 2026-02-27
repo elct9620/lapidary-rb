@@ -56,12 +56,19 @@ module Graph
 
       def build_edge(row)
         raw_observations = parse_json(row[:properties], default: [])
-        observations = raw_observations.map { |obs| Entities::Observation.new(**obs) }
+        observations = raw_observations.map { |obs| build_observation(obs) }
         Entities::Edge.new(
           source: row[:source],
           target: row[:target],
           relationship: row[:relationship],
           observations: observations
+        )
+      end
+
+      def build_observation(obs)
+        Entities::Observation.new(
+          **obs,
+          observed_at: obs[:observed_at] && Time.iso8601(obs[:observed_at])
         )
       end
     end

@@ -26,6 +26,14 @@ module Analysis
       def self.valid?(name)
         core_module?(name) || stdlib?(name)
       end
+
+      def self.core_module_names
+        CORE_MODULES.to_a.sort
+      end
+
+      def self.stdlib_names
+        STDLIBS.to_a.sort
+      end
     end
   end
 end

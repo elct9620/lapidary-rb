@@ -21,24 +21,36 @@ module Lapidary
       container['logger']
     end
 
+    def respond_json(body)
+      content_type :json
+      JSON.generate(body)
+    end
+
     def halt_json(status_code, body)
       halt status_code, { 'Content-Type' => 'application/json' }, JSON.generate(body)
     end
 
-    not_found do
-      unless response['Content-Type']&.include?('application/json')
-        content_type :json
-        JSON.generate(error: 'not found')
+    def validate_with_contract!(contract_key, input, status: 422)
+      result = container[contract_key].call(input)
+
+      if result.failure?
+        logger.warn(self, 'Validation failed')
+        halt_json status, errors: result.errors.to_h
       end
+
+      result
+    end
+
+    not_found do
+      respond_json(error: 'not found') unless response['Content-Type']&.include?('application/json')
     end
 
     error do
       error = env['sinatra.error']
       logger.error(self, "#{error.class}: #{error.message}")
 
-      content_type :json
       status 500
-      JSON.generate(error: 'internal server error')
+      respond_json(error: 'internal server error')
     end
   end
 end

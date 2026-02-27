@@ -83,11 +83,12 @@ RSpec.describe Lapidary::Analysis::Service do
       end
 
       context 'when JOB_RETENTION is invalid' do
-        around do |example|
-          original = ENV.fetch('JOB_RETENTION', nil)
-          ENV['JOB_RETENTION'] = 'invalid'
-          example.run
-          ENV['JOB_RETENTION'] = original
+        before do
+          Lapidary::Container.stub('job_retention', 'invalid')
+        end
+
+        after do
+          Lapidary::Container.stub('job_retention', nil)
         end
 
         it 'logs a warning and uses default retention' do

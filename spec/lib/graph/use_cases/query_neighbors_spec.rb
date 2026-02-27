@@ -16,7 +16,7 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
       source: 'rubyist://matz', target: 'core_module://String', relationship: 'Contribute',
       observations: [
         Graph::Entities::Observation.new(
-          observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue', source_entity_id: 1
+          observed_at: Time.iso8601('2024-01-15T10:30:00Z'), source_entity_type: 'issue', source_entity_id: 1
         )
       ]
     )
@@ -27,7 +27,7 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
       source: 'core_module://Array', target: 'rubyist://matz', relationship: 'MaintainedBy',
       observations: [
         Graph::Entities::Observation.new(
-          observed_at: '2024-06-01T00:00:00Z', source_entity_type: 'issue', source_entity_id: 2
+          observed_at: Time.iso8601('2024-06-01T00:00:00Z'), source_entity_type: 'issue', source_entity_id: 2
         )
       ]
     )
@@ -88,10 +88,10 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
         Graph::Entities::Edge.new(
           source: 'rubyist://matz', target: 'core_module://String', relationship: 'Contribute',
           observations: [
-            Graph::Entities::Observation.new(observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue',
-                                             source_entity_id: 1),
-            Graph::Entities::Observation.new(observed_at: '2024-07-01T00:00:00Z', source_entity_type: 'journal',
-                                             source_entity_id: 10)
+            Graph::Entities::Observation.new(observed_at: Time.iso8601('2024-01-15T10:30:00Z'),
+                                             source_entity_type: 'issue', source_entity_id: 1),
+            Graph::Entities::Observation.new(observed_at: Time.iso8601('2024-07-01T00:00:00Z'),
+                                             source_entity_type: 'journal', source_entity_id: 10)
           ]
         )
       end

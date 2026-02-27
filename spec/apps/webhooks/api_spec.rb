@@ -52,10 +52,9 @@ RSpec.describe Webhooks::API do
   describe 'POST /webhook' do
     context 'when WEBHOOK_SECRET is set' do
       around do |example|
-        ENV['WEBHOOK_SECRET'] = 'test-secret'
-        example.run
-      ensure
-        ENV.delete('WEBHOOK_SECRET')
+        Lapidary::Container.stub('webhook_secret', 'test-secret') do
+          example.run
+        end
       end
 
       context 'with missing token' do

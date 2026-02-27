@@ -28,8 +28,9 @@ module Lapidary
       end
 
       def poll_loop
-        use_case = build_use_case
-        cleanup = build_cleanup
+        job_repository = container['analysis.repositories.job_repository']
+        use_case = build_use_case(job_repository)
+        cleanup = build_cleanup(job_repository)
         last_cleanup_at = Time.now - CLEANUP_INTERVAL
 
         loop do
@@ -57,7 +58,7 @@ module Lapidary
       end
 
       def parse_retention_period
-        raw = ENV.fetch('JOB_RETENTION', nil)
+        raw = container['job_retention']
         return ::Analysis::Entities::RetentionPeriod.default unless raw
 
         ::Analysis::Entities::RetentionPeriod.parse(raw) || begin
@@ -67,17 +68,17 @@ module Lapidary
         end
       end
 
-      def build_cleanup
+      def build_cleanup(job_repository)
         ::Analysis::UseCases::CleanupJobs.new(
-          job_repository: container['analysis.repositories.job_repository'],
+          job_repository: job_repository,
           retention_period: parse_retention_period,
           logger: logger
         )
       end
 
-      def build_use_case
+      def build_use_case(job_repository)
         ::Analysis::UseCases::ProcessJob.new(
-          job_repository: container['analysis.repositories.job_repository'],
+          job_repository: job_repository,
           analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
           pipeline: build_pipeline,
           logger: logger

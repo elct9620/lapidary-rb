@@ -2,6 +2,7 @@
 
 require 'dry/system'
 
+# Lapidary is a Ruby web application that builds a knowledge graph from bugs.ruby-lang.org issue data.
 module Lapidary
   def self.root
     @root ||= Pathname(__dir__).join('../..').realpath

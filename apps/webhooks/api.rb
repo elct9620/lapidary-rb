@@ -17,8 +17,7 @@ module Webhooks
       use_case.call(result[:issue_id])
 
       status 202
-      content_type :json
-      JSON.generate(status: 'accepted')
+      respond_json(status: 'accepted')
     rescue Webhooks::Entities::IssueFetchError => e
       logger.warn(self, "Issue fetch failed: #{e.message}")
       halt_json 502, error: 'upstream service error'
@@ -27,7 +26,7 @@ module Webhooks
     private
 
     def authenticate!
-      secret = ENV.fetch('WEBHOOK_SECRET', nil)
+      secret = container['webhook_secret']
       return unless secret
 
       token = params['token'].to_s
@@ -54,14 +53,7 @@ module Webhooks
     end
 
     def validate_payload!(payload)
-      result = container['webhooks.contract'].call(payload)
-
-      if result.failure?
-        logger.warn(self, 'Webhook validation failed')
-        halt_json 422, errors: result.errors.to_h
-      end
-
-      result
+      validate_with_contract!('webhooks.contract', payload)
     end
   end
 end

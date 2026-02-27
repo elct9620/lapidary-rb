@@ -10,10 +10,16 @@ module Graph
       end
     end
 
-    class Direction
+    class Direction # :nodoc:
       OUTBOUND = new(value: 'outbound')
       INBOUND = new(value: 'inbound')
       BOTH = new(value: 'both')
+
+      def self.parse(value)
+        return BOTH unless value
+
+        new(value: value)
+      end
     end
   end
 end

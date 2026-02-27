@@ -54,10 +54,10 @@ module Analysis
           ## Valid Module Names
 
           ### Core Modules
-          #{Ontology::ModuleRegistry::CORE_MODULES.to_a.sort.join(', ')}
+          #{Ontology::ModuleRegistry.core_module_names.join(', ')}
 
           ### Standard Libraries
-          #{Ontology::ModuleRegistry::STDLIBS.to_a.sort.join(', ')}
+          #{Ontology::ModuleRegistry.stdlib_names.join(', ')}
         TEXT
       end
 
