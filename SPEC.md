@@ -859,7 +859,7 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph query endpoint style | Query parameters (`GET /graph/neighbors?node_id=...`) | Simple, cacheable, fits RESTful conventions for read-only queries |
 | Node ID in query | URI format passed as query parameter | Reuses existing `type://name` node ID convention; human-readable |
 | Webhook authentication | Static token via query parameter (`?token=`) | Simple, no cryptographic overhead; optional via env var presence |
-| Logging solution | `console` gem (via DI) | Falcon 預設整合，結構化日誌輸出；透過 dry-system provider 註冊，各層以 DI 注入 |
+| Logging solution | `console` gem (via DI) | Default integration with Falcon, structured log output; registered via dry-system provider, injected into all layers via DI |
 | Job cleanup strategy | TTL-based hard delete, built into Analysis Service | Simple and effective — no extra process or cron needed; hard delete because job data has no value after graph writing |
 | Node query pagination | `limit` + `offset` with total count | Simple, suitable for small datasets; consistent with project's simplicity philosophy |
 | Node search mechanism | Case-insensitive substring match on name and display_name | Simple SQL LIKE query; sufficient for knowledge graph scale |
