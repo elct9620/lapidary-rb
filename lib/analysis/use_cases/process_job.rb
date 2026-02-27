@@ -67,11 +67,11 @@ module Analysis
       end
 
       def build_observation(job)
-        {
+        Entities::Observation.new(
           observed_at: job.arguments.created_on || Time.now.iso8601,
           source_entity_type: job.arguments.entity_type,
           source_entity_id: job.arguments.entity_id
-        }
+        )
       end
 
       def build_record(job)

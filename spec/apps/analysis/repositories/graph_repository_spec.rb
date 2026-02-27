@@ -23,7 +23,7 @@ RSpec.describe Analysis::Repositories::GraphRepository do
   end
 
   let(:observation) do
-    { observed_at: Time.now.iso8601, source_entity_type: 'issue', source_entity_id: 1 }
+    Analysis::Entities::Observation.new(observed_at: Time.now.iso8601, source_entity_type: 'issue', source_entity_id: 1)
   end
 
   describe '#save_triplet' do
@@ -52,7 +52,8 @@ RSpec.describe Analysis::Repositories::GraphRepository do
       updated_triplet = triplet.with(
         subject: triplet.subject.with(properties: { is_committer: true, role: 'creator' })
       )
-      other_observation = { observed_at: Time.now.iso8601, source_entity_type: 'journal', source_entity_id: 2 }
+      other_observation = Analysis::Entities::Observation.new(observed_at: Time.now.iso8601,
+                                                              source_entity_type: 'journal', source_entity_id: 2)
       repository.save_triplet(updated_triplet, other_observation)
 
       expect(db[:nodes].where(id: 'rubyist://matz').count).to eq(1)
@@ -68,7 +69,8 @@ RSpec.describe Analysis::Repositories::GraphRepository do
       partial_triplet = triplet.with(
         subject: triplet.subject.with(properties: { display_name: 'Yukihiro Matsumoto' })
       )
-      other_observation = { observed_at: Time.now.iso8601, source_entity_type: 'journal', source_entity_id: 2 }
+      other_observation = Analysis::Entities::Observation.new(observed_at: Time.now.iso8601,
+                                                              source_entity_type: 'journal', source_entity_id: 2)
       repository.save_triplet(partial_triplet, other_observation)
 
       node = db[:nodes].where(id: 'rubyist://matz').first
@@ -80,7 +82,8 @@ RSpec.describe Analysis::Repositories::GraphRepository do
     it 'appends observation to existing edge' do
       repository.save_triplet(triplet, observation)
 
-      second_observation = { observed_at: Time.now.iso8601, source_entity_type: 'journal', source_entity_id: 2 }
+      second_observation = Analysis::Entities::Observation.new(observed_at: Time.now.iso8601,
+                                                               source_entity_type: 'journal', source_entity_id: 2)
       result = repository.save_triplet(triplet, second_observation)
 
       expect(result).to eq(:appended)

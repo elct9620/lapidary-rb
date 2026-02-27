@@ -46,7 +46,7 @@ module Analysis
         now = Time.now
         id = build_node_id(node)
         merged_data = merge_node_data(id, node.properties)
-        data = JSON.generate(merged_data)
+        data = serialize_json(merged_data)
         dataset.insert_conflict(target: :id, update: { data: data, updated_at: now })
                .insert(id: id, type: node.type.to_s, data: data, created_at: now, updated_at: now)
       end
@@ -55,7 +55,7 @@ module Analysis
         existing = dataset.where(id: id).first
         return new_properties unless existing
 
-        existing_data = JSON.parse(existing[:data], symbolize_names: true)
+        existing_data = deserialize_json(existing[:data])
         existing_data.merge(new_properties) { |_key, old_val, new_val| new_val.nil? ? old_val : new_val }
       end
 
@@ -72,29 +72,37 @@ module Analysis
       end
 
       def append_observation(existing, observation, now)
-        observations = JSON.parse(existing[:properties] || '[]', symbolize_names: true)
+        observations = deserialize_json(existing[:properties], default: [])
         return :duplicate if duplicate_observation?(observations, observation)
 
-        observations << observation
+        observations << observation.to_h
         edges.where(source: existing[:source], target: existing[:target], relationship: existing[:relationship])
-             .update(properties: JSON.generate(observations), updated_at: now)
+             .update(properties: serialize_json(observations), updated_at: now)
         :appended
       end
 
       def duplicate_observation?(observations, observation)
         observations.any? do |obs|
-          obs[:source_entity_type] == observation[:source_entity_type] &&
-            obs[:source_entity_id] == observation[:source_entity_id]
+          obs[:source_entity_type] == observation.source_entity_type &&
+            obs[:source_entity_id] == observation.source_entity_id
         end
       end
 
       def insert_edge(source:, target:, relationship:, observation:, now:)
         edges.insert(
           source: source, target: target, relationship: relationship,
-          properties: JSON.generate([observation]),
+          properties: serialize_json([observation.to_h]),
           created_at: now, updated_at: now
         )
         :inserted
+      end
+
+      def serialize_json(data)
+        JSON.generate(data)
+      end
+
+      def deserialize_json(json_string, default: {})
+        json_string ? JSON.parse(json_string, symbolize_names: true) : default
       end
     end
   end

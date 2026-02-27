@@ -12,9 +12,8 @@ module Lapidary
 
       def run(_instance, _evaluator)
         Async do
-          logger = container['logger']
           logger.info(self, 'Analysis worker started')
-          poll_loop(logger)
+          poll_loop
         end
       end
 
@@ -24,18 +23,22 @@ module Lapidary
         Lapidary::Container
       end
 
-      def poll_loop(logger)
-        use_case = build_use_case(logger)
-        cleanup = build_cleanup(logger)
+      def logger
+        @logger ||= container['logger']
+      end
+
+      def poll_loop
+        use_case = build_use_case
+        cleanup = build_cleanup
         last_cleanup_at = Time.now - CLEANUP_INTERVAL
 
         loop do
-          last_cleanup_at = maybe_cleanup(cleanup, last_cleanup_at, logger)
-          poll_once(use_case, logger)
+          last_cleanup_at = maybe_cleanup(cleanup, last_cleanup_at)
+          poll_once(use_case)
         end
       end
 
-      def poll_once(use_case, logger)
+      def poll_once(use_case)
         processed = use_case.call
         sleep POLL_INTERVAL unless processed
       rescue ::Analysis::Entities::JobError => e
@@ -43,7 +46,7 @@ module Lapidary
         sleep POLL_INTERVAL
       end
 
-      def maybe_cleanup(cleanup, last_cleanup_at, logger)
+      def maybe_cleanup(cleanup, last_cleanup_at)
         return last_cleanup_at if Time.now - last_cleanup_at < CLEANUP_INTERVAL
 
         cleanup.call
@@ -53,38 +56,35 @@ module Lapidary
         Time.now
       end
 
-      def parse_retention_period(logger)
+      def parse_retention_period
         raw = ENV.fetch('JOB_RETENTION', nil)
         return ::Analysis::Entities::RetentionPeriod.default unless raw
 
-        period = ::Analysis::Entities::RetentionPeriod.parse(raw)
-        unless period
+        ::Analysis::Entities::RetentionPeriod.parse(raw) || begin
           logger.warn(self, "Invalid JOB_RETENTION '#{raw}', using default #{::Analysis::Entities::RetentionPeriod.default}",
                       value: raw)
-          return ::Analysis::Entities::RetentionPeriod.default
+          ::Analysis::Entities::RetentionPeriod.default
         end
-
-        period
       end
 
-      def build_cleanup(logger)
+      def build_cleanup
         ::Analysis::UseCases::CleanupJobs.new(
           job_repository: container['analysis.repositories.job_repository'],
-          retention_period: parse_retention_period(logger),
+          retention_period: parse_retention_period,
           logger: logger
         )
       end
 
-      def build_use_case(logger)
+      def build_use_case
         ::Analysis::UseCases::ProcessJob.new(
           job_repository: container['analysis.repositories.job_repository'],
           analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
-          pipeline: build_pipeline(logger),
+          pipeline: build_pipeline,
           logger: logger
         )
       end
 
-      def build_pipeline(logger)
+      def build_pipeline
         ::Analysis::UseCases::TripletPipeline.new(
           extractor: container['analysis.extractors.llm_extractor'],
           # Validator and Normalizer are inner-layer domain objects, not container-managed

@@ -23,7 +23,8 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
     Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1, author_username: 'matz')
   end
   let(:observation) do
-    { observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue', source_entity_id: 1 }
+    Analysis::Entities::Observation.new(observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue',
+                                        source_entity_id: 1)
   end
 
   describe '#call' do
