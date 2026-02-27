@@ -4,6 +4,26 @@
 module Graph
   # Graph query endpoint for exploring the knowledge graph
   class API < Lapidary::BaseController
+    get '/graph/nodes' do
+      result = validate_params!('graph.node_query_contract')
+
+      use_case = UseCases::QueryNodes.new(
+        node_repository: container['graph.repositories.node_repository']
+      )
+      output = use_case.call(
+        type: result[:type],
+        query: result[:q],
+        limit: result[:limit] || 20,
+        offset: result[:offset] || 0
+      )
+
+      content_type :json
+      JSON.generate(container['graph.serializers.node_list_serializer'].call(output))
+    rescue Entities::GraphQueryError => e
+      logger.warn(self, "Graph query error: #{e.message}")
+      halt_json 500, error: 'internal server error'
+    end
+
     get '/graph/neighbors' do
       result = validate_params!
 
@@ -28,8 +48,8 @@ module Graph
 
     private
 
-    def validate_params!
-      result = container['graph.contract'].call(params)
+    def validate_params!(contract_key = 'graph.contract')
+      result = container[contract_key].call(params)
 
       if result.failure?
         field, messages = result.errors.to_h.first

@@ -48,6 +48,165 @@ RSpec.describe Graph::API do
     seed_edges(db)
   end
 
+  describe 'GET /graph/nodes' do
+    context 'with no filters' do
+      before do
+        seed_nodes(db)
+        get '/graph/nodes'
+      end
+
+      it 'returns 200 OK' do
+        expect(last_response.status).to eq(200)
+      end
+
+      it 'returns all nodes' do
+        body = JSON.parse(last_response.body)
+        expect(body['nodes'].size).to eq(3)
+      end
+
+      it 'returns total count' do
+        body = JSON.parse(last_response.body)
+        expect(body['total']).to eq(3)
+      end
+
+      it 'returns default pagination metadata' do
+        body = JSON.parse(last_response.body)
+        expect(body['limit']).to eq(20)
+        expect(body['offset']).to eq(0)
+      end
+    end
+
+    context 'with type filter' do
+      before do
+        seed_nodes(db)
+        get '/graph/nodes', type: 'CoreModule'
+      end
+
+      it 'returns only matching type' do
+        body = JSON.parse(last_response.body)
+        types = body['nodes'].map { |n| n['type'] }
+        expect(types).to all(eq('CoreModule'))
+      end
+
+      it 'returns correct total' do
+        body = JSON.parse(last_response.body)
+        expect(body['total']).to eq(2)
+      end
+    end
+
+    context 'with q search matching node name' do
+      before do
+        seed_nodes(db)
+        get '/graph/nodes', q: 'matz'
+      end
+
+      it 'returns matching nodes' do
+        body = JSON.parse(last_response.body)
+        expect(body['nodes'].size).to eq(1)
+        expect(body['nodes'].first['id']).to eq('rubyist://matz')
+      end
+    end
+
+    context 'with q search matching display_name' do
+      before do
+        seed_nodes(db)
+        get '/graph/nodes', q: 'Yukihiro'
+      end
+
+      it 'returns matching nodes' do
+        body = JSON.parse(last_response.body)
+        expect(body['nodes'].size).to eq(1)
+        expect(body['nodes'].first['id']).to eq('rubyist://matz')
+      end
+    end
+
+    context 'with type and q combined' do
+      before do
+        seed_nodes(db)
+        get '/graph/nodes', type: 'CoreModule', q: 'String'
+      end
+
+      it 'returns nodes matching both filters' do
+        body = JSON.parse(last_response.body)
+        expect(body['nodes'].size).to eq(1)
+        expect(body['nodes'].first['id']).to eq('core_module://String')
+      end
+    end
+
+    context 'with pagination' do
+      before do
+        seed_nodes(db)
+        get '/graph/nodes', limit: '2', offset: '1'
+      end
+
+      it 'respects limit and offset' do
+        body = JSON.parse(last_response.body)
+        expect(body['nodes'].size).to eq(2)
+        expect(body['limit']).to eq(2)
+        expect(body['offset']).to eq(1)
+      end
+
+      it 'returns full total regardless of pagination' do
+        body = JSON.parse(last_response.body)
+        expect(body['total']).to eq(3)
+      end
+    end
+
+    context 'with invalid type' do
+      before { get '/graph/nodes', type: 'Invalid' }
+
+      it 'returns 400 Bad Request' do
+        expect(last_response.status).to eq(400)
+      end
+
+      it 'returns error message' do
+        body = JSON.parse(last_response.body)
+        expect(body['error']).to include('type')
+      end
+    end
+
+    context 'with invalid limit' do
+      before { get '/graph/nodes', limit: '0' }
+
+      it 'returns 400 Bad Request' do
+        expect(last_response.status).to eq(400)
+      end
+    end
+
+    context 'with invalid offset' do
+      before { get '/graph/nodes', offset: '-1' }
+
+      it 'returns 400 Bad Request' do
+        expect(last_response.status).to eq(400)
+      end
+    end
+
+    context 'with empty q' do
+      before { get '/graph/nodes', q: '' }
+
+      it 'returns 400 Bad Request' do
+        expect(last_response.status).to eq(400)
+      end
+    end
+
+    context 'when database error occurs' do
+      before do
+        allow(Lapidary::Container['database']).to receive(:[]).with(:nodes)
+                                                              .and_raise(Sequel::Error, 'db error')
+        get '/graph/nodes'
+      end
+
+      it 'returns 500 Internal Server Error' do
+        expect(last_response.status).to eq(500)
+      end
+
+      it 'returns JSON error body' do
+        body = JSON.parse(last_response.body)
+        expect(body).to eq('error' => 'internal server error')
+      end
+    end
+  end
+
   describe 'GET /graph/neighbors' do
     context 'with a valid request' do
       before do
