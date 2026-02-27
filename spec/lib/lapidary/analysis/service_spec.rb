@@ -83,12 +83,12 @@ RSpec.describe Lapidary::Analysis::Service do
       end
 
       context 'when JOB_RETENTION is invalid' do
-        before do
-          Lapidary::Container.stub('job_retention', 'invalid')
-        end
-
-        after do
-          Lapidary::Container.stub('job_retention', nil)
+        around do |example|
+          original = Lapidary.config.analysis.job_retention
+          Lapidary::Config.configure { |c| c.analysis.job_retention = 'invalid' }
+          example.run
+        ensure
+          Lapidary::Config.configure { |c| c.analysis.job_retention = original }
         end
 
         it 'logs a warning and uses default retention' do

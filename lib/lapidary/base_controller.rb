@@ -7,7 +7,7 @@ require 'sinatra/base'
 module Lapidary
   # Base class for all Sinatra controllers
   class BaseController < Sinatra::Base
-    set :environment, ENV.fetch('RACK_ENV', 'development').to_sym
+    set :environment, Lapidary.config.env.to_sym
     set :logging, false
     set :dump_errors, false
     set :show_exceptions, false

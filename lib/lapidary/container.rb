@@ -1,11 +1,16 @@
 # frozen_string_literal: true
 
 require 'dry/system'
+require_relative 'config'
 
 # Lapidary is a Ruby web application that builds a knowledge graph from bugs.ruby-lang.org issue data.
 module Lapidary
   def self.root
     @root ||= Pathname(__dir__).join('../..').realpath
+  end
+
+  def self.config
+    Config.config
   end
 
   # The IoC container for auto-registering components

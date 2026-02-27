@@ -7,9 +7,6 @@ module Lapidary
   module Analysis
     # Background worker that polls and processes analysis jobs.
     class Service < Async::Service::Managed::Service
-      POLL_INTERVAL = 1
-      CLEANUP_INTERVAL = 600
-
       def run(_instance, _evaluator)
         Async do
           logger.info(self, 'Analysis worker started')
@@ -18,6 +15,14 @@ module Lapidary
       end
 
       private
+
+      def poll_interval
+        Lapidary.config.analysis.poll_interval
+      end
+
+      def cleanup_interval
+        Lapidary.config.analysis.cleanup_interval
+      end
 
       def container
         Lapidary::Container
@@ -31,7 +36,7 @@ module Lapidary
         job_repository = container['analysis.repositories.job_repository']
         use_case = build_use_case(job_repository)
         cleanup = build_cleanup(job_repository)
-        last_cleanup_at = Time.now - CLEANUP_INTERVAL
+        last_cleanup_at = Time.now - cleanup_interval
 
         loop do
           last_cleanup_at = maybe_cleanup(cleanup, last_cleanup_at)
@@ -41,14 +46,14 @@ module Lapidary
 
       def poll_once(use_case)
         processed = use_case.call
-        sleep POLL_INTERVAL unless processed
+        sleep poll_interval unless processed
       rescue ::Analysis::Entities::JobError => e
         logger.error(self, "Job processing error: #{e.class}: #{e.message}")
-        sleep POLL_INTERVAL
+        sleep poll_interval
       end
 
       def maybe_cleanup(cleanup, last_cleanup_at)
-        return last_cleanup_at if Time.now - last_cleanup_at < CLEANUP_INTERVAL
+        return last_cleanup_at if Time.now - last_cleanup_at < cleanup_interval
 
         cleanup.call
         Time.now
@@ -58,7 +63,7 @@ module Lapidary
       end
 
       def parse_retention_period
-        raw = container['job_retention']
+        raw = Lapidary.config.analysis.job_retention
         return ::Analysis::Entities::RetentionPeriod.default unless raw
 
         ::Analysis::Entities::RetentionPeriod.parse(raw) || begin

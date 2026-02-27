@@ -26,7 +26,7 @@ module Webhooks
     private
 
     def authenticate!
-      secret = container['webhook_secret']
+      secret = Lapidary.config.webhook.secret
       return unless secret
 
       token = params['token'].to_s

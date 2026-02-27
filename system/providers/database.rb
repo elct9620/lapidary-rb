@@ -6,7 +6,7 @@ Lapidary::Container.register_provider(:database) do
   end
 
   start do
-    env = ENV.fetch('RACK_ENV', 'development')
+    env = Lapidary.config.env
 
     database_url = if env == 'test'
                      'sqlite:/'

@@ -52,9 +52,11 @@ RSpec.describe Webhooks::API do
   describe 'POST /webhook' do
     context 'when WEBHOOK_SECRET is set' do
       around do |example|
-        Lapidary::Container.stub('webhook_secret', 'test-secret') do
-          example.run
-        end
+        original = Lapidary.config.webhook.secret
+        Lapidary::Config.configure { |c| c.webhook.secret = 'test-secret' }
+        example.run
+      ensure
+        Lapidary::Config.configure { |c| c.webhook.secret = original }
       end
 
       context 'with missing token' do
