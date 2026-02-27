@@ -16,18 +16,22 @@ module Analysis
       VALID_RELATIONSHIPS = Entities::RelationshipType::ALL
 
       ConstraintResult = Data.define(:triplet, :downgrade)
+      private_constant :ConstraintResult
 
       def call(triplet)
+        # Phase 1: Structural validation
         errors = [
           validate_subject_type(triplet),
           validate_object_type(triplet),
           validate_relationship(triplet)
         ].compact
 
-        constraint = check_committer_constraint(triplet)
+        # Phase 2: Constraint transformation (may downgrade relationship)
+        constraint = apply_committer_downgrade(triplet)
         triplet = constraint.triplet
         downgrades = [constraint.downgrade].compact
 
+        # Phase 3: Semantic validation on the (possibly downgraded) triplet
         errors << validate_module_name(triplet)
         ValidationResult.new(triplet: triplet, errors: errors.compact, downgrades: downgrades)
       end
@@ -52,7 +56,7 @@ module Analysis
         "relationship must be Maintenance or Contribute, got #{triplet.relationship}"
       end
 
-      def check_committer_constraint(triplet)
+      def apply_committer_downgrade(triplet)
         unless triplet.relationship == Entities::RelationshipType::MAINTENANCE
           return ConstraintResult.new(triplet: triplet, downgrade: nil)
         end

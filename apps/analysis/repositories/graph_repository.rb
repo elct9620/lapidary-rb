@@ -57,6 +57,8 @@ module Analysis
         existing_data.merge(new_properties) { |_key, old_val, new_val| new_val.nil? ? old_val : new_val }
       end
 
+      # Read-modify-write relies on SQLite's single-writer
+      # guarantee to avoid race conditions without explicit locking.
       def upsert_edge(source:, target:, relationship:, observation:)
         now = Time.now
         existing = edges.where(source: source, target: target, relationship: relationship).first

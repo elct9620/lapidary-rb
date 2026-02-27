@@ -30,4 +30,18 @@ RSpec.shared_examples 'an EntityType value object' do
       expect(described_class::ISSUE).not_to eq(described_class::JOURNAL)
     end
   end
+
+  describe '.parse' do
+    it 'returns ISSUE for "issue"' do
+      expect(described_class.parse('issue')).to eq(described_class::ISSUE)
+    end
+
+    it 'returns JOURNAL for "journal"' do
+      expect(described_class.parse('journal')).to eq(described_class::JOURNAL)
+    end
+
+    it 'raises ArgumentError for unknown values' do
+      expect { described_class.parse('unknown') }.to raise_error(ArgumentError, 'unknown entity type: unknown')
+    end
+  end
 end

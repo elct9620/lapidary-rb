@@ -68,8 +68,16 @@ module Graph
       def build_observation(obs)
         Entities::Observation.new(
           **obs,
-          observed_at: obs[:observed_at] && Time.iso8601(obs[:observed_at])
+          observed_at: parse_time(obs[:observed_at])
         )
+      end
+
+      def parse_time(value)
+        return nil unless value
+
+        Time.iso8601(value)
+      rescue ArgumentError
+        nil
       end
     end
   end

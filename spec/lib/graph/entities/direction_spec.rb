@@ -42,4 +42,26 @@ RSpec.describe Graph::Entities::Direction do
       expect(described_class::OUTBOUND).not_to eq(described_class::INBOUND)
     end
   end
+
+  describe '.parse' do
+    it 'returns OUTBOUND for "outbound"' do
+      expect(described_class.parse('outbound')).to eq(described_class::OUTBOUND)
+    end
+
+    it 'returns INBOUND for "inbound"' do
+      expect(described_class.parse('inbound')).to eq(described_class::INBOUND)
+    end
+
+    it 'returns BOTH for "both"' do
+      expect(described_class.parse('both')).to eq(described_class::BOTH)
+    end
+
+    it 'returns BOTH for nil' do
+      expect(described_class.parse(nil)).to eq(described_class::BOTH)
+    end
+
+    it 'raises ArgumentError for unknown values' do
+      expect { described_class.parse('foobar') }.to raise_error(ArgumentError, 'unknown direction: foobar')
+    end
+  end
 end

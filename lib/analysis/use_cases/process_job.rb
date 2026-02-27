@@ -76,7 +76,7 @@ module Analysis
 
       def build_record(job)
         Entities::AnalysisRecord.new(
-          entity_type: Entities::EntityType.new(value: job.arguments.entity_type),
+          entity_type: Entities::EntityType.parse(job.arguments.entity_type),
           entity_id: job.arguments.entity_id
         )
       end

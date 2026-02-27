@@ -4,11 +4,18 @@ module Lapidary
   # Shared infrastructure for building and validating knowledge graph node IDs.
   # Format: `type_slug://name` where type_slug is snake_case.
   module NodeId
-    FORMAT = %r{\A[a-z_]+://\S+\z}
+    FORMAT = %r{\A[a-z_]+://.+\z}
+
+    def self.valid?(id)
+      FORMAT.match?(id)
+    end
 
     def self.build(type, name)
       type_slug = type.to_s.gsub(/([a-z])([A-Z])/, '\1_\2').downcase
-      "#{type_slug}://#{name}"
+      id = "#{type_slug}://#{name}"
+      raise ArgumentError, "invalid node ID: #{id}" unless valid?(id)
+
+      id
     end
   end
 end

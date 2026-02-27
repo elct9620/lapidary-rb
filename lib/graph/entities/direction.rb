@@ -15,10 +15,12 @@ module Graph
       INBOUND = new(value: 'inbound')
       BOTH = new(value: 'both')
 
+      ALL = [OUTBOUND, INBOUND, BOTH].freeze
+
       def self.parse(value)
         return BOTH unless value
 
-        new(value: value)
+        ALL.find { |d| d.value == value } || raise(ArgumentError, "unknown direction: #{value}")
       end
     end
   end

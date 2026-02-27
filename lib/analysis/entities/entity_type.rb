@@ -10,9 +10,15 @@ module Analysis
       end
     end
 
-    class EntityType
+    class EntityType # :nodoc:
       ISSUE = new(value: 'issue')
       JOURNAL = new(value: 'journal')
+
+      ALL = [ISSUE, JOURNAL].freeze
+
+      def self.parse(value)
+        ALL.find { |t| t.value == value } || raise(ArgumentError, "unknown entity type: #{value}")
+      end
     end
   end
 end

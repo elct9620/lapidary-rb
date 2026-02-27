@@ -17,6 +17,25 @@ RSpec.describe Lapidary::NodeId do
     end
   end
 
+  describe '.valid?' do
+    it 'returns true for valid node IDs' do
+      expect(described_class.valid?('core_module://String')).to be true
+      expect(described_class.valid?('rubyist://matz')).to be true
+    end
+
+    it 'returns false for invalid node IDs' do
+      expect(described_class.valid?('CoreModule://String')).to be false
+      expect(described_class.valid?('://missing_type')).to be false
+      expect(described_class.valid?('no_separator')).to be false
+    end
+  end
+
+  describe '.build' do
+    it 'raises ArgumentError for empty name' do
+      expect { described_class.build('Rubyist', '') }.to raise_error(ArgumentError, /invalid node ID/)
+    end
+  end
+
   describe 'FORMAT' do
     it 'matches valid node IDs' do
       expect(described_class::FORMAT).to match('core_module://String')

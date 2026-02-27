@@ -86,6 +86,25 @@ RSpec.describe Graph::Repositories::NeighborRepository do
     end
   end
 
+  describe '#find_edges with malformed timestamp' do
+    before do
+      now = Time.now
+      db[:edges].insert(
+        source: 'rubyist://matz', target: 'core_module://Array', relationship: 'Maintenance',
+        properties: JSON.generate([{ observed_at: 'not-a-timestamp', source_entity_type: 'issue',
+                                     source_entity_id: 99 }]),
+        created_at: now, updated_at: now
+      )
+    end
+
+    it 'returns nil for malformed observed_at instead of raising' do
+      edges = repository.find_edges('rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND)
+      malformed_edge = edges.find { |e| e.target == 'core_module://Array' }
+
+      expect(malformed_edge.observations.first.observed_at).to be_nil
+    end
+  end
+
   describe '#find_nodes_by_ids' do
     it 'returns a hash of id to Node' do
       nodes = repository.find_nodes_by_ids(%w[core_module://String core_module://Array])
