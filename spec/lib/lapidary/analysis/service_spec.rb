@@ -51,7 +51,7 @@ RSpec.describe Lapidary::Analysis::Service do
         Lapidary::Container.unstub('analysis.repositories.job_repository')
         Lapidary::Container.unstub('analysis.repositories.analysis_record_repository')
         Lapidary::Container.unstub('analysis.extractors.llm_extractor')
-        Lapidary::Container.unstub('logger')
+        Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
       end
 
       it 'runs cleanup on first iteration' do
@@ -123,7 +123,7 @@ RSpec.describe Lapidary::Analysis::Service do
         Lapidary::Container.unstub('analysis.repositories.job_repository')
         Lapidary::Container.unstub('analysis.repositories.analysis_record_repository')
         Lapidary::Container.unstub('analysis.extractors.llm_extractor')
-        Lapidary::Container.unstub('logger')
+        Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
       end
 
       it 'catches the error, logs it, and continues polling' do
