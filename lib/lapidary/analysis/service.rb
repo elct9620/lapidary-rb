@@ -59,7 +59,8 @@ module Lapidary
 
         period = ::Analysis::Entities::RetentionPeriod.parse(raw)
         unless period
-          logger.warn(self, "Invalid JOB_RETENTION '#{raw}', using default 7d", value: raw, default: '7d')
+          logger.warn(self, "Invalid JOB_RETENTION '#{raw}', using default #{::Analysis::Entities::RetentionPeriod.default}",
+                      value: raw)
           return ::Analysis::Entities::RetentionPeriod.default
         end
 

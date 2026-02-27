@@ -29,14 +29,13 @@ module Analysis
       end
 
       def extract_raw_triplets(content)
-        unless content.is_a?(Hash)
-          warn_malformed_response unless content.nil?
-          return
-        end
+        return if content.nil?
+        return warn_malformed_response unless content.is_a?(Hash)
 
         triplets = content['triplets']
-        warn_malformed_response unless triplets.is_a?(Array)
-        triplets if triplets.is_a?(Array)
+        return warn_malformed_response unless triplets.is_a?(Array)
+
+        triplets
       end
 
       def warn_malformed_response

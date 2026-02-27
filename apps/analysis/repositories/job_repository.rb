@@ -40,14 +40,8 @@ module Analysis
       end
 
       def delete_expired(cutoff:)
-        terminal_statuses = [
-          Entities::JobStatus::DONE.to_s,
-          Entities::JobStatus::FAILED.to_s,
-          Entities::JobStatus::CLAIMED.to_s
-        ]
-
         with_error_wrapping do
-          dataset.where(status: terminal_statuses)
+          dataset.where(status: Entities::JobStatus::TERMINAL.map(&:to_s))
                  .where { updated_at < cutoff }
                  .delete
         end

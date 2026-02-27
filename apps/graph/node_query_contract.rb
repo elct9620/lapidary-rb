@@ -5,6 +5,7 @@ require 'dry/validation'
 module Graph
   # Validates query parameters for the graph nodes listing endpoint
   class NodeQueryContract < Dry::Validation::Contract
+    # Must match Analysis::Entities::NodeType::ALL — kept as literal to avoid cross-BC dependency
     VALID_TYPES = %w[Rubyist CoreModule Stdlib].freeze
 
     params do

@@ -4,6 +4,11 @@
 module Graph
   # Graph query endpoint for exploring the knowledge graph
   class API < Lapidary::BaseController
+    error Entities::GraphQueryError do
+      logger.warn(self, "Graph query error: #{env['sinatra.error'].message}")
+      halt_json 500, error: 'internal server error'
+    end
+
     get '/graph/nodes' do
       result = validate_params!('graph.node_query_contract')
 
@@ -19,9 +24,6 @@ module Graph
 
       content_type :json
       JSON.generate(container['graph.serializers.node_list_serializer'].call(output))
-    rescue Entities::GraphQueryError => e
-      logger.warn(self, "Graph query error: #{e.message}")
-      halt_json 500, error: 'internal server error'
     end
 
     get '/graph/neighbors' do
@@ -41,9 +43,6 @@ module Graph
 
       content_type :json
       JSON.generate(container['graph.serializers.neighbor_serializer'].call(output))
-    rescue Entities::GraphQueryError => e
-      logger.warn(self, "Graph query error: #{e.message}")
-      halt_json 500, error: 'internal server error'
     end
 
     private

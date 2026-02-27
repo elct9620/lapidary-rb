@@ -8,6 +8,7 @@ module Graph
     class NeighborRepository
       include Lapidary::Dependency['database']
       include Lapidary::RepositorySupport
+      include NodeBuilder
 
       table :nodes
       wraps_errors Entities::GraphQueryError
@@ -53,11 +54,6 @@ module Graph
         else
           edges.where(Sequel.|({ source: node_id }, { target: node_id })).all
         end
-      end
-
-      def build_node(row)
-        data = row[:data] ? JSON.parse(row[:data], symbolize_names: true) : {}
-        Entities::Node.new(id: row[:id], type: row[:type], data: data)
       end
 
       def build_edge(row)

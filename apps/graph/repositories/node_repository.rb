@@ -8,6 +8,7 @@ module Graph
     class NodeRepository
       include Lapidary::Dependency['database']
       include Lapidary::RepositorySupport
+      include NodeBuilder
 
       table :nodes
       wraps_errors Entities::GraphQueryError
@@ -39,11 +40,6 @@ module Graph
         name_expr = Sequel.lit("lower(substr(id, instr(id, '://') + 3)) LIKE ?", pattern)
         display_name_expr = Sequel.lit("lower(json_extract(data, '$.display_name')) LIKE ?", pattern)
         dataset.where(Sequel.|(name_expr, display_name_expr))
-      end
-
-      def build_node(row)
-        data = row[:data] ? JSON.parse(row[:data], symbolize_names: true) : {}
-        Entities::Node.new(id: row[:id], type: row[:type], data: data)
       end
     end
   end

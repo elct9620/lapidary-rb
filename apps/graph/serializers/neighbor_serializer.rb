@@ -4,6 +4,8 @@ module Graph
   module Serializers
     # Serializes QueryNeighbors output into a JSON-compatible hash.
     class NeighborSerializer
+      include NodeSerializer
+
       def call(output)
         {
           node: serialize_node(output[:node]),
@@ -12,10 +14,6 @@ module Graph
       end
 
       private
-
-      def serialize_node(node)
-        { id: node.id, type: node.type, data: node.data }
-      end
 
       def serialize_neighbor(neighbor)
         {

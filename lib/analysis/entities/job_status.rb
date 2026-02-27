@@ -15,6 +15,8 @@ module Analysis
       CLAIMED = new(value: 'claimed')
       DONE = new(value: 'done')
       FAILED = new(value: 'failed')
+
+      TERMINAL = [DONE, FAILED, CLAIMED].freeze
     end
   end
 end
