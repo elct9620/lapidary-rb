@@ -5,6 +5,12 @@ require 'spec_helper'
 RSpec.describe Graph::NodeQueryContract do
   subject(:contract) { described_class.new }
 
+  describe 'VALID_TYPES' do
+    it 'matches Analysis::Entities::NodeType::ALL' do
+      expect(described_class::VALID_TYPES).to eq(Analysis::Entities::NodeType::ALL.map(&:to_s))
+    end
+  end
+
   describe 'type validation' do
     %w[Rubyist CoreModule Stdlib].each do |valid_type|
       it "accepts #{valid_type}" do

@@ -14,14 +14,22 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
   let(:outbound_edge) do
     Graph::Entities::Edge.new(
       source: 'rubyist://matz', target: 'core_module://String', relationship: 'Contribute',
-      observations: [{ observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue', source_entity_id: 1 }]
+      observations: [
+        Graph::Entities::Observation.new(
+          observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue', source_entity_id: 1
+        )
+      ]
     )
   end
 
   let(:inbound_edge) do
     Graph::Entities::Edge.new(
       source: 'core_module://Array', target: 'rubyist://matz', relationship: 'MaintainedBy',
-      observations: [{ observed_at: '2024-06-01T00:00:00Z', source_entity_type: 'issue', source_entity_id: 2 }]
+      observations: [
+        Graph::Entities::Observation.new(
+          observed_at: '2024-06-01T00:00:00Z', source_entity_type: 'issue', source_entity_id: 2
+        )
+      ]
     )
   end
 
@@ -80,8 +88,10 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
         Graph::Entities::Edge.new(
           source: 'rubyist://matz', target: 'core_module://String', relationship: 'Contribute',
           observations: [
-            { observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue', source_entity_id: 1 },
-            { observed_at: '2024-07-01T00:00:00Z', source_entity_type: 'journal', source_entity_id: 10 }
+            Graph::Entities::Observation.new(observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue',
+                                             source_entity_id: 1),
+            Graph::Entities::Observation.new(observed_at: '2024-07-01T00:00:00Z', source_entity_type: 'journal',
+                                             source_entity_id: 10)
           ]
         )
       end
@@ -101,7 +111,7 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
 
         string_neighbor = result[:neighbors].find { |n| n.node.id == 'core_module://String' }
         expect(string_neighbor.edges.first.observations.size).to eq(1)
-        expect(string_neighbor.edges.first.observations.first[:source_entity_id]).to eq(10)
+        expect(string_neighbor.edges.first.observations.first.source_entity_id).to eq(10)
       end
 
       it 'filters observations by observed_before' do
@@ -110,7 +120,7 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
         expect(result[:neighbors].size).to eq(1)
         string_neighbor = result[:neighbors].find { |n| n.node.id == 'core_module://String' }
         expect(string_neighbor.edges.first.observations.size).to eq(1)
-        expect(string_neighbor.edges.first.observations.first[:source_entity_id]).to eq(1)
+        expect(string_neighbor.edges.first.observations.first.source_entity_id).to eq(1)
       end
 
       it 'excludes neighbors with no matching observations' do

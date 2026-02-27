@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'json'
-
 module Analysis
   module Repositories
     # Repository for managing analysis job persistence and claiming.
@@ -41,7 +39,7 @@ module Analysis
 
       def delete_expired(cutoff:)
         with_error_wrapping do
-          dataset.where(status: Entities::JobStatus::TERMINAL.map(&:to_s))
+          dataset.where(status: Entities::JobStatus::CLEANABLE.map(&:to_s))
                  .where { updated_at < cutoff }
                  .delete
         end
@@ -51,7 +49,7 @@ module Analysis
 
       def job_attributes(job, now)
         {
-          arguments: JSON.generate(job.arguments.to_h.compact),
+          arguments: generate_json(job.arguments.to_h.compact),
           status: job.status.to_s, attempts: job.attempts,
           max_attempts: job.max_attempts, scheduled_at: job.scheduled_at,
           created_at: now, updated_at: now
@@ -80,7 +78,7 @@ module Analysis
       def row_to_entity(row)
         Entities::Job.new(
           **row.slice(:id, :attempts, :max_attempts, :error, :scheduled_at, :updated_at),
-          arguments: Entities::JobArguments.new(**JSON.parse(row[:arguments], symbolize_names: true)),
+          arguments: Entities::JobArguments.new(**parse_json(row[:arguments])),
           status: Entities::JobStatus.new(value: row[:status])
         )
       end

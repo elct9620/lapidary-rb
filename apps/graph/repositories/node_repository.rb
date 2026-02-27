@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'json'
-
 module Graph
   module Repositories
     # Read-only repository for querying knowledge graph nodes with filtering and pagination.

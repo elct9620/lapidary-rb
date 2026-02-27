@@ -46,12 +46,10 @@ module Graph
       end
 
       def observation_in_range?(observation, after_time, before_time)
-        observed_at = observation[:observed_at]
-        return true unless observed_at
+        return true unless observation.observed_at
 
-        time = Time.iso8601(observed_at)
-        return false if after_time  && time < after_time
-        return false if before_time && time > before_time
+        return false if after_time  && observation.observed_at < after_time
+        return false if before_time && observation.observed_at > before_time
 
         true
       end

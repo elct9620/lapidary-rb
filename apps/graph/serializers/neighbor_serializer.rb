@@ -27,8 +27,18 @@ module Graph
           source: edge.source,
           target: edge.target,
           relationship: edge.relationship,
-          observations: edge.observations
+          observations: edge.observations.map { |obs| serialize_observation(obs) }
         }
+      end
+
+      def serialize_observation(observation)
+        hash = {
+          observed_at: observation.observed_at&.iso8601,
+          source_entity_type: observation.source_entity_type,
+          source_entity_id: observation.source_entity_id
+        }
+        hash[:evidence] = observation.evidence if observation.evidence
+        hash
       end
     end
   end

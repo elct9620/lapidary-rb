@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'json'
-
 module Graph
   module Repositories
     # Read-only repository for querying knowledge graph neighbors.
@@ -57,7 +55,8 @@ module Graph
       end
 
       def build_edge(row)
-        observations = row[:properties] ? JSON.parse(row[:properties], symbolize_names: true) : []
+        raw_observations = parse_json(row[:properties], default: [])
+        observations = raw_observations.map { |obs| Entities::Observation.new(**obs) }
         Entities::Edge.new(
           source: row[:source],
           target: row[:target],

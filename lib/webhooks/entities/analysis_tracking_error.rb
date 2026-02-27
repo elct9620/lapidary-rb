@@ -3,6 +3,6 @@
 
 module Webhooks
   module Entities
-    class AnalysisTrackingError < StandardError; end
+    class AnalysisTrackingError < WebhookError; end
   end
 end

@@ -3,6 +3,6 @@
 
 module Webhooks
   module Entities
-    class IssueFetchError < WebhookError; end
+    class WebhookError < StandardError; end
   end
 end

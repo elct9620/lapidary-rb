@@ -75,14 +75,14 @@ RSpec.describe Graph::Repositories::NeighborRepository do
       expect(edges.size).to eq(2)
     end
 
-    it 'parses observations from properties JSON' do
+    it 'parses observations from properties JSON into Observation objects' do
       edges = repository.find_edges('rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND)
 
-      expect(edges.first.observations).to eq([{
-                                               observed_at: '2024-01-15T10:30:00Z',
-                                               source_entity_type: 'issue',
-                                               source_entity_id: 1
-                                             }])
+      observation = edges.first.observations.first
+      expect(observation).to be_a(Graph::Entities::Observation)
+      expect(observation.observed_at).to eq(Time.iso8601('2024-01-15T10:30:00Z'))
+      expect(observation.source_entity_type).to eq('issue')
+      expect(observation.source_entity_id).to eq(1)
     end
   end
 

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'json'
+
 module Lapidary
   # Mixin providing declarative DSL for repository boilerplate.
   module RepositorySupport
@@ -24,6 +26,16 @@ module Lapidary
         end
         private :with_error_wrapping
       end
+    end
+
+    private
+
+    def parse_json(json_string, default: {})
+      json_string ? JSON.parse(json_string, symbolize_names: true) : default
+    end
+
+    def generate_json(data)
+      JSON.generate(data)
     end
   end
 end

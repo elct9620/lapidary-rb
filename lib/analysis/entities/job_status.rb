@@ -16,7 +16,7 @@ module Analysis
       DONE = new(value: 'done')
       FAILED = new(value: 'failed')
 
-      TERMINAL = [DONE, FAILED, CLAIMED].freeze
+      CLEANABLE = [DONE, FAILED, CLAIMED].freeze
     end
   end
 end
