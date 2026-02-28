@@ -53,7 +53,14 @@ module Lapidary
         logger.error(self, "Job processing error: #{e.class}: #{e.message}")
         sleep poll_interval
       ensure
-        transaction&.finish
+        finish_transaction(transaction, processed)
+      end
+
+      def finish_transaction(transaction, processed)
+        return unless transaction
+
+        transaction.sampled = false unless processed
+        transaction.finish
       end
 
       def start_queue_transaction

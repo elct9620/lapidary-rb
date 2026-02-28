@@ -128,6 +128,10 @@ RSpec.describe Lapidary::Analysis::Service do
         Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
       end
 
+      before do
+        allow(transaction).to receive(:sampled=)
+      end
+
       it 'sets messaging.destination.name on the transaction' do
         Async do |task|
           result = service.run(instance, evaluator)
@@ -137,6 +141,16 @@ RSpec.describe Lapidary::Analysis::Service do
           expect(transaction).to have_received(:set_data)
             .with(Sentry::Span::DataConventions::MESSAGING_DESTINATION_NAME, 'analysis.jobs')
             .at_least(:once)
+        end
+      end
+
+      it 'discards transaction on idle poll' do
+        Async do |task|
+          result = service.run(instance, evaluator)
+          task.sleep(0.05)
+          result.stop
+
+          expect(transaction).to have_received(:sampled=).with(false).at_least(:once)
         end
       end
     end
