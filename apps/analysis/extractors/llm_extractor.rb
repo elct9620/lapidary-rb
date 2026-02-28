@@ -15,7 +15,7 @@ module Analysis
       def call(job_arguments)
         prompt = @prompt_builder.call(job_arguments)
 
-        response = Sentry.with_child_span(op: 'gen_ai.chat', description: "chat #{model_name}") do |span|
+        response = ::Sentry.with_child_span(op: 'gen_ai.chat', description: "chat #{model_name}") do |span|
           result = llm.chat.with_instructions(prompt.system).with_schema(TripletSchema).ask(prompt.user)
           record_llm_span(span, prompt, result)
           result
