@@ -31,19 +31,20 @@ RSpec.describe Analysis::UseCases::ProcessJob do
   end
 
   describe '#call' do
+    def claim_job
+      job_repository.claim_next
+    end
+
     context 'when there is a pending job' do
       before do
-        job = Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(entity_type: 'issue',
-                                                                                          entity_id: 1))
-        job_repository.enqueue(job)
-      end
-
-      it 'returns true' do
-        expect(use_case.call).to be true
+        job_repository.enqueue(
+          Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(entity_type: 'issue',
+                                                                                      entity_id: 1))
+        )
       end
 
       it 'creates an analysis record' do
-        use_case.call
+        use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:analysis_records]
               .where(entity_type: 'issue', entity_id: 1).first
@@ -52,41 +53,16 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'marks the job as done' do
-        use_case.call
+        use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::DONE.to_s)
       end
 
       it 'logs job processing and completion' do
-        use_case.call
+        use_case.call(claim_job)
 
         expect(logger).to have_received(:info).with(use_case, a_kind_of(String), anything).at_least(:once)
-      end
-    end
-
-    context 'when there are no pending jobs' do
-      it 'returns false' do
-        expect(use_case.call).to be false
-      end
-    end
-
-    context 'with multiple pending jobs' do
-      before do
-        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
-          entity_type: 'issue', entity_id: 1
-        )))
-        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
-          entity_type: 'journal', entity_id: 101
-        )))
-      end
-
-      it 'processes one job per call' do
-        use_case.call
-
-        db = Lapidary::Container['database']
-        expect(db[:jobs].where(status: Analysis::Entities::JobStatus::DONE.to_s).count).to eq(1)
-        expect(db[:jobs].where(status: Analysis::Entities::JobStatus::PENDING.to_s).count).to eq(1)
       end
     end
 
@@ -99,12 +75,8 @@ RSpec.describe Analysis::UseCases::ProcessJob do
           .and_raise(Analysis::Entities::AnalysisTrackingError, 'connection lost')
       end
 
-      it 'returns true' do
-        expect(use_case.call).to be true
-      end
-
       it 'retries the job back to pending' do
-        use_case.call
+        use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
@@ -112,14 +84,14 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'records the error on the job' do
-        use_case.call
+        use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:error]).to eq('connection lost')
       end
 
       it 'logs a retry warning' do
-        use_case.call
+        use_case.call(claim_job)
 
         expect(logger).to have_received(:warn).with(use_case, a_kind_of(String), anything)
       end
@@ -137,14 +109,14 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'marks the job as failed' do
-        use_case.call
+        use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::FAILED.to_s)
       end
 
       it 'logs an error' do
-        use_case.call
+        use_case.call(claim_job)
 
         expect(logger).to have_received(:error).with(use_case, a_kind_of(String), anything)
       end
@@ -158,7 +130,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'does not log any warnings' do
-        use_case.call
+        use_case.call(claim_job)
 
         expect(logger).not_to have_received(:warn)
       end
@@ -187,19 +159,19 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'logs warnings for invalid triplets' do
-        use_case.call
+        use_case.call(claim_job)
 
         expect(logger).to have_received(:warn).with(pipeline, a_kind_of(String))
       end
 
       it 'does not write invalid triplets to the graph' do
-        use_case.call
+        use_case.call(claim_job)
 
         expect(Lapidary::Container['database'][:nodes].count).to eq(0)
       end
 
       it 'still completes the job' do
-        use_case.call
+        use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::DONE.to_s)
@@ -230,7 +202,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'writes the triplet to the knowledge graph' do
-        use_case.call
+        use_case.call(claim_job)
 
         db = Lapidary::Container['database']
         expect(db[:nodes].where(id: 'rubyist://matz').count).to eq(1)
@@ -264,7 +236,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'includes evidence in the edge observation' do
-        use_case.call
+        use_case.call(claim_job)
 
         db = Lapidary::Container['database']
         edge = db[:edges].first
@@ -298,7 +270,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'uses created_on as observed_at in the observation' do
-        use_case.call
+        use_case.call(claim_job)
 
         db = Lapidary::Container['database']
         edge = db[:edges].first
@@ -330,14 +302,14 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'writes the triplet with Maintenance relationship' do
-        use_case.call
+        use_case.call(claim_job)
 
         edge = Lapidary::Container['database'][:edges].first
         expect(edge[:relationship]).to eq('Maintenance')
       end
 
       it 'logs pipeline summary at info level' do
-        use_case.call
+        use_case.call(claim_job)
 
         expect(logger).to have_received(:info).with(pipeline, a_kind_of(String), anything).at_least(:once)
       end
@@ -373,7 +345,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'retries the job' do
-        use_case.call
+        use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
@@ -416,7 +388,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'writes valid triplets and skips invalid ones' do
-        use_case.call
+        use_case.call(claim_job)
 
         db = Lapidary::Container['database']
         expect(db[:nodes].count).to eq(2)
@@ -439,7 +411,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'retries the job via existing error handling' do
-        use_case.call
+        use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
@@ -447,7 +419,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
 
       it 'does not create a ghost analysis record' do
-        use_case.call
+        use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:analysis_records]
               .where(entity_type: 'issue', entity_id: 1).first

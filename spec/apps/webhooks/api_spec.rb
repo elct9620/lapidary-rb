@@ -192,7 +192,13 @@ RSpec.describe Webhooks::API do
              'CONTENT_TYPE' => 'application/json'
 
         # Process all jobs (worker simulation)
-        nil until process_job.call == false
+        job_repo = Lapidary::Container['analysis.repositories.job_repository']
+        loop do
+          job = job_repo.claim_next
+          break unless job
+
+          process_job.call(job)
+        end
 
         # Second request should not enqueue duplicates
         post '/webhook',

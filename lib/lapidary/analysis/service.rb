@@ -40,13 +40,18 @@ module Lapidary
 
         loop do
           last_cleanup_at = maybe_cleanup(cleanup, last_cleanup_at)
-          poll_once(use_case)
+          poll_once(use_case, job_repository)
         end
       end
 
-      def poll_once(use_case)
-        processed = with_queue_transaction { use_case.call }
-        sleep poll_interval unless processed
+      def poll_once(use_case, job_repository)
+        job = job_repository.claim_next
+        unless job
+          sleep poll_interval
+          return
+        end
+
+        with_queue_transaction { use_case.call(job) }
       rescue ::Analysis::Entities::JobError => e
         ::Sentry.capture_exception(e)
         logger.error(self, "Job processing error: #{e.class}: #{e.message}")
@@ -55,17 +60,9 @@ module Lapidary
 
       def with_queue_transaction
         transaction = start_queue_transaction
-        processed = yield
-        processed
+        yield
       ensure
-        finish_transaction(transaction, processed)
-      end
-
-      def finish_transaction(transaction, processed)
-        return unless transaction
-
-        transaction.sampled = false unless processed
-        transaction.finish
+        transaction&.finish
       end
 
       def start_queue_transaction

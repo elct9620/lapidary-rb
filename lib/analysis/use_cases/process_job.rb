@@ -12,12 +12,8 @@ module Analysis
         @logger = logger
       end
 
-      def call
-        job = @job_repository.claim_next
-        return false unless job
-
+      def call(job)
         process(job)
-        true
       end
 
       private
