@@ -13,7 +13,26 @@ module Analysis
       end
 
       def call(job_arguments)
-        response = llm.chat.with_schema(TripletSchema).ask(@prompt_builder.call(job_arguments))
+        model_name = Lapidary.config.openai.model
+        prompt = @prompt_builder.call(job_arguments)
+
+        response = Sentry.with_child_span(op: 'gen_ai.chat', description: "chat #{model_name}") do |span|
+          result = llm.chat.with_schema(TripletSchema).ask(prompt)
+
+          if span
+            span.set_data('gen_ai.operation.name', 'chat')
+            span.set_data('gen_ai.system', 'openai')
+            span.set_data('gen_ai.request.model', model_name)
+            span.set_data('gen_ai.response.model', result.model_id)
+            span.set_data('gen_ai.usage.input_tokens', result.input_tokens)
+            span.set_data('gen_ai.usage.output_tokens', result.output_tokens)
+            span.set_data('gen_ai.input.messages', JSON.generate([{ role: 'user', content: prompt }]))
+            span.set_data('gen_ai.output.messages', JSON.generate([{ role: 'assistant', content: result.content }]))
+          end
+
+          result
+        end
+
         parse_response(response.content)
       rescue RubyLLM::Error => e
         raise Entities::ExtractionError, e.message

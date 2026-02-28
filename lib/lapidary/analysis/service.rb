@@ -45,11 +45,17 @@ module Lapidary
       end
 
       def poll_once(use_case)
+        transaction = Sentry.start_transaction(op: 'queue.process', name: 'analysis.process_job')
+        Sentry.get_current_scope&.set_span(transaction) if transaction
+
         processed = use_case.call
         sleep poll_interval unless processed
       rescue ::Analysis::Entities::JobError => e
+        Sentry.capture_exception(e)
         logger.error(self, "Job processing error: #{e.class}: #{e.message}")
         sleep poll_interval
+      ensure
+        transaction&.finish
       end
 
       def maybe_cleanup(cleanup, last_cleanup_at)
@@ -58,6 +64,7 @@ module Lapidary
         cleanup.call
         Time.now
       rescue ::Analysis::Entities::JobError => e
+        Sentry.capture_exception(e)
         logger.error(self, "Job cleanup error: #{e.class}: #{e.message}")
         Time.now
       end

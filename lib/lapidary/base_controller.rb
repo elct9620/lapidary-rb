@@ -47,6 +47,7 @@ module Lapidary
 
     error do
       error = env['sinatra.error']
+      Sentry.capture_exception(error)
       logger.error(self, "#{error.class}: #{error.message}")
 
       status 500
