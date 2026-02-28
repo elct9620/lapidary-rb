@@ -14,18 +14,32 @@ module Webhooks
       payload = parse_json_body!
       result = validate_payload!(payload)
 
-      use_case = UseCases::HandleWebhook.new(
-        issue_repository: container['webhooks.repositories.issue_repository'],
-        analysis_record_repository: container['webhooks.repositories.analysis_record_repository'],
-        analysis_scheduler: container['webhooks.adapters.analysis_scheduler']
-      )
-      use_case.call(result[:issue_id])
+      issue_id = result[:issue_id]
+
+      if defined?(Async::Task) && Async::Task.current?
+        Async(transient: true) do
+          build_handle_webhook.call(issue_id)
+        rescue StandardError => e
+          ::Sentry.capture_exception(e)
+          logger.error(self, "Background processing failed: #{e.class}: #{e.message}")
+        end
+      else
+        build_handle_webhook.call(issue_id)
+      end
 
       status 202
       respond_json(status: 'accepted')
     end
 
     private
+
+    def build_handle_webhook
+      UseCases::HandleWebhook.new(
+        issue_repository: container['webhooks.repositories.issue_repository'],
+        analysis_record_repository: container['webhooks.repositories.analysis_record_repository'],
+        analysis_scheduler: container['webhooks.adapters.analysis_scheduler']
+      )
+    end
 
     def authenticate!
       secret = Lapidary.config.webhook.secret
