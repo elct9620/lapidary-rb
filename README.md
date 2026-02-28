@@ -1,6 +1,7 @@
 # Lapidary
 
 [![CI](https://github.com/elct9620/lapidary-rb/actions/workflows/ci.yml/badge.svg)](https://github.com/elct9620/lapidary-rb/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/elct9620/lapidary-rb/graph/badge.svg)](https://codecov.io/gh/elct9620/lapidary-rb)
 
 A knowledge graph builder that maps relationships between Ruby contributors and core modules from bugs.ruby-lang.org issue data.
 
@@ -9,6 +10,33 @@ A knowledge graph builder that maps relationships between Ruby contributors and 
 Lapidary helps researchers understand the evolution of the Ruby language and community collaboration patterns. It ingests issue data from [bugs.ruby-lang.org](https://bugs.ruby-lang.org/) via webhooks, extracts structured relationships using LLM, and builds a queryable knowledge graph of (Rubyist, Relationship, Module) triplets.
 
 ## How It Works
+
+```mermaid
+flowchart TD
+    subgraph Webhook["Webhook Reception"]
+        W1[POST /webhook] --> W2[Validate request]
+        W2 --> W3[Fetch issue from Redmine API]
+        W3 --> W4[Determine untracked entities]
+        W4 --> W5[Publish entity_discovered events]
+    end
+
+    subgraph Analysis["Background Analysis"]
+        A1[Dequeue job] --> A2[LLM triplet extraction]
+        A2 --> A3[Ontology validation]
+        A3 --> A4[Name normalization]
+        A4 --> A5[Write to knowledge graph]
+    end
+
+    subgraph Query["Query API"]
+        Q1[GET /graph/neighbors]
+        Q2[GET /graph/nodes]
+    end
+
+    W5 -->|Event bus| A1
+    A5 --> KG[(Knowledge Graph)]
+    KG --> Q1
+    KG --> Q2
+```
 
 ### 1. Webhook Reception
 
