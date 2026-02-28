@@ -8,7 +8,13 @@ module Webhooks
       include Lapidary::Dependency['event_bus']
 
       def schedule(**arguments)
-        event_bus.publish(Lapidary::EventBus::ENTITY_DISCOVERED, **arguments)
+        if defined?(Async::Task) && Async::Task.current?
+          Async(transient: true) do
+            event_bus.publish(Lapidary::EventBus::ENTITY_DISCOVERED, **arguments)
+          end
+        else
+          event_bus.publish(Lapidary::EventBus::ENTITY_DISCOVERED, **arguments)
+        end
       end
     end
   end
