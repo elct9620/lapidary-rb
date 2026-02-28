@@ -20,6 +20,13 @@ module Lapidary
       def preload
         ['config/environment']
       end
+
+      # Finalize the container after fork to ensure a fresh database connection.
+      # Falcon calls prepare! in the child process after forking from the parent.
+      def prepare!(instance)
+        Lapidary::Container.finalize!
+        super
+      end
     end
   end
 end

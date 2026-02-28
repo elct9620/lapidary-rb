@@ -7,5 +7,3 @@ Dotenv.load if defined?(Dotenv)
 
 require_relative '../lib/lapidary/container'
 require_relative 'web'
-
-Lapidary::Container.finalize!
