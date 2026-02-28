@@ -103,6 +103,44 @@ RSpec.describe Lapidary::Analysis::Service do
       end
     end
 
+    context 'with Sentry queue transaction' do
+      let(:job_repository) { double('JobRepository', claim_next: nil, delete_expired: 0) }
+      let(:analysis_record_repository) { double('AnalysisRecordRepository') }
+      let(:extractor) { double('Extractor') }
+      let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
+      let(:transaction) { double('Transaction', finish: nil) }
+
+      before do
+        Lapidary::Container.stub('analysis.repositories.job_repository', job_repository)
+        Lapidary::Container.stub('analysis.repositories.analysis_record_repository', analysis_record_repository)
+        Lapidary::Container.stub('analysis.extractors.llm_extractor', extractor)
+        Lapidary::Container.stub('logger', logger)
+
+        allow(Sentry).to receive(:start_transaction).and_return(transaction)
+        allow(Sentry).to receive(:get_current_scope).and_return(double('Scope', set_span: nil))
+        allow(transaction).to receive(:set_data)
+      end
+
+      after do
+        Lapidary::Container.unstub('analysis.repositories.job_repository')
+        Lapidary::Container.unstub('analysis.repositories.analysis_record_repository')
+        Lapidary::Container.unstub('analysis.extractors.llm_extractor')
+        Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
+      end
+
+      it 'sets messaging.destination.name on the transaction' do
+        Async do |task|
+          result = service.run(instance, evaluator)
+          task.sleep(0.05)
+          result.stop
+
+          expect(transaction).to have_received(:set_data)
+            .with(Sentry::Span::DataConventions::MESSAGING_DESTINATION_NAME, 'analysis.jobs')
+            .at_least(:once)
+        end
+      end
+    end
+
     context 'when ProcessJob raises JobError' do
       let(:job_repository) { double('JobRepository', delete_expired: 0) }
       let(:analysis_record_repository) { double('AnalysisRecordRepository') }

@@ -7,5 +7,6 @@ Lapidary::Container.register_provider(:sentry) do
 
   start do
     require Lapidary.root.join('config/sentry').to_s
+    target['database'].extension(:sentry) if Sentry.initialized?
   end
 end

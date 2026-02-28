@@ -45,9 +45,7 @@ module Lapidary
       end
 
       def poll_once(use_case)
-        transaction = ::Sentry.start_transaction(op: 'queue.process', name: 'analysis.process_job')
-        ::Sentry.get_current_scope&.set_span(transaction) if transaction
-
+        transaction = start_queue_transaction
         processed = use_case.call
         sleep poll_interval unless processed
       rescue ::Analysis::Entities::JobError => e
@@ -56,6 +54,13 @@ module Lapidary
         sleep poll_interval
       ensure
         transaction&.finish
+      end
+
+      def start_queue_transaction
+        transaction = ::Sentry.start_transaction(op: 'queue.process', name: 'analysis.process_job')
+        ::Sentry.get_current_scope&.set_span(transaction) if transaction
+        transaction&.set_data(::Sentry::Span::DataConventions::MESSAGING_DESTINATION_NAME, 'analysis.jobs')
+        transaction
       end
 
       def maybe_cleanup(cleanup, last_cleanup_at)
