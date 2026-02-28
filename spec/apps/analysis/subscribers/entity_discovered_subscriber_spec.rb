@@ -7,7 +7,7 @@ RSpec.describe Analysis::Subscribers::EntityDiscoveredSubscriber do
 
   describe '#on_webhooks_entity_discovered' do
     it 'enqueues a job with rich issue arguments' do
-      event = Dry::Events::Event.new('webhooks.entity_discovered', {
+      event = Dry::Events::Event.new(Lapidary::EventBus::ENTITY_DISCOVERED, {
                                        entity_type: 'issue',
                                        entity_id: 42,
                                        content: 'Add new feature',
@@ -29,7 +29,7 @@ RSpec.describe Analysis::Subscribers::EntityDiscoveredSubscriber do
     end
 
     it 'enqueues a job with rich journal arguments' do
-      event = Dry::Events::Event.new('webhooks.entity_discovered', {
+      event = Dry::Events::Event.new(Lapidary::EventBus::ENTITY_DISCOVERED, {
                                        entity_type: 'journal',
                                        entity_id: 101,
                                        content: 'Review comment',

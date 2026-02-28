@@ -9,7 +9,7 @@ RSpec.describe Webhooks::Adapters::AnalysisScheduler do
     it 'publishes a webhooks.entity_discovered event with all arguments' do
       received = []
       event_bus = Lapidary::Container['event_bus']
-      event_bus.subscribe('webhooks.entity_discovered') do |event|
+      event_bus.subscribe(Lapidary::EventBus::ENTITY_DISCOVERED) do |event|
         received << event.to_h
       end
 
