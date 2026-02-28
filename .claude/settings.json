@@ -6,9 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path | select(endswith(\".rb\"))' | xargs -r bundle exec rubocop -A",
-            "timeout": 60,
-            "statusMessage": "Running RuboCop..."
+            "command": "jq -r '.tool_input.file_path | select(endswith(\".rb\"))' | xargs -r bundle exec rubocop -A"
           }
         ]
       }
