@@ -93,7 +93,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
       end
     end
 
-    context 'when a triplet is downgraded' do
+    context 'when a non-committer Maintenance triplet is extracted' do
       let(:extractor) do
         triplet = Analysis::Entities::Triplet.new(
           subject: Analysis::Entities::Node.new(
@@ -109,10 +109,11 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
       end
 
-      it 'still writes the triplet and logs summary with written count' do
+      it 'writes the triplet as Maintenance without downgrade' do
         pipeline.call(arguments, observation)
 
-        expect(Lapidary::Container['database'][:edges].count).to eq(1)
+        edge = Lapidary::Container['database'][:edges].first
+        expect(edge[:relationship]).to eq('Maintenance')
         expect(logger).to have_received(:info).with(pipeline, a_kind_of(String), anything)
       end
     end

@@ -5,18 +5,11 @@ module Analysis
   module Ontology
     # Validates triplets against the ontology entailment rules.
     class Validator
-      ValidationResult = Data.define(:triplet, :errors, :downgrades) do
-        def initialize(triplet:, errors:, downgrades: [])
-          super
-        end
-      end
+      ValidationResult = Data.define(:triplet, :errors)
 
       VALID_SUBJECT_TYPES = Entities::NodeType::SUBJECT_TYPES
       VALID_OBJECT_TYPES = Entities::NodeType::OBJECT_TYPES
       VALID_RELATIONSHIPS = Entities::RelationshipType::ALL
-
-      ConstraintResult = Data.define(:triplet, :downgrade)
-      private_constant :ConstraintResult
 
       def call(triplet)
         # Phase 1: Structural validation
@@ -26,14 +19,9 @@ module Analysis
           validate_relationship(triplet)
         ].compact
 
-        # Phase 2: Constraint transformation (may downgrade relationship)
-        constraint = apply_committer_downgrade(triplet)
-        triplet = constraint.triplet
-        downgrades = [constraint.downgrade].compact
-
-        # Phase 3: Semantic validation on the (possibly downgraded) triplet
+        # Phase 2: Semantic validation
         errors << validate_module_name(triplet)
-        ValidationResult.new(triplet: triplet, errors: errors.compact, downgrades: downgrades)
+        ValidationResult.new(triplet: triplet, errors: errors.compact)
       end
 
       private
@@ -54,18 +42,6 @@ module Analysis
         return if VALID_RELATIONSHIPS.include?(triplet.relationship)
 
         "relationship must be Maintenance or Contribute, got #{triplet.relationship}"
-      end
-
-      def apply_committer_downgrade(triplet)
-        unless triplet.relationship == Entities::RelationshipType::MAINTENANCE
-          return ConstraintResult.new(triplet: triplet, downgrade: nil)
-        end
-        return ConstraintResult.new(triplet: triplet, downgrade: nil) if triplet.subject.properties[:is_committer]
-
-        ConstraintResult.new(
-          triplet: triplet.with(relationship: Entities::RelationshipType::CONTRIBUTE),
-          downgrade: 'Maintenance downgraded to Contribute: subject is not a committer'
-        )
       end
 
       def validate_module_name(triplet)

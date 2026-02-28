@@ -6,11 +6,12 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
   subject(:extractor) { described_class.new(llm: llm, logger: logger) }
 
   let(:llm) { double('RubyLLM', chat: chat) }
-  let(:chat) { double('RubyLLM::Chat', with_schema: nil, ask: response) }
+  let(:chat) { double('RubyLLM::Chat', with_instructions: nil, with_schema: nil, ask: response) }
   let(:response) { double('RubyLLM::Message') }
   let(:logger) { instance_double(Console::Logger, warn: nil, info: nil) }
 
   before do
+    allow(chat).to receive(:with_instructions).and_return(chat)
     allow(chat).to receive(:with_schema).and_return(chat)
     allow(chat).to receive(:ask).and_return(response)
   end
@@ -243,11 +244,12 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
     context 'with prompt building' do
       let(:prompt_builder) { instance_double(Analysis::Extractors::PromptBuilder) }
+      let(:test_prompt) { Analysis::Extractors::Prompt.new(system: 'test system', user: 'test user') }
 
       subject(:extractor) { described_class.new(llm: llm, logger: logger, prompt_builder: prompt_builder) }
 
       before do
-        allow(prompt_builder).to receive(:call).and_return('test prompt')
+        allow(prompt_builder).to receive(:call).and_return(test_prompt)
         allow(response).to receive(:content).and_return({ 'triplets' => [] })
       end
 
@@ -258,10 +260,16 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
                                                                                                  entity_id: 1))
       end
 
-      it 'sends the built prompt to the LLM' do
+      it 'sends the system prompt via with_instructions' do
         extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
 
-        expect(chat).to have_received(:ask).with('test prompt')
+        expect(chat).to have_received(:with_instructions).with('test system')
+      end
+
+      it 'sends the user prompt to ask' do
+        extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
+
+        expect(chat).to have_received(:ask).with('test user')
       end
     end
 

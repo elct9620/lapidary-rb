@@ -5,6 +5,15 @@ module Analysis
     # Assembles the LLM prompt for triplet extraction from issue/journal content.
     class PromptBuilder
       def call(job_arguments)
+        Prompt.new(
+          system: system_prompt,
+          user: user_prompt(job_arguments)
+        )
+      end
+
+      private
+
+      def system_prompt
         <<~PROMPT
           #{system_instructions}
 
@@ -14,8 +23,12 @@ module Analysis
 
           #{extraction_rules}
 
-          ## Content
+          #{rubric_section}
+        PROMPT
+      end
 
+      def user_prompt(job_arguments)
+        <<~PROMPT
           #{job_arguments.entity_type.capitalize} ##{job_arguments.entity_id}
           Author: #{job_arguments.author_username} (#{job_arguments.author_display_name})
 
@@ -23,8 +36,6 @@ module Analysis
           #{journal_context(job_arguments)}
         PROMPT
       end
-
-      private
 
       def system_instructions
         <<~TEXT.chomp
@@ -73,11 +84,33 @@ module Analysis
         <<~TEXT.chomp
           ## Extraction Rules
           - Only extract relationships where a person is clearly associated with a specific module
-          - Use "Maintenance" only for known Ruby committers who maintain the module
-          - Use "Contribute" for anyone who reports bugs, submits patches, or discusses a module
+          - Use "Maintenance" for people with maintenance activities (commits, merges, backports, assigns)
+          - Use "Contribute" for people who contribute implementation (patches, pull requests, concrete code fixes)
+          - Do not extract relationships for people who only report bugs, discuss, or confirm/reproduce issues
           - Module names must exactly match one of the valid names listed above
+          - Set is_committer to true only when the text explicitly mentions committer identity (e.g., "committed rNNNN", listed as committer, has explicit trunk commit records)
           - If no clear relationships can be identified, return an empty triplets array
         TEXT
+      end
+
+      RUBRIC_TABLE = <<~TEXT.chomp
+        ## Extraction Rubric
+
+        | Signal in Text | Relationship | is_committer |
+        |---|---|---|
+        | Committed rNNNN, backported to branch | Maintenance | depends on text |
+        | Assigned as maintainer, merged into trunk | Maintenance | depends on text |
+        | Submitted patch with implementation | Contribute | false |
+        | Proposed PR or code fix for review | Contribute | false |
+        | Code review with concrete fix suggestion | Contribute | false |
+        | Only reports bug or describes unexpected behavior | Do not extract | - |
+        | Only discusses or proposes without implementation | Do not extract | - |
+        | Confirms or reproduces a bug | Do not extract | - |
+      TEXT
+      private_constant :RUBRIC_TABLE
+
+      def rubric_section
+        RUBRIC_TABLE
       end
     end
   end

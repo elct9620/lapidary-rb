@@ -307,7 +307,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
     end
 
-    context 'when a Maintenance triplet is downgraded to Contribute' do
+    context 'when a non-committer Maintenance triplet is extracted' do
       let(:extractor) do
         triplet = Analysis::Entities::Triplet.new(
           subject: Analysis::Entities::Node.new(
@@ -329,14 +329,14 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         )))
       end
 
-      it 'writes the downgraded triplet with Contribute relationship' do
+      it 'writes the triplet with Maintenance relationship' do
         use_case.call
 
         edge = Lapidary::Container['database'][:edges].first
-        expect(edge[:relationship]).to eq('Contribute')
+        expect(edge[:relationship]).to eq('Maintenance')
       end
 
-      it 'logs the downgrade at info level' do
+      it 'logs pipeline summary at info level' do
         use_case.call
 
         expect(logger).to have_received(:info).with(pipeline, a_kind_of(String), anything).at_least(:once)
