@@ -6,6 +6,7 @@ module Analysis
     # Duck typing contract: #call(job_arguments) -> [Triplet]
     class LlmExtractor
       include Lapidary::Dependency['llm', 'logger']
+      include SentryLlmSpan
 
       def initialize(prompt_builder: PromptBuilder.new, **deps)
         super(**deps)
@@ -30,29 +31,6 @@ module Analysis
 
       def model_name
         Lapidary.config.openai.model
-      end
-
-      def record_llm_span(span, prompt, result)
-        return unless span
-
-        record_llm_request(span, prompt)
-        record_llm_response(span, result)
-      end
-
-      def record_llm_request(span, prompt)
-        span.set_data('gen_ai.operation.name', 'chat')
-        span.set_data('gen_ai.system', 'openai')
-        span.set_data('gen_ai.request.model', model_name)
-        span.set_data('gen_ai.input.messages',
-                      JSON.generate([{ role: 'system', content: prompt.system },
-                                     { role: 'user', content: prompt.user }]))
-      end
-
-      def record_llm_response(span, result)
-        span.set_data('gen_ai.response.model', result.model_id)
-        span.set_data('gen_ai.usage.input_tokens', result.input_tokens)
-        span.set_data('gen_ai.usage.output_tokens', result.output_tokens)
-        span.set_data('gen_ai.output.messages', JSON.generate([{ role: 'assistant', content: result.content }]))
       end
 
       def parse_response(content)

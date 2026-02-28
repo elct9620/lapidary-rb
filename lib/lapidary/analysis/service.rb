@@ -45,13 +45,18 @@ module Lapidary
       end
 
       def poll_once(use_case)
-        transaction = start_queue_transaction
-        processed = use_case.call
+        processed = with_queue_transaction { use_case.call }
         sleep poll_interval unless processed
       rescue ::Analysis::Entities::JobError => e
         ::Sentry.capture_exception(e)
         logger.error(self, "Job processing error: #{e.class}: #{e.message}")
         sleep poll_interval
+      end
+
+      def with_queue_transaction
+        transaction = start_queue_transaction
+        processed = yield
+        processed
       ensure
         finish_transaction(transaction, processed)
       end

@@ -4,6 +4,11 @@
 module Webhooks
   # Webhook endpoint for receiving external issue notifications
   class API < Lapidary::BaseController
+    error Entities::IssueFetchError do
+      logger.warn(self, "Issue fetch failed: #{env['sinatra.error'].message}")
+      halt_json 502, error: 'upstream service error'
+    end
+
     post '/webhook' do
       authenticate!
       payload = parse_json_body!
@@ -18,9 +23,6 @@ module Webhooks
 
       status 202
       respond_json(status: 'accepted')
-    rescue Webhooks::Entities::IssueFetchError => e
-      logger.warn(self, "Issue fetch failed: #{e.message}")
-      halt_json 502, error: 'upstream service error'
     end
 
     private
