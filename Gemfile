@@ -16,7 +16,7 @@ gem 'sqlite3'
 gem 'zeitwerk'
 
 group :development do
-  gem 'dotenv', require: false
+  gem 'dotenv'
 end
 
 group :development, :test do
