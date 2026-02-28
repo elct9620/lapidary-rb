@@ -14,6 +14,11 @@ module Analysis
 
       array :triplets do
         object do
+          string :reasoning, description: 'Step-by-step Y/N evaluation: ' \
+                                          '(1) Does this person act on a specific module? ' \
+                                          '(2) Is it maintenance (commit/merge/backport/assign)? ' \
+                                          '(3) Is it implementation contribution (patch/PR/code fix)? ' \
+                                          '(4) Is this person explicitly identified as a committer?'
           object :subject do
             string :name, description: 'Username on bugs.ruby-lang.org'
             boolean :is_committer, description: 'Whether this person is a known Ruby committer'
@@ -23,7 +28,7 @@ module Analysis
             string :type, enum: NODE_TYPE_MAP.keys
             string :name, description: 'Canonical module name'
           end
-          string :evidence, description: 'Brief rationale for this triplet extracted from the source text'
+          string :evidence, description: 'Direct quote or reference from the source text that supports this triplet'
         end
       end
     end

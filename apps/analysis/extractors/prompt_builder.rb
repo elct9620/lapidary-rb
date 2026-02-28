@@ -23,6 +23,8 @@ module Analysis
 
           #{extraction_rules}
 
+          #{evaluation_steps}
+
           #{rubric_section}
         PROMPT
       end
@@ -90,22 +92,48 @@ module Analysis
           - Module names must exactly match one of the valid names listed above
           - Set is_committer to true only when the text explicitly mentions committer identity (e.g., "committed rNNNN", listed as committer, has explicit trunk commit records)
           - If no clear relationships can be identified, return an empty triplets array
+          - The "reasoning" field: record your Y/N evaluation for each step before filling other fields
+          - The "evidence" field: cite the specific text passage that supports the triplet
+        TEXT
+      end
+
+      def evaluation_steps
+        <<~TEXT.chomp
+          ## Evaluation Steps
+
+          For each person mentioned in the text, evaluate step by step:
+
+          1. Does this person perform a specific action on a named Ruby module? (Y/N)
+             → If N: skip this person entirely
+          2. Is the action a maintenance activity — commit, merge, backport, or assign? (Y/N)
+             → If Y: relationship = Maintenance
+          3. Is the action an implementation contribution — patch, PR, or concrete code fix? (Y/N)
+             → If Y: relationship = Contribute
+          4. If neither Step 2 nor Step 3: Do not extract a triplet for this person
+          5. Does the text explicitly identify this person as a Ruby committer
+             (e.g., "committed rNNNN", listed as committer, trunk commit record)? (Y/N)
+             → is_committer = Y or N accordingly
+
+          Record your step-by-step reasoning in the "reasoning" field before filling in the other fields.
         TEXT
       end
 
       RUBRIC_TABLE = <<~TEXT.chomp
         ## Extraction Rubric
 
-        | Signal in Text | Relationship | is_committer |
+        For each candidate triplet, verify:
+
+        | Question | Y → Action | N → Action |
         |---|---|---|
-        | Committed rNNNN, backported to branch | Maintenance | depends on text |
-        | Assigned as maintainer, merged into trunk | Maintenance | depends on text |
-        | Submitted patch with implementation | Contribute | false |
-        | Proposed PR or code fix for review | Contribute | false |
-        | Code review with concrete fix suggestion | Contribute | false |
-        | Only reports bug or describes unexpected behavior | Do not extract | - |
-        | Only discusses or proposes without implementation | Do not extract | - |
-        | Confirms or reproduces a bug | Do not extract | - |
+        | Does this person act on a specific named module? | Continue | Do not extract |
+        | Is the action: commit, merge, backport, or assign? | Maintenance | Check next |
+        | Is the action: submit patch, PR, or code fix? | Contribute | Do not extract |
+        | Does the text explicitly say this person is a committer? | is_committer = true | is_committer = false |
+
+        ### Do NOT extract when:
+        - Person only reports a bug or describes unexpected behavior
+        - Person only discusses, proposes, or asks questions without implementation
+        - Person only confirms or reproduces a bug
       TEXT
       private_constant :RUBRIC_TABLE
 

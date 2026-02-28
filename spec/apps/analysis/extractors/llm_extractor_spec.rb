@@ -25,12 +25,14 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
           {
             'triplets' => [
               {
+                'reasoning' => '(1) Y: matz commits to String. (2) Y: commit activity. (4) Y: committer.',
                 'subject' => { 'name' => 'matz', 'is_committer' => true },
                 'relationship' => 'Maintenance',
                 'object' => { 'type' => 'CoreModule', 'name' => 'String' },
                 'evidence' => 'matz maintains the String class'
               },
               {
+                'reasoning' => '(1) Y: contributor patches json. (3) Y: patch submission. (4) N.',
                 'subject' => { 'name' => 'contributor', 'is_committer' => false },
                 'relationship' => 'Contribute',
                 'object' => { 'type' => 'Stdlib', 'name' => 'json' },

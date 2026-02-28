@@ -90,6 +90,22 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       end
     end
 
+    context 'with evaluation steps' do
+      let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1) }
+
+      it 'includes evaluation steps section in the system prompt' do
+        expect(result.system).to include('Evaluation Steps')
+      end
+
+      it 'includes Y/N question format' do
+        expect(result.system).to include('(Y/N)')
+      end
+
+      it 'includes reasoning field guidance' do
+        expect(result.system).to include('reasoning')
+      end
+    end
+
     context 'with extraction rubric' do
       let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1) }
 
@@ -97,8 +113,13 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
         expect(result.system).to include('Extraction Rubric')
       end
 
+      it 'includes Y/N decision table format' do
+        expect(result.system).to match(/Y → Action/)
+          .and match(/N → Action/)
+      end
+
       it 'includes do-not-extract guidance' do
-        expect(result.system).to include('Do not extract')
+        expect(result.system).to include('Do NOT extract when')
       end
 
       it 'includes is_committer guidance in extraction rules' do
