@@ -82,40 +82,46 @@ module Analysis
         TEXT
       end
 
+      EXTRACTION_RULES = <<~TEXT.chomp
+        ## Extraction Rules
+        - Only extract relationships where a person is clearly associated with a specific module
+        - Use "Maintenance" for people with maintenance activities (commits, merges, backports, assigns)
+        - Use "Contribute" for people who contribute implementation (patches, pull requests, concrete code fixes)
+        - Do not extract relationships for people who only report bugs, discuss, or confirm/reproduce issues
+        - Module names must exactly match one of the valid names listed above
+        - Set is_committer to true only when the text explicitly mentions committer identity (e.g., "committed rNNNN", listed as committer, has explicit trunk commit records)
+        - If no clear relationships can be identified, return an empty triplets array
+        - The "reasoning" field: record your Y/N evaluation for each step before filling other fields
+        - The "evidence" field: cite the specific text passage that supports the triplet
+      TEXT
+      private_constant :EXTRACTION_RULES
+
       def extraction_rules
-        <<~TEXT.chomp
-          ## Extraction Rules
-          - Only extract relationships where a person is clearly associated with a specific module
-          - Use "Maintenance" for people with maintenance activities (commits, merges, backports, assigns)
-          - Use "Contribute" for people who contribute implementation (patches, pull requests, concrete code fixes)
-          - Do not extract relationships for people who only report bugs, discuss, or confirm/reproduce issues
-          - Module names must exactly match one of the valid names listed above
-          - Set is_committer to true only when the text explicitly mentions committer identity (e.g., "committed rNNNN", listed as committer, has explicit trunk commit records)
-          - If no clear relationships can be identified, return an empty triplets array
-          - The "reasoning" field: record your Y/N evaluation for each step before filling other fields
-          - The "evidence" field: cite the specific text passage that supports the triplet
-        TEXT
+        EXTRACTION_RULES
       end
 
+      EVALUATION_STEPS = <<~TEXT.chomp
+        ## Evaluation Steps
+
+        For each person mentioned in the text, evaluate step by step:
+
+        1. Does this person perform a specific action on a named Ruby module? (Y/N)
+           → If N: skip this person entirely
+        2. Is the action a maintenance activity — commit, merge, backport, or assign? (Y/N)
+           → If Y: relationship = Maintenance
+        3. Is the action an implementation contribution — patch, PR, or concrete code fix? (Y/N)
+           → If Y: relationship = Contribute
+        4. If neither Step 2 nor Step 3: Do not extract a triplet for this person
+        5. Does the text explicitly identify this person as a Ruby committer
+           (e.g., "committed rNNNN", listed as committer, trunk commit record)? (Y/N)
+           → is_committer = Y or N accordingly
+
+        Record your step-by-step reasoning in the "reasoning" field before filling in the other fields.
+      TEXT
+      private_constant :EVALUATION_STEPS
+
       def evaluation_steps
-        <<~TEXT.chomp
-          ## Evaluation Steps
-
-          For each person mentioned in the text, evaluate step by step:
-
-          1. Does this person perform a specific action on a named Ruby module? (Y/N)
-             → If N: skip this person entirely
-          2. Is the action a maintenance activity — commit, merge, backport, or assign? (Y/N)
-             → If Y: relationship = Maintenance
-          3. Is the action an implementation contribution — patch, PR, or concrete code fix? (Y/N)
-             → If Y: relationship = Contribute
-          4. If neither Step 2 nor Step 3: Do not extract a triplet for this person
-          5. Does the text explicitly identify this person as a Ruby committer
-             (e.g., "committed rNNNN", listed as committer, trunk commit record)? (Y/N)
-             → is_committer = Y or N accordingly
-
-          Record your step-by-step reasoning in the "reasoning" field before filling in the other fields.
-        TEXT
+        EVALUATION_STEPS
       end
 
       RUBRIC_TABLE = <<~TEXT.chomp
