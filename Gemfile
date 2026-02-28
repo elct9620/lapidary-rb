@@ -26,6 +26,7 @@ end
 group :test do
   gem 'rack-test'
   gem 'rspec'
+  gem 'rspec_junit_formatter'
   gem 'simplecov'
   gem 'simplecov-cobertura'
   gem 'webmock'
