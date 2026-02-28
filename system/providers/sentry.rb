@@ -2,7 +2,6 @@
 
 Lapidary::Container.register_provider(:sentry) do
   prepare do
-    require 'sentry-ruby'
     require 'sentry/sequel'
   end
 

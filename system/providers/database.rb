@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 Lapidary::Container.register_provider(:database) do
-  prepare do
-    require 'sequel'
-  end
-
   start do
     env = Lapidary.config.env
 

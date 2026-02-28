@@ -2,8 +2,6 @@
 
 Lapidary::Container.register_provider(:event_bus) do
   start do
-    require 'dry/events'
-
     bus = Class.new do
       include Dry::Events::Publisher[:lapidary]
 

@@ -16,6 +16,9 @@ SimpleCov.start do
   )
 end
 
+require 'bundler'
+Bundler.require(:default, :test)
+
 require_relative '../lib/lapidary/container'
 require 'webmock/rspec'
 

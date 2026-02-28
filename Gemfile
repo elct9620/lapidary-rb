@@ -6,8 +6,8 @@ gem 'async-http-faraday'
 gem 'dry-events'
 gem 'dry-system'
 gem 'dry-validation'
-gem 'falcon'
-gem 'rake'
+gem 'falcon', require: false
+gem 'rake', require: false
 gem 'ruby_llm'
 gem 'sentry-ruby'
 gem 'sequel'
@@ -16,7 +16,7 @@ gem 'sqlite3'
 gem 'zeitwerk'
 
 group :development do
-  gem 'dotenv'
+  gem 'dotenv', require: false
 end
 
 group :development, :test do
