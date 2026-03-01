@@ -23,6 +23,7 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Knowledge graph schema supports storing entities and relationships as Nodes and Edges with flexible metadata
 - Ontology-guided extraction pipeline extracts (Rubyist, Maintenance|Contribute, CoreModule|Stdlib) triplets from Issue/Journal content via LLM
 - Extracted triplets are validated against ontology constraints before writing to the knowledge graph
+- Validation feedback corrects LLM extraction errors by sending validation failures back to the LLM for a single correction attempt before rejecting
 - Graph neighbor query returns connected nodes with edge observations, supporting direction and time-range filtering
 - Graph node query endpoint supports listing nodes by type, searching by name/display_name, and paginated results
 - Expired jobs are automatically removed from the database based on a configurable retention period
@@ -59,7 +60,7 @@ The complete system encompasses four capabilities:
 8. **Knowledge graph storage** — Store entities and relationships as a directed graph using Node and Edge tables with flexible metadata
 9. **Ontology definition** — Define permitted node types, relationship types, and domain-range constraints that govern the knowledge graph structure
 10. **Triplet extraction** — Use an LLM to extract (Rubyist, Relationship, Module) triplets from Issue and Journal content
-11. **Ontology validation** — Validate extracted triplets against ontology constraints before writing to the knowledge graph
+11. **Ontology validation** — Validate extracted triplets against ontology constraints; when validation fails, feed errors back to the LLM for correction before rejecting
 12. **Graph neighbor query** — Query the knowledge graph to find nodes connected to a given node, with optional time-range filtering on edge observations
 13. **Job cleanup** — TTL-based cleanup of expired jobs, executed periodically by the Analysis Service
 14. **Graph node query** — List and search nodes in the knowledge graph, with optional type filtering, keyword search, and pagination
@@ -87,7 +88,7 @@ The complete system encompasses four capabilities:
 ### Knowledge Graph Construction
 
 - **Context**: The Analysis Service dequeues a job carrying Issue or Journal data
-- **Action**: The system sends the job content to an LLM for triplet extraction, validates extracted triplets against the ontology, normalizes entities, and writes valid triplets to the knowledge graph as Nodes and Edges
+- **Action**: The system sends the job content to an LLM for triplet extraction, validates extracted triplets against the ontology — correcting validation errors via LLM feedback when possible — normalizes entities, and writes valid triplets to the knowledge graph as Nodes and Edges
 - **Outcome**: The knowledge graph contains validated (Rubyist, Maintenance|Contribute, CoreModule|Stdlib) relationships with temporal qualifiers linking back to the source entity
 
 ### Graph Neighbor Exploration
@@ -345,15 +346,27 @@ The pipeline processes each job through four stages:
 - The LLM may return zero triplets if the content does not describe a relevant relationship
 - Jobs with empty `content` (e.g., journals with no notes) are sent to the LLM normally; the expected result is zero triplets
 
-**2. Ontology Validation** — Each candidate triplet is validated against the ontology constraints.
+**2. Ontology Validation** — Each candidate triplet is validated against the ontology constraints. When validation fails, the system attempts correction via LLM feedback before rejecting.
+
+*Validation rules:*
 
 - Subject node type must be `Rubyist`
 - Object node type must be `CoreModule` or `Stdlib`
 - Relationship must be `Maintenance` or `Contribute`
 - The relationship's domain-range constraint must be satisfied (see [Ontology](docs/ontology.md))
-- `Maintenance` requires the subject to have `role = maintainer`; when the subject's role is not `maintainer`, the triplet is downgraded to `Contribute` and logged at `info` level
+- `Maintenance` requires the subject to have `role = maintainer`
 - Object name must exist in the curated module list
-- Triplets that fail validation are rejected and logged at `warn` level
+
+*Validation feedback correction:*
+
+- When a triplet fails any validation rule, the system sends the original triplet and its validation errors back to the LLM for correction
+- The LLM receives: the failing triplet, the specific validation error messages, and the original extraction context
+- The corrected triplet is re-validated against the same rules
+- Maximum one correction attempt per triplet; if the corrected triplet still fails validation, it is rejected
+- `Maintenance` role constraint after correction: if the corrected triplet still has `Maintenance` with a non-maintainer role, the triplet is downgraded to `Contribute` (same as current automatic downgrade, but only applied after correction has been attempted)
+- Triplets that pass initial validation proceed directly without correction
+- Correction attempts are logged at `info` level with the original error and correction result
+- Final rejections (after failed correction) are logged at `warn` level
 
 **3. Entity Normalization** — Validated triplets are normalized to canonical entities using Job Arguments context.
 
@@ -627,9 +640,10 @@ Each observation record contains:
 | Maximum retry attempts exceeded | Mark job as permanently failed, log error |
 | Unexpected error during processing | Retry or mark as failed depending on remaining attempts |
 | LLM extraction failure (timeout, API error) | Retry with exponential backoff (counts as a job attempt) |
-| LLM output fails ontology validation | Reject the invalid triplet, log warning; valid triplets from the same response are still written |
-| Module name not in curated list | Reject the triplet, log warning with the unrecognized module name |
-| LLM outputs `Maintenance` with non-maintainer role | Downgrade to `Contribute`, log info (subject role does not meet Maintenance constraint) |
+| LLM output fails ontology validation | Attempt correction via LLM feedback (one attempt); if correction also fails, reject the triplet and log warning; valid triplets from the same response are still written |
+| Module name not in curated list | Attempt correction via LLM feedback; if corrected name is still not in curated list, reject the triplet and log warning |
+| LLM outputs `Maintenance` with non-maintainer role | Attempt correction via LLM feedback; if corrected triplet still has non-maintainer role with Maintenance, downgrade to `Contribute` and log info |
+| LLM correction attempt fails (timeout, API error) | Skip correction, apply original validation result (reject or downgrade); log warning |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 | Job cleanup database error | Log error, continue processing — cleanup failure must not block job processing |
 
@@ -685,8 +699,10 @@ Each observation record contains:
 | Redmine API failure | `warn` | Request URL, HTTP status code |
 | Authentication failure (401) | `warn` | Request origin information |
 | Invalid request (422/415) | `warn` | Request origin information, validation errors |
-| Ontology validation rejection | `warn` | Rejected triplet, validation rule violated, job identity |
-| Maintenance downgraded to Contribute (non-maintainer role) | `info` | Original triplet, subject role, job identity |
+| Validation correction attempted | `info` | Original triplet, validation errors, corrected triplet, correction result (success/failure), job identity |
+| Validation correction failed (still invalid) | `warn` | Original triplet, corrected triplet, remaining validation errors, job identity |
+| Ontology validation rejection (after failed correction) | `warn` | Rejected triplet, validation rule violated, job identity |
+| Maintenance downgraded to Contribute (after correction attempted) | `info` | Original triplet, subject role, job identity |
 | Duplicate edge observation skipped | `info` | Edge identity, source entity, job identity |
 | Graph neighbor query invalid request (400) | `warn` | Request origin, validation errors |
 | Graph neighbor query node not found (404) | `info` | Requested node ID |
@@ -850,6 +866,7 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Metadata storage | JSON text columns | Flexible, schema-free properties |
 | Graph traversal | SQL CTE | Leverages SQLite's recursive CTE support, no external engine needed |
 | Ontology approach | Wikontic-inspired (static ontology + LLM extraction + validation) | Predefined types ensure consistent graph structure; LLM handles unstructured text |
+| Validation feedback strategy | LLM correction with max 1 attempt; role constraint falls back to automatic downgrade | Balances extraction quality improvement with API cost; single attempt captures most correctable errors (name typos, case mismatches) without diminishing returns |
 | Ontology enumeration storage | `docs/ontology.md` | Keeps SPEC.md focused on decisions; detailed enumerations live in a dedicated document |
 | Entity normalization strategy | Job-context resolution (author fields) + passthrough for unknown Rubyists | Simple, deterministic, no external lookup required; leverages existing Job Arguments data |
 | Node ID generation strategy | URI format (`type://name`) | Human-readable, deterministic, avoids external ID generators |
