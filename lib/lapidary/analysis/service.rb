@@ -7,6 +7,8 @@ module Lapidary
   module Analysis
     # Background worker that polls and processes analysis jobs.
     class Service < Async::Service::Managed::Service
+      include SentryQueueSpan
+
       def run(_instance, _evaluator)
         Async do
           logger.info(self, 'Analysis worker started')
@@ -56,20 +58,6 @@ module Lapidary
         ::Sentry.capture_exception(e)
         logger.error(self, "Job processing error: #{e.class}: #{e.message}")
         sleep poll_interval
-      end
-
-      def with_queue_transaction
-        transaction = start_queue_transaction
-        yield
-      ensure
-        transaction&.finish
-      end
-
-      def start_queue_transaction
-        transaction = ::Sentry.start_transaction(op: 'queue.process', name: 'analysis.process_job')
-        ::Sentry.get_current_scope&.set_span(transaction) if transaction
-        transaction&.set_data(::Sentry::Span::DataConventions::MESSAGING_DESTINATION_NAME, 'analysis.jobs')
-        transaction
       end
 
       def maybe_cleanup(cleanup, last_cleanup_at)

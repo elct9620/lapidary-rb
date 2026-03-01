@@ -12,9 +12,11 @@ module Analysis
 
       def save_triplet(triplet, observation)
         with_error_wrapping do
-          upsert_nodes(triplet)
-          upsert_edge(source: build_node_id(triplet.subject), target: build_node_id(triplet.object),
-                      relationship: triplet.relationship.to_s, observation: observation)
+          database.transaction do
+            upsert_nodes(triplet)
+            upsert_edge(source: build_node_id(triplet.subject), target: build_node_id(triplet.object),
+                        relationship: triplet.relationship.to_s, observation: observation)
+          end
         end
       end
 

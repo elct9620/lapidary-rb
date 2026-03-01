@@ -13,18 +13,14 @@ module Analysis
       end
 
       def call(job)
-        process(job)
-      end
-
-      private
-
-      def process(job)
         log_processing(job)
         run_pipeline(job)
         complete(job)
       rescue Entities::ProcessingError => e
         handle_failure(job, e)
       end
+
+      private
 
       def run_pipeline(job)
         record = build_record(job)

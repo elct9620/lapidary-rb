@@ -64,8 +64,6 @@ module Analysis
       end
 
       def build_triplet(raw)
-        return nil unless complete_triplet?(raw)
-
         Entities::Triplet.new(
           subject: build_subject(raw['subject']),
           relationship: TripletSchema::RELATIONSHIP_MAP.fetch(raw['relationship']) do
@@ -74,20 +72,14 @@ module Analysis
           object: build_object(raw['object']),
           evidence: raw['evidence']
         )
-      end
-
-      def complete_triplet?(raw)
-        return false unless raw.is_a?(Hash)
-
-        raw['subject'].is_a?(Hash) && raw['subject']['name'].is_a?(String) &&
-          raw['relationship'].is_a?(String) &&
-          raw['object'].is_a?(Hash) && raw['object']['name'].is_a?(String)
+      rescue TypeError, NoMethodError
+        nil
       end
 
       def build_subject(raw)
         Entities::Node.new(
           type: Entities::NodeType::RUBYIST,
-          name: raw['name'],
+          name: raw['name'].to_str,
           properties: { role: raw['role'] || 'contributor' }
         )
       end
@@ -97,7 +89,7 @@ module Analysis
           type: TripletSchema::NODE_TYPE_MAP.fetch(raw['type']) do
             raise Entities::ExtractionError, "unknown node type: #{raw['type']}"
           end,
-          name: raw['name']
+          name: raw['name'].to_str
         )
       end
     end

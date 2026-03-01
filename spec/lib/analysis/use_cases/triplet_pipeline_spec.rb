@@ -44,19 +44,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
     context 'when extractor returns a valid triplet' do
       let(:extractor) do
-        triplet = Analysis::Entities::Triplet.new(
-          subject: Analysis::Entities::Node.new(
-            type: Analysis::Entities::NodeType::RUBYIST,
-            name: 'matz',
-            properties: { role: 'maintainer' }
-          ),
-          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
-          object: Analysis::Entities::Node.new(
-            type: Analysis::Entities::NodeType::CORE_MODULE,
-            name: 'String'
-          )
-        )
-        instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
+        instance_double(Analysis::Extractors::LlmExtractor, call: [maintainer_triplet])
       end
 
       it 'writes the triplet to the knowledge graph' do
@@ -70,20 +58,6 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
     end
 
     context 'when extractor returns an invalid triplet' do
-      let(:invalid_triplet) do
-        Analysis::Entities::Triplet.new(
-          subject: Analysis::Entities::Node.new(
-            type: Analysis::Entities::NodeType::CORE_MODULE,
-            name: 'String'
-          ),
-          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
-          object: Analysis::Entities::Node.new(
-            type: Analysis::Entities::NodeType::RUBYIST,
-            name: 'someone'
-          )
-        )
-      end
-
       let(:extractor) do
         instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet], correct: nil)
       end
@@ -98,24 +72,11 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
     context 'when an invalid triplet is corrected successfully' do
       let(:invalid_triplet) do
-        Analysis::Entities::Triplet.new(
-          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
-                                                properties: { role: 'maintainer' }),
-          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
-          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
-                                               name: 'InvalidModule'),
-          evidence: 'matz committed to InvalidModule'
-        )
+        maintainer_triplet(module_name: 'InvalidModule', evidence: 'matz committed to InvalidModule')
       end
 
       let(:corrected_triplet) do
-        Analysis::Entities::Triplet.new(
-          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
-                                                properties: { role: 'maintainer' }),
-          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
-          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE, name: 'String'),
-          evidence: 'matz committed to String'
-        )
+        maintainer_triplet(evidence: 'matz committed to String')
       end
 
       let(:extractor) do
@@ -139,25 +100,11 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
     context 'when correction also fails validation' do
       let(:invalid_triplet) do
-        Analysis::Entities::Triplet.new(
-          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
-                                                properties: { role: 'maintainer' }),
-          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
-          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
-                                               name: 'InvalidModule'),
-          evidence: 'matz committed to InvalidModule'
-        )
+        maintainer_triplet(module_name: 'InvalidModule', evidence: 'matz committed to InvalidModule')
       end
 
       let(:still_invalid_triplet) do
-        Analysis::Entities::Triplet.new(
-          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
-                                                properties: { role: 'maintainer' }),
-          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
-          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
-                                               name: 'StillInvalid'),
-          evidence: 'matz committed to StillInvalid'
-        )
+        maintainer_triplet(module_name: 'StillInvalid', evidence: 'matz committed to StillInvalid')
       end
 
       let(:extractor) do
@@ -180,14 +127,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
     context 'when correction returns nil' do
       let(:invalid_triplet) do
-        Analysis::Entities::Triplet.new(
-          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
-                                                properties: { role: 'maintainer' }),
-          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
-          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
-                                               name: 'InvalidModule'),
-          evidence: 'matz committed to InvalidModule'
-        )
+        maintainer_triplet(module_name: 'InvalidModule', evidence: 'matz committed to InvalidModule')
       end
 
       let(:extractor) do
@@ -204,14 +144,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
     context 'when correction raises ExtractionError' do
       let(:invalid_triplet) do
-        Analysis::Entities::Triplet.new(
-          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
-                                                properties: { role: 'maintainer' }),
-          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
-          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
-                                               name: 'InvalidModule'),
-          evidence: 'matz committed to InvalidModule'
-        )
+        maintainer_triplet(module_name: 'InvalidModule', evidence: 'matz committed to InvalidModule')
       end
 
       let(:extractor) do
@@ -230,19 +163,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
     context 'when a non-maintainer Maintenance triplet is extracted' do
       let(:extractor) do
-        triplet = Analysis::Entities::Triplet.new(
-          subject: Analysis::Entities::Node.new(
-            type: Analysis::Entities::NodeType::RUBYIST,
-            name: 'contributor',
-            properties: { role: 'contributor' }
-          ),
-          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
-          object: Analysis::Entities::Node.new(
-            type: Analysis::Entities::NodeType::CORE_MODULE,
-            name: 'String'
-          )
-        )
-        instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
+        instance_double(Analysis::Extractors::LlmExtractor, call: [contributor_triplet])
       end
 
       it 'downgrades to Contribute and logs info' do
