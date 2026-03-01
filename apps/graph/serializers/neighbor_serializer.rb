@@ -32,13 +32,12 @@ module Graph
       end
 
       def serialize_observation(observation)
-        hash = {
+        {
           observed_at: observation.observed_at&.iso8601,
           source_entity_type: observation.source_entity_type,
-          source_entity_id: observation.source_entity_id
+          source_entity_id: observation.source_entity_id,
+          evidence: observation.evidence
         }
-        hash[:evidence] = observation.evidence if observation.evidence
-        hash
       end
     end
   end

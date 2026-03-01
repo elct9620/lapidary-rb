@@ -5,6 +5,8 @@ module Analysis
   module Entities
     # Domain entity representing an analysis job in the queue.
     class Job
+      RETRY_BACKOFF_BASE = 2
+
       attr_reader :id, :arguments, :status, :attempts, :max_attempts,
                   :error, :scheduled_at, :updated_at
 
@@ -51,7 +53,7 @@ module Analysis
         @status = JobStatus::PENDING
         @attempts += 1
         @error = error
-        @scheduled_at = now + (2**@attempts)
+        @scheduled_at = now + (RETRY_BACKOFF_BASE**@attempts)
         @updated_at = now
       end
 

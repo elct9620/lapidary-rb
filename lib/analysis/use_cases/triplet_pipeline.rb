@@ -28,15 +28,18 @@ module Analysis
       private
 
       def process_triplet(triplet, arguments, observation)
+        validated = validate_or_correct(triplet, arguments)
+        return :rejected unless validated
+
+        log_role_downgrade(triplet, validated.triplet)
+        write_triplet(validated.triplet, arguments, observation)
+      end
+
+      def validate_or_correct(triplet, arguments)
         result = @validator.call(triplet)
+        return result unless result.errors.any?
 
-        if result.errors.any?
-          result = attempt_correction(triplet, result.errors, arguments)
-          return :rejected unless result
-        end
-
-        log_role_downgrade(triplet, result.triplet)
-        write_triplet(result.triplet, arguments, observation)
+        attempt_correction(triplet, result.errors, arguments)
       end
 
       def attempt_correction(triplet, errors, arguments)
