@@ -239,4 +239,4 @@ A triplet `(subject, relationship, object)` is **entailed** by the ontology if a
 5. Any additional conditions on the source node are satisfied (e.g., `role = maintainer` for `Maintenance`)
 6. The object's `name` exists in the corresponding curated module list
 
-Triplets that fail any of these checks are rejected. The system logs the rejection reason at `warn` level for debugging and ontology refinement.
+Triplets that fail any of these checks are subject to validation feedback correction before final rejection (see [SPEC.md](../SPEC.md) § Ontology Validation for the correction mechanism). The system logs the final rejection reason at `warn` level for debugging and ontology refinement.

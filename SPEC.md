@@ -363,7 +363,7 @@ The pipeline processes each job through four stages:
 - The LLM receives: the failing triplet, the specific validation error messages, and the original extraction context
 - The corrected triplet is re-validated against the same rules
 - Maximum one correction attempt per triplet; if the corrected triplet still fails validation, it is rejected
-- `Maintenance` role constraint after correction: if the corrected triplet still has `Maintenance` with a non-maintainer role, the triplet is downgraded to `Contribute` (same as current automatic downgrade, but only applied after correction has been attempted)
+- `Maintenance` role constraint after correction: if the corrected triplet still has `Maintenance` with a non-maintainer role, the triplet is downgraded to `Contribute`
 - Triplets that pass initial validation proceed directly without correction
 - Correction attempts are logged at `info` level with the original error and correction result
 - Final rejections (after failed correction) are logged at `warn` level
@@ -804,6 +804,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Qualifier | Contextual metadata attached to an Edge (e.g., observation time, provenance) |
 | Neighbor | A node directly connected to a given node by one or more edges |
 | Job Cleanup | The process of removing expired jobs from the database based on a configured retention period |
+| Validation Feedback Correction | The process of sending a failed triplet and its validation errors back to the LLM for a single correction attempt before final rejection |
 | TTL (Time to Live) | A configured duration after which data is eligible for deletion |
 
 ## Patterns
