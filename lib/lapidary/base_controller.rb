@@ -30,6 +30,19 @@ module Lapidary
       halt status_code, { 'Content-Type' => 'application/json' }, JSON.generate(body)
     end
 
+    def dispatch_background
+      if defined?(Async::Task) && Async::Task.current?
+        Async(transient: true) do
+          yield
+        rescue StandardError => e
+          ::Sentry.capture_exception(e)
+          logger.error(self, "Background processing failed: #{e.class}: #{e.message}")
+        end
+      else
+        yield
+      end
+    end
+
     def validate_with_contract!(contract_key, input, status: 422)
       result = container[contract_key].call(input)
 

@@ -87,11 +87,12 @@ module Lapidary
         raw = Lapidary.config.analysis.job_retention
         return ::Analysis::Entities::RetentionPeriod.default unless raw
 
-        ::Analysis::Entities::RetentionPeriod.parse(raw) || begin
-          logger.warn(self, "Invalid JOB_RETENTION '#{raw}', using default #{::Analysis::Entities::RetentionPeriod.default}",
-                      value: raw)
-          ::Analysis::Entities::RetentionPeriod.default
-        end
+        parsed = ::Analysis::Entities::RetentionPeriod.parse(raw)
+        return parsed if parsed
+
+        logger.warn(self, "Invalid JOB_RETENTION '#{raw}', using default #{::Analysis::Entities::RetentionPeriod.default}",
+                    value: raw)
+        ::Analysis::Entities::RetentionPeriod.default
       end
 
       def build_cleanup(job_repository)

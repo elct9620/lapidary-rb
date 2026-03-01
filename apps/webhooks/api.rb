@@ -16,16 +16,7 @@ module Webhooks
 
       issue_id = result[:issue_id]
 
-      if defined?(Async::Task) && Async::Task.current?
-        Async(transient: true) do
-          build_handle_webhook.call(issue_id)
-        rescue StandardError => e
-          ::Sentry.capture_exception(e)
-          logger.error(self, "Background processing failed: #{e.class}: #{e.message}")
-        end
-      else
-        build_handle_webhook.call(issue_id)
-      end
+      dispatch_background { build_handle_webhook.call(issue_id) }
 
       status 202
       respond_json(status: 'accepted')

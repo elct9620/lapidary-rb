@@ -17,6 +17,31 @@ RSpec.describe Lapidary::Analysis::Service do
 
   subject(:service) { described_class.new(environment, evaluator) }
 
+  shared_context 'with stubbed container' do
+    let(:job_repository) { double('JobRepository', claim_next: nil, delete_expired: 0) }
+    let(:analysis_record_repository) { double('AnalysisRecordRepository') }
+    let(:extractor) { double('Extractor') }
+    let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
+
+    before do
+      @orig_job_repo = Lapidary::Container['analysis.repositories.job_repository']
+      @orig_analysis_repo = Lapidary::Container['analysis.repositories.analysis_record_repository']
+      @orig_extractor = Lapidary::Container['analysis.extractors.llm_extractor']
+
+      Lapidary::Container.stub('analysis.repositories.job_repository', job_repository)
+      Lapidary::Container.stub('analysis.repositories.analysis_record_repository', analysis_record_repository)
+      Lapidary::Container.stub('analysis.extractors.llm_extractor', extractor)
+      Lapidary::Container.stub('logger', logger)
+    end
+
+    after do
+      Lapidary::Container.stub('analysis.repositories.job_repository', @orig_job_repo)
+      Lapidary::Container.stub('analysis.repositories.analysis_record_repository', @orig_analysis_repo)
+      Lapidary::Container.stub('analysis.extractors.llm_extractor', @orig_extractor)
+      Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
+    end
+  end
+
   describe '#run' do
     it 'starts an async task that loops' do
       Async do |task|
@@ -35,24 +60,7 @@ RSpec.describe Lapidary::Analysis::Service do
     end
 
     context 'with job cleanup' do
-      let(:job_repository) { double('JobRepository', claim_next: nil, delete_expired: 0) }
-      let(:analysis_record_repository) { double('AnalysisRecordRepository') }
-      let(:extractor) { double('Extractor') }
-      let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
-
-      before do
-        Lapidary::Container.stub('analysis.repositories.job_repository', job_repository)
-        Lapidary::Container.stub('analysis.repositories.analysis_record_repository', analysis_record_repository)
-        Lapidary::Container.stub('analysis.extractors.llm_extractor', extractor)
-        Lapidary::Container.stub('logger', logger)
-      end
-
-      after do
-        Lapidary::Container.unstub('analysis.repositories.job_repository')
-        Lapidary::Container.unstub('analysis.repositories.analysis_record_repository')
-        Lapidary::Container.unstub('analysis.extractors.llm_extractor')
-        Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
-      end
+      include_context 'with stubbed container'
 
       it 'runs cleanup on first iteration' do
         Async do |task|
@@ -104,28 +112,14 @@ RSpec.describe Lapidary::Analysis::Service do
     end
 
     context 'with Sentry queue transaction' do
-      let(:job_repository) { double('JobRepository', claim_next: nil, delete_expired: 0) }
-      let(:analysis_record_repository) { double('AnalysisRecordRepository') }
-      let(:extractor) { double('Extractor') }
-      let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
+      include_context 'with stubbed container'
+
       let(:transaction) { double('Transaction', finish: nil) }
 
       before do
-        Lapidary::Container.stub('analysis.repositories.job_repository', job_repository)
-        Lapidary::Container.stub('analysis.repositories.analysis_record_repository', analysis_record_repository)
-        Lapidary::Container.stub('analysis.extractors.llm_extractor', extractor)
-        Lapidary::Container.stub('logger', logger)
-
         allow(Sentry).to receive(:start_transaction).and_return(transaction)
         allow(Sentry).to receive(:get_current_scope).and_return(double('Scope', set_span: nil))
         allow(transaction).to receive(:set_data)
-      end
-
-      after do
-        Lapidary::Container.unstub('analysis.repositories.job_repository')
-        Lapidary::Container.unstub('analysis.repositories.analysis_record_repository')
-        Lapidary::Container.unstub('analysis.extractors.llm_extractor')
-        Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
       end
 
       it 'does not start transaction on idle poll' do
@@ -140,27 +134,12 @@ RSpec.describe Lapidary::Analysis::Service do
     end
 
     context 'when ProcessJob raises JobError' do
-      let(:job_repository) { double('JobRepository', delete_expired: 0) }
-      let(:analysis_record_repository) { double('AnalysisRecordRepository') }
-      let(:extractor) { double('Extractor') }
-      let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
+      include_context 'with stubbed container'
 
       before do
-        Lapidary::Container.stub('analysis.repositories.job_repository', job_repository)
-        Lapidary::Container.stub('analysis.repositories.analysis_record_repository', analysis_record_repository)
-        Lapidary::Container.stub('analysis.extractors.llm_extractor', extractor)
-        Lapidary::Container.stub('logger', logger)
-
         allow(job_repository).to receive(:claim_next).and_raise(
           Analysis::Entities::JobError, 'database connection lost'
         )
-      end
-
-      after do
-        Lapidary::Container.unstub('analysis.repositories.job_repository')
-        Lapidary::Container.unstub('analysis.repositories.analysis_record_repository')
-        Lapidary::Container.unstub('analysis.extractors.llm_extractor')
-        Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
       end
 
       it 'catches the error, logs it, and continues polling' do
