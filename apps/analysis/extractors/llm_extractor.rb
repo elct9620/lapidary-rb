@@ -72,8 +72,12 @@ module Analysis
           object: build_object(raw['object']),
           evidence: raw['evidence']
         )
-      rescue TypeError, NoMethodError
-        nil
+      rescue TypeError, NoMethodError => e
+        warn_malformed_triplet(e)
+      end
+
+      def warn_malformed_triplet(error)
+        logger.warn(self, "Skipping malformed triplet: #{error.class}: #{error.message}")
       end
 
       def build_subject(raw)

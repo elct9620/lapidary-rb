@@ -165,6 +165,12 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
         expect(triplets.first.subject.name).to eq('nobu')
         expect(triplets.first.object.name).to eq('Array')
       end
+
+      it 'logs a warning for each malformed triplet' do
+        extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
+
+        expect(logger).to have_received(:warn).with(extractor, a_string_matching(/Skipping malformed triplet/)).twice
+      end
     end
 
     context 'when a triplet has incomplete data' do
@@ -197,6 +203,12 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
         expect(triplets.size).to eq(1)
         expect(triplets.first.subject.name).to eq('matz')
+      end
+
+      it 'logs a warning for each incomplete triplet' do
+        extractor.call(Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1))
+
+        expect(logger).to have_received(:warn).with(extractor, a_string_matching(/Skipping malformed triplet/)).twice
       end
     end
 
