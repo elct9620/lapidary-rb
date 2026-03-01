@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require 'async/service/managed/service'
+require_relative 'sentry_queue_span'
 
 module Lapidary
   module Analysis
