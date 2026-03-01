@@ -29,7 +29,7 @@ A person who participates in Ruby development discussions on bugs.ruby-lang.org.
 |----------|------|----------|-------------|
 | `username` | String | Yes | Account name on bugs.ruby-lang.org (e.g., `matz`) |
 | `display_name` | String | No | Full display name (e.g., `Yukihiro Matsumoto`) |
-| `is_committer` | Boolean | No | Whether this person is a Ruby committer (defaults to `false` if unknown) |
+| `role` | String | No | Role in the Ruby community: `maintainer` (has maintenance responsibility for a module), `submaintainer` (contributes fixes without full authority), or `contributor` (default — general participant) |
 
 **Identity**: Two Rubyist nodes are the same entity if they share the same `username`.
 
@@ -61,7 +61,7 @@ Indicates that a Rubyist maintains or is responsible for a module.
 
 | Attribute | Value |
 |-----------|-------|
-| Domain (source) | `Rubyist` where `is_committer = true` |
+| Domain (source) | `Rubyist` where `role = maintainer` |
 | Range (target) | `CoreModule` or `Stdlib` |
 | Direction | Rubyist → Module |
 
@@ -85,8 +85,8 @@ The following table summarizes valid (source type, relationship, target type) co
 
 | Relationship | Source Type | Source Condition | Target Type |
 |-------------|------------|-----------------|------------|
-| `Maintenance` | `Rubyist` | `is_committer = true` | `CoreModule` |
-| `Maintenance` | `Rubyist` | `is_committer = true` | `Stdlib` |
+| `Maintenance` | `Rubyist` | `role = maintainer` | `CoreModule` |
+| `Maintenance` | `Rubyist` | `role = maintainer` | `Stdlib` |
 | `Contribute` | `Rubyist` | (none) | `CoreModule` |
 | `Contribute` | `Rubyist` | (none) | `Stdlib` |
 
@@ -95,7 +95,7 @@ The following table summarizes valid (source type, relationship, target type) co
 1. The subject must be of type `Rubyist`
 2. The object must be of type `CoreModule` or `Stdlib`
 3. The relationship must be `Maintenance` or `Contribute`
-4. For `Maintenance`, the subject's `is_committer` must be `true`
+4. For `Maintenance`, the subject's `role` must be `maintainer`
 5. The object's `name` must exist in the curated module lists below
 
 ## Curated Module Lists
@@ -236,7 +236,7 @@ A triplet `(subject, relationship, object)` is **entailed** by the ontology if a
 2. `object.type` is a valid node type (`CoreModule` or `Stdlib`)
 3. `relationship` is a valid relationship type (`Maintenance` or `Contribute`)
 4. The `(subject.type, relationship, object.type)` combination exists in the Domain-Range Constraints table
-5. Any additional conditions on the source node are satisfied (e.g., `is_committer = true` for `Maintenance`)
+5. Any additional conditions on the source node are satisfied (e.g., `role = maintainer` for `Maintenance`)
 6. The object's `name` exists in the corresponding curated module list
 
 Triplets that fail any of these checks are rejected. The system logs the rejection reason at `warn` level for debugging and ontology refinement.

@@ -80,7 +80,7 @@ module Analysis
         Entities::Node.new(
           type: Entities::NodeType::RUBYIST,
           name: raw['name'],
-          properties: { is_committer: raw['is_committer'] == true }
+          properties: { role: raw['role'] || 'contributor' }
         )
       end
 

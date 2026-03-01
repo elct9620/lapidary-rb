@@ -35,7 +35,15 @@ module Analysis
           return :rejected
         end
 
+        log_role_downgrade(triplet, result.triplet)
         write_triplet(result.triplet, arguments, observation)
+      end
+
+      def log_role_downgrade(original, validated)
+        return if validated.relationship == original.relationship
+
+        @logger.info(self, 'Maintenance downgraded to Contribute (non-maintainer role)',
+                     subject: original.subject.name, role: original.subject.properties[:role])
       end
 
       def write_triplet(triplet, arguments, observation)

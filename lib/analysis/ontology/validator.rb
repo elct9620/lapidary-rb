@@ -20,6 +20,7 @@ module Analysis
         ].compact
 
         # Phase 2: Semantic validation
+        triplet = apply_role_constraint(triplet)
         errors << validate_module_name(triplet)
         ValidationResult.new(triplet: triplet, errors: errors.compact)
       end
@@ -42,6 +43,13 @@ module Analysis
         return if VALID_RELATIONSHIPS.include?(triplet.relationship)
 
         "relationship must be Maintenance or Contribute, got #{triplet.relationship}"
+      end
+
+      def apply_role_constraint(triplet)
+        return triplet unless triplet.relationship == Entities::RelationshipType::MAINTENANCE
+        return triplet if triplet.subject.properties[:role] == 'maintainer'
+
+        triplet.with(relationship: Entities::RelationshipType::CONTRIBUTE)
       end
 
       def validate_module_name(triplet)

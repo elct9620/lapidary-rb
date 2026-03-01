@@ -8,12 +8,12 @@ RSpec.describe Analysis::Entities::Node do
       node = described_class.new(
         type: Analysis::Entities::NodeType::RUBYIST,
         name: 'matz',
-        properties: { is_committer: true }
+        properties: { role: 'maintainer' }
       )
 
       expect(node.type).to eq(Analysis::Entities::NodeType::RUBYIST)
       expect(node.name).to eq('matz')
-      expect(node.properties).to eq({ is_committer: true })
+      expect(node.properties).to eq({ role: 'maintainer' })
     end
 
     it 'defaults properties to an empty hash' do

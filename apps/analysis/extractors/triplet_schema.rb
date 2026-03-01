@@ -18,10 +18,11 @@ module Analysis
                                           '(1) Does this person act on a specific module? ' \
                                           '(2) Is it maintenance (commit/merge/backport/assign)? ' \
                                           '(3) Is it implementation contribution (patch/PR/code fix)? ' \
-                                          '(4) Is this person explicitly identified as a committer?'
+                                          '(4) Is this person identified as a maintainer or submaintainer?'
           object :subject do
             string :name, description: 'Username on bugs.ruby-lang.org'
-            boolean :is_committer, description: 'Whether this person is a known Ruby committer'
+            string :role, enum: %w[maintainer submaintainer contributor],
+                          description: 'Role in the Ruby community: maintainer, submaintainer, or contributor'
           end
           string :relationship, enum: RELATIONSHIP_MAP.keys
           object :object do

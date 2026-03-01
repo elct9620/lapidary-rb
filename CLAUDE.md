@@ -106,7 +106,7 @@ end
 The `Analysis::Service` (background worker via Falcon) polls the job queue and runs `ProcessJob`, which orchestrates a four-stage pipeline:
 
 1. **Extraction** — `LlmExtractor` sends job content to OpenAI via `ruby_llm` gem with structured output schema → candidate `Triplet` objects
-2. **Validation** — `Analysis::Ontology::Validator` checks ontology constraints; downgrades `Maintenance` → `Contribute` for non-committers; rejects invalid triplets
+2. **Validation** — `Analysis::Ontology::Validator` checks ontology constraints; downgrades `Maintenance` → `Contribute` for non-maintainer roles; rejects invalid triplets
 3. **Normalization** — `Analysis::Ontology::Normalizer` resolves extracted Rubyist names to canonical usernames using job's author context
 4. **Graph Writing** — `GraphRepository` upserts Nodes and Edges, appending observation records; deduplicates by `(source_entity_type, source_entity_id)`
 

@@ -351,7 +351,7 @@ The pipeline processes each job through four stages:
 - Object node type must be `CoreModule` or `Stdlib`
 - Relationship must be `Maintenance` or `Contribute`
 - The relationship's domain-range constraint must be satisfied (see [Ontology](docs/ontology.md))
-- `Maintenance` requires the subject to have `is_committer = true`; since the system has no authoritative committer data source yet, `Maintenance` triplets are downgraded to `Contribute` during validation and logged at `info` level — this preserves the relationship while deferring committer classification until sufficient knowledge is accumulated
+- `Maintenance` requires the subject to have `role = maintainer`; when the subject's role is not `maintainer`, the triplet is downgraded to `Contribute` and logged at `info` level
 - Object name must exist in the curated module list
 - Triplets that fail validation are rejected and logged at `warn` level
 
@@ -545,7 +545,7 @@ Content-Type: `application/json`
 
 | Node Type | `data` Fields | Description |
 |-----------|---------------|-------------|
-| `Rubyist` | `{ display_name?, is_committer }` | `display_name` (String, optional): full display name, accumulated from observations — latest non-nil value wins. `is_committer` (Boolean): defaults to `false` if unknown. |
+| `Rubyist` | `{ display_name?, role }` | `display_name` (String, optional): full display name, accumulated from observations — latest non-nil value wins. `role` (String): `maintainer`, `submaintainer`, or `contributor` (default `contributor`). |
 | `CoreModule` | `{}` | No additional metadata beyond the node identity |
 | `Stdlib` | `{}` | No additional metadata beyond the node identity |
 
@@ -629,7 +629,7 @@ Each observation record contains:
 | LLM extraction failure (timeout, API error) | Retry with exponential backoff (counts as a job attempt) |
 | LLM output fails ontology validation | Reject the invalid triplet, log warning; valid triplets from the same response are still written |
 | Module name not in curated list | Reject the triplet, log warning with the unrecognized module name |
-| LLM outputs `Maintenance` relationship | Downgrade to `Contribute`, log info (no committer data source yet) |
+| LLM outputs `Maintenance` with non-maintainer role | Downgrade to `Contribute`, log info (subject role does not meet Maintenance constraint) |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 | Job cleanup database error | Log error, continue processing — cleanup failure must not block job processing |
 
@@ -686,7 +686,7 @@ Each observation record contains:
 | Authentication failure (401) | `warn` | Request origin information |
 | Invalid request (422/415) | `warn` | Request origin information, validation errors |
 | Ontology validation rejection | `warn` | Rejected triplet, validation rule violated, job identity |
-| Maintenance downgraded to Contribute | `info` | Original triplet, job identity |
+| Maintenance downgraded to Contribute (non-maintainer role) | `info` | Original triplet, subject role, job identity |
 | Duplicate edge observation skipped | `info` | Edge identity, source entity, job identity |
 | Graph neighbor query invalid request (400) | `warn` | Request origin, validation errors |
 | Graph neighbor query node not found (404) | `info` | Requested node ID |
@@ -776,7 +776,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Rubyist | A person who participates in Ruby development discussions, represented as a node in the knowledge graph |
 | CoreModule | A core module built into the Ruby interpreter (e.g., String, Array, IO), represented as a node in the knowledge graph |
 | Stdlib | A standard library shipped with Ruby (e.g., net/http, json, openssl), represented as a node in the knowledge graph |
-| Maintenance | A relationship indicating a Ruby committer maintains or is responsible for a module |
+| Maintenance | A relationship indicating a Ruby maintainer is responsible for a module |
 | Contribute | A relationship indicating a Rubyist contributes to or interacts with a module |
 | Node | A vertex in the knowledge graph representing an entity (e.g., Rubyist, CoreModule, Stdlib) |
 | Edge | A directed connection between two Nodes representing a relationship |

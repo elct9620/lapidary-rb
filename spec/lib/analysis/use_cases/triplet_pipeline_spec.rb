@@ -48,7 +48,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
           subject: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::RUBYIST,
             name: 'matz',
-            properties: { is_committer: true }
+            properties: { role: 'maintainer' }
           ),
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: Analysis::Entities::Node.new(
@@ -93,12 +93,13 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
       end
     end
 
-    context 'when a non-committer Maintenance triplet is extracted' do
+    context 'when a non-maintainer Maintenance triplet is extracted' do
       let(:extractor) do
         triplet = Analysis::Entities::Triplet.new(
           subject: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::RUBYIST,
-            name: 'contributor'
+            name: 'contributor',
+            properties: { role: 'contributor' }
           ),
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: Analysis::Entities::Node.new(
@@ -109,12 +110,14 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         instance_double(Analysis::Extractors::LlmExtractor, call: [triplet])
       end
 
-      it 'writes the triplet as Maintenance without downgrade' do
+      it 'downgrades to Contribute and logs info' do
         pipeline.call(arguments, observation)
 
         edge = Lapidary::Container['database'][:edges].first
-        expect(edge[:relationship]).to eq('Maintenance')
-        expect(logger).to have_received(:info).with(pipeline, a_kind_of(String), anything)
+        expect(edge[:relationship]).to eq('Contribute')
+        expect(logger).to have_received(:info).with(
+          pipeline, 'Maintenance downgraded to Contribute (non-maintainer role)', anything
+        )
       end
     end
   end

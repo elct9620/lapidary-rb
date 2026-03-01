@@ -122,8 +122,8 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
         expect(result.system).to include('Do NOT extract when')
       end
 
-      it 'includes is_committer guidance in extraction rules' do
-        expect(result.system).to include('is_committer')
+      it 'includes role guidance in extraction rules' do
+        expect(result.system).to include('role')
       end
     end
   end

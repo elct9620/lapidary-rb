@@ -9,7 +9,7 @@ RSpec.describe Analysis::Ontology::Validator do
     Analysis::Entities::Node.new(
       type: Analysis::Entities::NodeType::RUBYIST,
       name: 'matz',
-      properties: { is_committer: true }
+      properties: { role: 'maintainer' }
     )
   end
 
@@ -111,14 +111,10 @@ RSpec.describe Analysis::Ontology::Validator do
       end
     end
 
-    context 'when Maintenance subject is not a committer' do
+    context 'when Maintenance subject has role=maintainer' do
       it 'passes validation without modification' do
-        non_committer = Analysis::Entities::Node.new(
-          type: Analysis::Entities::NodeType::RUBYIST,
-          name: 'contributor'
-        )
         triplet = Analysis::Entities::Triplet.new(
-          subject: non_committer,
+          subject: rubyist,
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: core_module
         )
@@ -127,6 +123,85 @@ RSpec.describe Analysis::Ontology::Validator do
 
         expect(result.errors).to be_empty
         expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::MAINTENANCE)
+      end
+    end
+
+    context 'when Maintenance subject has role=submaintainer' do
+      it 'downgrades to Contribute' do
+        submaintainer = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'helper',
+          properties: { role: 'submaintainer' }
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: submaintainer,
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to be_empty
+        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::CONTRIBUTE)
+      end
+    end
+
+    context 'when Maintenance subject has role=contributor' do
+      it 'downgrades to Contribute' do
+        contributor = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'contributor',
+          properties: { role: 'contributor' }
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: contributor,
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to be_empty
+        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::CONTRIBUTE)
+      end
+    end
+
+    context 'when Maintenance subject has no role (defaults)' do
+      it 'downgrades to Contribute' do
+        no_role = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'someone'
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: no_role,
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to be_empty
+        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::CONTRIBUTE)
+      end
+    end
+
+    context 'when Contribute with any role' do
+      it 'passes validation without modification' do
+        submaintainer = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'helper',
+          properties: { role: 'submaintainer' }
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: submaintainer,
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to be_empty
+        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::CONTRIBUTE)
       end
     end
 

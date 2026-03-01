@@ -184,7 +184,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
           subject: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::RUBYIST,
             name: 'matz',
-            properties: { is_committer: true }
+            properties: { role: 'maintainer' }
           ),
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: Analysis::Entities::Node.new(
@@ -217,7 +217,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
           subject: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::RUBYIST,
             name: 'matz',
-            properties: { is_committer: true }
+            properties: { role: 'maintainer' }
           ),
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: Analysis::Entities::Node.new(
@@ -251,7 +251,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
           subject: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::RUBYIST,
             name: 'matz',
-            properties: { is_committer: true }
+            properties: { role: 'maintainer' }
           ),
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: Analysis::Entities::Node.new(
@@ -279,12 +279,13 @@ RSpec.describe Analysis::UseCases::ProcessJob do
       end
     end
 
-    context 'when a non-committer Maintenance triplet is extracted' do
+    context 'when a non-maintainer Maintenance triplet is extracted' do
       let(:extractor) do
         triplet = Analysis::Entities::Triplet.new(
           subject: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::RUBYIST,
-            name: 'contributor'
+            name: 'contributor',
+            properties: { role: 'contributor' }
           ),
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: Analysis::Entities::Node.new(
@@ -301,17 +302,19 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         )))
       end
 
-      it 'writes the triplet with Maintenance relationship' do
+      it 'downgrades to Contribute relationship' do
         use_case.call(claim_job)
 
         edge = Lapidary::Container['database'][:edges].first
-        expect(edge[:relationship]).to eq('Maintenance')
+        expect(edge[:relationship]).to eq('Contribute')
       end
 
-      it 'logs pipeline summary at info level' do
+      it 'logs downgrade at info level' do
         use_case.call(claim_job)
 
-        expect(logger).to have_received(:info).with(pipeline, a_kind_of(String), anything).at_least(:once)
+        expect(logger).to have_received(:info).with(
+          pipeline, 'Maintenance downgraded to Contribute (non-maintainer role)', anything
+        )
       end
     end
 
@@ -327,7 +330,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
           subject: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::RUBYIST,
             name: 'matz',
-            properties: { is_committer: true }
+            properties: { role: 'maintainer' }
           ),
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: Analysis::Entities::Node.new(
@@ -359,7 +362,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
           subject: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::RUBYIST,
             name: 'matz',
-            properties: { is_committer: true }
+            properties: { role: 'maintainer' }
           ),
           relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
           object: Analysis::Entities::Node.new(

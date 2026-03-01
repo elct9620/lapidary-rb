@@ -8,7 +8,7 @@ RSpec.describe Analysis::Entities::Triplet do
       subject_node = Analysis::Entities::Node.new(
         type: Analysis::Entities::NodeType::RUBYIST,
         name: 'matz',
-        properties: { is_committer: true }
+        properties: { role: 'maintainer' }
       )
       object_node = Analysis::Entities::Node.new(
         type: Analysis::Entities::NodeType::CORE_MODULE,

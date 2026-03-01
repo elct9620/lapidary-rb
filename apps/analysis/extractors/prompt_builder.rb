@@ -89,7 +89,7 @@ module Analysis
         - Use "Contribute" for people who contribute implementation (patches, pull requests, concrete code fixes)
         - Do not extract relationships for people who only report bugs, discuss, or confirm/reproduce issues
         - Module names must exactly match one of the valid names listed above
-        - Set is_committer to true only when the text explicitly mentions committer identity (e.g., "committed rNNNN", listed as committer, has explicit trunk commit records)
+        - Set role to "maintainer" when the person is identified as a module maintainer (assigned responsibility, explicitly listed as maintainer, regularly commits/merges for the module). Set role to "submaintainer" when the person contributes bug fixes or patches without full maintenance authority. Default to "contributor" otherwise.
         - If no clear relationships can be identified, return an empty triplets array
         - The "reasoning" field: record your Y/N evaluation for each step before filling other fields
         - The "evidence" field: cite the specific text passage that supports the triplet
@@ -112,9 +112,9 @@ module Analysis
         3. Is the action an implementation contribution — patch, PR, or concrete code fix? (Y/N)
            → If Y: relationship = Contribute
         4. If neither Step 2 nor Step 3: Do not extract a triplet for this person
-        5. Does the text explicitly identify this person as a Ruby committer
-           (e.g., "committed rNNNN", listed as committer, trunk commit record)? (Y/N)
-           → is_committer = Y or N accordingly
+        5. Is this person identified as a maintainer of this module
+           (assigned responsibility, regularly commits/merges, listed as maintainer)? (Y/N)
+           → If Y: role = maintainer. If N but contributes patches: role = submaintainer. Otherwise: role = contributor.
 
         Record your step-by-step reasoning in the "reasoning" field before filling in the other fields.
       TEXT
@@ -134,7 +134,7 @@ module Analysis
         | Does this person act on a specific named module? | Continue | Do not extract |
         | Is the action: commit, merge, backport, or assign? | Maintenance | Check next |
         | Is the action: submit patch, PR, or code fix? | Contribute | Do not extract |
-        | Does the text explicitly say this person is a committer? | is_committer = true | is_committer = false |
+        | Is this person identified as a module maintainer? | role = maintainer | role = submaintainer or contributor |
 
         ### Do NOT extract when:
         - Person only reports a bug or describes unexpected behavior

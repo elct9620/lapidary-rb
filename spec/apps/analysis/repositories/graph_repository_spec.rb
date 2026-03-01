@@ -12,7 +12,7 @@ RSpec.describe Analysis::Repositories::GraphRepository do
       subject: Analysis::Entities::Node.new(
         type: Analysis::Entities::NodeType::RUBYIST,
         name: 'matz',
-        properties: { is_committer: true }
+        properties: { role: 'maintainer' }
       ),
       relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
       object: Analysis::Entities::Node.new(
@@ -50,7 +50,7 @@ RSpec.describe Analysis::Repositories::GraphRepository do
       repository.save_triplet(triplet, observation)
 
       updated_triplet = triplet.with(
-        subject: triplet.subject.with(properties: { is_committer: true, role: 'creator' })
+        subject: triplet.subject.with(properties: { role: 'maintainer', title: 'creator' })
       )
       other_observation = Analysis::Entities::Observation.new(observed_at: Time.now.iso8601,
                                                               source_entity_type: 'journal', source_entity_id: 2)
@@ -59,13 +59,13 @@ RSpec.describe Analysis::Repositories::GraphRepository do
       expect(db[:nodes].where(id: 'rubyist://matz').count).to eq(1)
       node = db[:nodes].where(id: 'rubyist://matz').first
       data = JSON.parse(node[:data], symbolize_names: true)
-      expect(data[:role]).to eq('creator')
+      expect(data[:title]).to eq('creator')
     end
 
     it 'preserves existing fields not present in new data during node upsert' do
       repository.save_triplet(triplet, observation)
 
-      # Second save with only a new field, no is_committer
+      # Second save with only a new field, no role
       partial_triplet = triplet.with(
         subject: triplet.subject.with(properties: { display_name: 'Yukihiro Matsumoto' })
       )
@@ -75,7 +75,7 @@ RSpec.describe Analysis::Repositories::GraphRepository do
 
       node = db[:nodes].where(id: 'rubyist://matz').first
       data = JSON.parse(node[:data], symbolize_names: true)
-      expect(data[:is_committer]).to be true
+      expect(data[:role]).to eq('maintainer')
       expect(data[:display_name]).to eq('Yukihiro Matsumoto')
     end
 

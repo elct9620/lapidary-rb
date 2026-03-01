@@ -26,14 +26,14 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
             'triplets' => [
               {
                 'reasoning' => '(1) Y: matz commits to String. (2) Y: commit activity. (4) Y: committer.',
-                'subject' => { 'name' => 'matz', 'is_committer' => true },
+                'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
                 'relationship' => 'Maintenance',
                 'object' => { 'type' => 'CoreModule', 'name' => 'String' },
                 'evidence' => 'matz maintains the String class'
               },
               {
                 'reasoning' => '(1) Y: contributor patches json. (3) Y: patch submission. (4) N.',
-                'subject' => { 'name' => 'contributor', 'is_committer' => false },
+                'subject' => { 'name' => 'contributor', 'role' => 'contributor' },
                 'relationship' => 'Contribute',
                 'object' => { 'type' => 'Stdlib', 'name' => 'json' },
                 'evidence' => 'contributor worked on json stdlib'
@@ -55,7 +55,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
         expect(triplets.first.subject.type).to eq(Analysis::Entities::NodeType::RUBYIST)
         expect(triplets.first.subject.name).to eq('matz')
-        expect(triplets.first.subject.properties).to eq({ is_committer: true })
+        expect(triplets.first.subject.properties).to eq({ role: 'maintainer' })
       end
 
       it 'maps relationship correctly' do
@@ -139,17 +139,17 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
           {
             'triplets' => [
               {
-                'subject' => { 'name' => nil, 'is_committer' => true },
+                'subject' => { 'name' => nil, 'role' => 'maintainer' },
                 'relationship' => 'Maintenance',
                 'object' => { 'type' => 'CoreModule', 'name' => 'String' }
               },
               {
-                'subject' => { 'name' => 'matz', 'is_committer' => true },
+                'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
                 'relationship' => 'Maintenance',
                 'object' => { 'type' => 'CoreModule', 'name' => nil }
               },
               {
-                'subject' => { 'name' => 'nobu', 'is_committer' => true },
+                'subject' => { 'name' => 'nobu', 'role' => 'maintainer' },
                 'relationship' => 'Contribute',
                 'object' => { 'type' => 'CoreModule', 'name' => 'Array' }
               }
@@ -173,7 +173,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
           {
             'triplets' => [
               {
-                'subject' => { 'name' => 'matz', 'is_committer' => true },
+                'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
                 'relationship' => 'Maintenance',
                 'object' => { 'type' => 'CoreModule', 'name' => 'String' }
               },
@@ -206,7 +206,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
           {
             'triplets' => [
               {
-                'subject' => { 'name' => 'matz', 'is_committer' => true },
+                'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
                 'relationship' => 'Unknown',
                 'object' => { 'type' => 'CoreModule', 'name' => 'String' }
               }
@@ -228,7 +228,7 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
           {
             'triplets' => [
               {
-                'subject' => { 'name' => 'matz', 'is_committer' => true },
+                'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
                 'relationship' => 'Maintenance',
                 'object' => { 'type' => 'InvalidType', 'name' => 'String' }
               }
