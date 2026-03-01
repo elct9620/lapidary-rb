@@ -149,7 +149,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
             name: 'someone'
           )
         )
-        instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet])
+        instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet], correct: nil)
       end
 
       before do
@@ -381,7 +381,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
             name: 'someone'
           )
         )
-        instance_double(Analysis::Extractors::LlmExtractor, call: [valid_triplet, invalid_triplet])
+        instance_double(Analysis::Extractors::LlmExtractor, call: [valid_triplet, invalid_triplet], correct: nil)
       end
 
       before do

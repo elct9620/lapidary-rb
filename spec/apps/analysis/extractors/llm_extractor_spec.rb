@@ -287,4 +287,85 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end
     end
   end
+
+  describe '#correct' do
+    let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1) }
+    let(:triplet) do
+      Analysis::Entities::Triplet.new(
+        subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
+                                              properties: { role: 'maintainer' }),
+        relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+        object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE, name: 'InvalidModule'),
+        evidence: 'matz committed to InvalidModule'
+      )
+    end
+    let(:errors) { ['unknown module name: InvalidModule'] }
+
+    context 'when LLM returns a corrected triplet' do
+      before do
+        allow(response).to receive(:content).and_return(
+          {
+            'triplets' => [
+              {
+                'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
+                'relationship' => 'Maintenance',
+                'object' => { 'type' => 'CoreModule', 'name' => 'String' },
+                'evidence' => 'matz committed to String'
+              }
+            ]
+          }
+        )
+      end
+
+      it 'returns a single corrected Triplet' do
+        result = extractor.correct(triplet, errors, job_arguments)
+
+        expect(result).to be_a(Analysis::Entities::Triplet)
+        expect(result.object.name).to eq('String')
+      end
+
+      it 'delegates to PromptBuilder#correction_prompt' do
+        prompt_builder = instance_double(Analysis::Extractors::PromptBuilder)
+        test_prompt = Analysis::Extractors::Prompt.new(system: 'correction system', user: 'correction user')
+        allow(prompt_builder).to receive(:correction_prompt).and_return(test_prompt)
+        custom_extractor = described_class.new(llm: llm, logger: logger, prompt_builder: prompt_builder)
+
+        custom_extractor.correct(triplet, errors, job_arguments)
+
+        expect(prompt_builder).to have_received(:correction_prompt).with(triplet, errors, job_arguments)
+      end
+    end
+
+    context 'when LLM returns empty triplets' do
+      before do
+        allow(response).to receive(:content).and_return({ 'triplets' => [] })
+      end
+
+      it 'returns nil' do
+        expect(extractor.correct(triplet, errors, job_arguments)).to be_nil
+      end
+    end
+
+    context 'when LLM returns malformed content' do
+      before do
+        allow(response).to receive(:content).and_return('unexpected string')
+      end
+
+      it 'returns nil' do
+        expect(extractor.correct(triplet, errors, job_arguments)).to be_nil
+      end
+    end
+
+    context 'when LLM API fails' do
+      before do
+        allow(chat).to receive(:ask).and_raise(RubyLLM::Error.new(nil, 'API error'))
+      end
+
+      it 'raises ExtractionError' do
+        expect do
+          extractor.correct(triplet, errors, job_arguments)
+        end.to raise_error(Analysis::Entities::ExtractionError, 'API error')
+      end
+    end
+  end
 end

@@ -31,12 +31,33 @@ module Analysis
         result = @validator.call(triplet)
 
         if result.errors.any?
-          @logger.warn(self, "Invalid triplet rejected: #{result.errors.join(', ')}")
-          return :rejected
+          result = attempt_correction(triplet, result.errors, arguments)
+          return :rejected unless result
         end
 
         log_role_downgrade(triplet, result.triplet)
         write_triplet(result.triplet, arguments, observation)
+      end
+
+      def attempt_correction(triplet, errors, arguments)
+        @logger.info(self, "Attempting correction for: #{errors.join(', ')}",
+                     subject: triplet.subject.name, object: triplet.object.name)
+
+        corrected = @extractor.correct(triplet, errors, arguments)
+        return log_correction_failure(errors, ['no correction returned']) unless corrected
+
+        re_result = @validator.call(corrected)
+        return log_correction_failure(errors, re_result.errors) if re_result.errors.any?
+
+        re_result
+      rescue Entities::ExtractionError => e
+        log_correction_failure(errors, [e.message])
+      end
+
+      def log_correction_failure(original_errors, correction_errors)
+        @logger.warn(self, "Correction failed: original=#{original_errors.join(', ')}, " \
+                           "after=#{correction_errors.join(', ')}")
+        nil
       end
 
       def log_role_downgrade(original, validated)

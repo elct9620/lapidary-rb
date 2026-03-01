@@ -15,19 +15,27 @@ module Analysis
 
       def call(job_arguments)
         prompt = @prompt_builder.call(job_arguments)
+        parse_response(chat_with_schema(prompt).content)
+      rescue RubyLLM::Error => e
+        raise Entities::ExtractionError, e.message
+      end
 
-        response = ::Sentry.with_child_span(op: 'gen_ai.chat', description: "chat #{model_name}") do |span|
-          result = llm.chat.with_instructions(prompt.system).with_schema(TripletSchema).ask(prompt.user)
-          record_llm_span(span, prompt, result)
-          result
-        end
-
-        parse_response(response.content)
+      def correct(triplet, errors, job_arguments)
+        prompt = @prompt_builder.correction_prompt(triplet, errors, job_arguments)
+        parse_response(chat_with_schema(prompt).content).first
       rescue RubyLLM::Error => e
         raise Entities::ExtractionError, e.message
       end
 
       private
+
+      def chat_with_schema(prompt)
+        ::Sentry.with_child_span(op: 'gen_ai.chat', description: "chat #{model_name}") do |span|
+          result = llm.chat.with_instructions(prompt.system).with_schema(TripletSchema).ask(prompt.user)
+          record_llm_span(span, prompt, result)
+          result
+        end
+      end
 
       def model_name
         Lapidary.config.openai.model

@@ -11,21 +11,28 @@ module Analysis
         )
       end
 
+      def correction_prompt(triplet, errors, job_arguments)
+        Prompt.new(
+          system: "#{CORRECTION_INSTRUCTIONS}\n\n#{ontology_section}\n\n#{module_list_section}\n",
+          user: correction_user_prompt(triplet, errors, job_arguments)
+        )
+      end
+
       private
 
       def system_prompt
         <<~PROMPT
-          #{system_instructions}
+          #{SYSTEM_INSTRUCTIONS}
 
           #{ontology_section}
 
           #{module_list_section}
 
-          #{extraction_rules}
+          #{EXTRACTION_RULES}
 
-          #{evaluation_steps}
+          #{EVALUATION_STEPS}
 
-          #{rubric_section}
+          #{RUBRIC_TABLE}
         PROMPT
       end
 
@@ -39,12 +46,11 @@ module Analysis
         PROMPT
       end
 
-      def system_instructions
-        <<~TEXT.chomp
-          You are a knowledge graph extraction assistant for the Ruby programming language community.
-          Analyze the following content from bugs.ruby-lang.org and extract relationships between people and Ruby modules.
-        TEXT
-      end
+      SYSTEM_INSTRUCTIONS = <<~TEXT.chomp
+        You are a knowledge graph extraction assistant for the Ruby programming language community.
+        Analyze the following content from bugs.ruby-lang.org and extract relationships between people and Ruby modules.
+      TEXT
+      private_constant :SYSTEM_INSTRUCTIONS
 
       def ontology_section
         <<~TEXT.chomp
@@ -96,10 +102,6 @@ module Analysis
       TEXT
       private_constant :EXTRACTION_RULES
 
-      def extraction_rules
-        EXTRACTION_RULES
-      end
-
       EVALUATION_STEPS = <<~TEXT.chomp
         ## Evaluation Steps
 
@@ -120,10 +122,6 @@ module Analysis
       TEXT
       private_constant :EVALUATION_STEPS
 
-      def evaluation_steps
-        EVALUATION_STEPS
-      end
-
       RUBRIC_TABLE = <<~TEXT.chomp
         ## Extraction Rubric
 
@@ -143,8 +141,27 @@ module Analysis
       TEXT
       private_constant :RUBRIC_TABLE
 
-      def rubric_section
-        RUBRIC_TABLE
+      CORRECTION_INSTRUCTIONS = <<~TEXT.chomp
+        You are a knowledge graph extraction assistant for the Ruby programming language community.
+        A previously extracted triplet failed validation. Analyze the errors and correct the triplet so it conforms to the ontology rules.
+        Return a single corrected triplet. If the triplet cannot be corrected, return an empty triplets array.
+      TEXT
+      private_constant :CORRECTION_INSTRUCTIONS
+
+      def correction_user_prompt(triplet, errors, job_arguments)
+        <<~PROMPT
+          ## Original Context
+          #{user_prompt(job_arguments)}
+
+          ## Failed Triplet
+          - Subject: #{triplet.subject.name} (#{triplet.subject.type}, role: #{triplet.subject.properties[:role]})
+          - Relationship: #{triplet.relationship}
+          - Object: #{triplet.object.name} (#{triplet.object.type})
+          - Evidence: #{triplet.evidence}
+
+          ## Validation Errors
+          #{errors.map { |e| "- #{e}" }.join("\n")}
+        PROMPT
       end
     end
   end

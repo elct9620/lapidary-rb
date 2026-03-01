@@ -127,4 +127,56 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       end
     end
   end
+
+  describe '#correction_prompt' do
+    let(:job_arguments) do
+      Analysis::Entities::JobArguments.new(
+        entity_type: 'issue', entity_id: 12_345,
+        content: 'Bug in String#encode', author_username: 'matz', author_display_name: 'Yukihiro Matsumoto'
+      )
+    end
+
+    let(:triplet) do
+      Analysis::Entities::Triplet.new(
+        subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
+                                              properties: { role: 'maintainer' }),
+        relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+        object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE, name: 'InvalidModule'),
+        evidence: 'matz committed to InvalidModule'
+      )
+    end
+
+    let(:errors) { ['unknown module name: InvalidModule'] }
+    let(:result) { prompt_builder.correction_prompt(triplet, errors, job_arguments) }
+
+    it 'returns a Prompt value object' do
+      expect(result).to be_a(Analysis::Extractors::Prompt)
+    end
+
+    it 'includes ontology definitions in the system prompt' do
+      expect(result.system).to include('Ontology')
+    end
+
+    it 'includes module names in the system prompt' do
+      expect(result.system).to include('Valid Module Names')
+    end
+
+    it 'includes correction instructions in the system prompt' do
+      expect(result.system).to include('correct')
+    end
+
+    it 'includes the failed triplet in the user prompt' do
+      expect(result.user).to include('matz')
+        .and include('InvalidModule')
+    end
+
+    it 'includes validation errors in the user prompt' do
+      expect(result.user).to include('unknown module name: InvalidModule')
+    end
+
+    it 'includes original extraction context in the user prompt' do
+      expect(result.user).to include('Issue #12345')
+        .and include('Bug in String#encode')
+    end
+  end
 end

@@ -70,8 +70,8 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
     end
 
     context 'when extractor returns an invalid triplet' do
-      let(:extractor) do
-        invalid_triplet = Analysis::Entities::Triplet.new(
+      let(:invalid_triplet) do
+        Analysis::Entities::Triplet.new(
           subject: Analysis::Entities::Node.new(
             type: Analysis::Entities::NodeType::CORE_MODULE,
             name: 'String'
@@ -82,7 +82,10 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
             name: 'someone'
           )
         )
-        instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet])
+      end
+
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet], correct: nil)
       end
 
       it 'logs a warning and does not write to graph' do
@@ -90,6 +93,138 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
         expect(logger).to have_received(:warn).with(pipeline, a_kind_of(String))
         expect(Lapidary::Container['database'][:nodes].count).to eq(0)
+      end
+    end
+
+    context 'when an invalid triplet is corrected successfully' do
+      let(:invalid_triplet) do
+        Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
+                                                properties: { role: 'maintainer' }),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
+                                               name: 'InvalidModule'),
+          evidence: 'matz committed to InvalidModule'
+        )
+      end
+
+      let(:corrected_triplet) do
+        Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
+                                                properties: { role: 'maintainer' }),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE, name: 'String'),
+          evidence: 'matz committed to String'
+        )
+      end
+
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet], correct: corrected_triplet)
+      end
+
+      it 'writes the corrected triplet to the knowledge graph' do
+        pipeline.call(arguments, observation)
+
+        db = Lapidary::Container['database']
+        expect(db[:nodes].where(id: 'core_module://String').count).to eq(1)
+        expect(db[:edges].count).to eq(1)
+      end
+
+      it 'logs correction attempt' do
+        pipeline.call(arguments, observation)
+
+        expect(logger).to have_received(:info).with(pipeline, /Attempting correction/, anything)
+      end
+    end
+
+    context 'when correction also fails validation' do
+      let(:invalid_triplet) do
+        Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
+                                                properties: { role: 'maintainer' }),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
+                                               name: 'InvalidModule'),
+          evidence: 'matz committed to InvalidModule'
+        )
+      end
+
+      let(:still_invalid_triplet) do
+        Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
+                                                properties: { role: 'maintainer' }),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
+                                               name: 'StillInvalid'),
+          evidence: 'matz committed to StillInvalid'
+        )
+      end
+
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet],
+                                                            correct: still_invalid_triplet)
+      end
+
+      it 'rejects the triplet and does not write to graph' do
+        pipeline.call(arguments, observation)
+
+        expect(Lapidary::Container['database'][:nodes].count).to eq(0)
+      end
+
+      it 'logs a warning for final rejection' do
+        pipeline.call(arguments, observation)
+
+        expect(logger).to have_received(:warn).with(pipeline, /Correction failed/)
+      end
+    end
+
+    context 'when correction returns nil' do
+      let(:invalid_triplet) do
+        Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
+                                                properties: { role: 'maintainer' }),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
+                                               name: 'InvalidModule'),
+          evidence: 'matz committed to InvalidModule'
+        )
+      end
+
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet], correct: nil)
+      end
+
+      it 'rejects the triplet' do
+        pipeline.call(arguments, observation)
+
+        expect(Lapidary::Container['database'][:nodes].count).to eq(0)
+        expect(logger).to have_received(:warn).with(pipeline, /Correction failed/)
+      end
+    end
+
+    context 'when correction raises ExtractionError' do
+      let(:invalid_triplet) do
+        Analysis::Entities::Triplet.new(
+          subject: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::RUBYIST, name: 'matz',
+                                                properties: { role: 'maintainer' }),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: Analysis::Entities::Node.new(type: Analysis::Entities::NodeType::CORE_MODULE,
+                                               name: 'InvalidModule'),
+          evidence: 'matz committed to InvalidModule'
+        )
+      end
+
+      let(:extractor) do
+        ext = instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet])
+        allow(ext).to receive(:correct).and_raise(Analysis::Entities::ExtractionError, 'LLM API failed')
+        ext
+      end
+
+      it 'rejects the triplet without raising' do
+        expect { pipeline.call(arguments, observation) }.not_to raise_error
+
+        expect(Lapidary::Container['database'][:nodes].count).to eq(0)
+        expect(logger).to have_received(:warn).with(pipeline, /Correction failed/)
       end
     end
 
