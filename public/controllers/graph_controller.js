@@ -7,6 +7,11 @@ const NODE_COLORS = {
   Stdlib: "#F59E0B"
 }
 
+const EDGE_COLORS = {
+  Maintenance: "#6366F1",
+  Contribute: "#F97316"
+}
+
 export default class extends Controller {
   static targets = ["canvas"]
 
@@ -47,24 +52,31 @@ export default class extends Controller {
         {
           selector: "edge",
           style: {
-            label: "data(label)",
+            label: "data(relationship)",
             "curve-style": "bezier",
             "target-arrow-shape": "triangle",
             "arrow-scale": 1.2,
-            "line-color": "#9CA3AF",
-            "target-arrow-color": "#9CA3AF",
+            "line-color": "data(color)",
+            "target-arrow-color": "data(color)",
             "font-size": "10px",
             color: "#6B7280",
             "text-rotation": "autorotate",
+            "text-margin-y": -10,
             width: 2
+          }
+        },
+        {
+          selector: "edge[relationship = 'Contribute']",
+          style: {
+            "line-style": "dashed"
           }
         },
         {
           selector: "edge:selected",
           style: {
-            "line-color": "#6366F1",
-            "target-arrow-color": "#6366F1",
-            width: 3
+            width: 4,
+            "line-color": "#1F2937",
+            "target-arrow-color": "#1F2937"
           }
         }
       ],
@@ -140,8 +152,8 @@ export default class extends Controller {
         id: edgeId,
         source: edge.source,
         target: edge.target,
-        label: edge.relationship,
         relationship: edge.relationship,
+        color: EDGE_COLORS[edge.relationship] || "#9CA3AF",
         observations: edge.observations
       }
     })
@@ -152,9 +164,15 @@ export default class extends Controller {
       name: "cose",
       animate: true,
       animationDuration: 500,
-      nodeRepulsion: () => 8000,
-      idealEdgeLength: () => 120,
-      padding: 40
+      fit: true,
+      padding: 60,
+      nodeDimensionsIncludeLabels: true,
+      spacingFactor: 1.5,
+      nodeRepulsion: () => 50000,
+      idealEdgeLength: () => 200,
+      edgeElasticity: () => 100,
+      gravity: 0.1,
+      numIter: 1000
     }).run()
   }
 
