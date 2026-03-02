@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 Sentry.init do |config|
+  config.send_default_pii = true
   config.breadcrumbs_logger = %i[sentry_logger http_logger]
   config.traces_sampler = lambda { |sampling_context|
     rack_env = sampling_context[:env]
