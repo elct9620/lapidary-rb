@@ -161,6 +161,23 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
       end
     end
 
+    context 'when the same triplet is extracted twice' do
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor, call: [maintainer_triplet])
+      end
+
+      before do
+        pipeline.call(arguments, observation)
+      end
+
+      it 'logs duplicated count' do
+        pipeline.call(arguments, observation)
+
+        expect(logger).to have_received(:info).with(pipeline, a_string_including('duplicated'),
+                                                    a_hash_including(duplicated: 1))
+      end
+    end
+
     context 'when a non-maintainer Maintenance triplet is extracted' do
       let(:extractor) do
         instance_double(Analysis::Extractors::LlmExtractor, call: [contributor_triplet])

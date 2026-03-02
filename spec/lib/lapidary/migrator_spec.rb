@@ -22,6 +22,16 @@ RSpec.describe Lapidary::Migrator do
         expect { migrator.check }.not_to raise_error
       end
     end
+
+    context 'when Sequel raises during migration check' do
+      before do
+        allow(Sequel::Migrator).to receive(:is_current?).and_raise(Sequel::Error, 'connection lost')
+      end
+
+      it 'rescues and does not raise' do
+        expect { migrator.check }.not_to raise_error
+      end
+    end
   end
 
   describe '#migrate' do

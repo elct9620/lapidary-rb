@@ -14,17 +14,11 @@ module Analysis
         new(amount: Integer(match[1]), unit: match[2])
       end
 
-      def self.default
-        new(amount: 7, unit: 'd')
-      end
+      def self.default = new(amount: 7, unit: 'd')
+      def self.graph_default = new(amount: 180, unit: 'd')
 
-      def cutoff(now: Time.now)
-        now - (amount * RetentionPeriod::SECONDS_PER_UNIT.fetch(unit))
-      end
-
-      def to_s
-        "#{amount}#{unit}"
-      end
+      def cutoff(now: Time.now) = now - (amount * RetentionPeriod::SECONDS_PER_UNIT.fetch(unit))
+      def to_s = "#{amount}#{unit}"
     end
 
     class RetentionPeriod

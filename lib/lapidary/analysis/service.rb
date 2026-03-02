@@ -80,26 +80,22 @@ module Lapidary
       end
 
       def parse_retention_period
-        raw = Lapidary.config.analysis.job_retention
-        return ::Analysis::Entities::RetentionPeriod.default unless raw
-
-        parsed = ::Analysis::Entities::RetentionPeriod.parse(raw)
-        return parsed if parsed
-
-        logger.warn(self, "Invalid JOB_RETENTION '#{raw}', using default #{::Analysis::Entities::RetentionPeriod.default}",
-                    value: raw)
-        ::Analysis::Entities::RetentionPeriod.default
+        parse_retention(Lapidary.config.analysis.job_retention,
+                        ::Analysis::Entities::RetentionPeriod.default, 'JOB_RETENTION')
       end
 
       def parse_graph_retention
-        raw = Lapidary.config.graph.retention
-        default = ::Analysis::Entities::RetentionPeriod.new(amount: 180, unit: 'd')
+        parse_retention(Lapidary.config.graph.retention,
+                        ::Analysis::Entities::RetentionPeriod.graph_default, 'GRAPH_RETENTION')
+      end
+
+      def parse_retention(raw, default, env_var_name)
         return default unless raw
 
         parsed = ::Analysis::Entities::RetentionPeriod.parse(raw)
         return parsed if parsed
 
-        logger.warn(self, "Invalid GRAPH_RETENTION '#{raw}', using default #{default}", value: raw)
+        logger.warn(self, "Invalid #{env_var_name} '#{raw}', using default #{default}", value: raw)
         default
       end
 

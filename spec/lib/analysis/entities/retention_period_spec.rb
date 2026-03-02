@@ -47,6 +47,14 @@ RSpec.describe Analysis::Entities::RetentionPeriod do
     end
   end
 
+  describe '.graph_default' do
+    it 'returns 180 days' do
+      period = described_class.graph_default
+      expect(period.amount).to eq(180)
+      expect(period.unit).to eq('d')
+    end
+  end
+
   describe '#cutoff' do
     it 'computes cutoff for days' do
       period = described_class.new(amount: 7, unit: 'd')

@@ -47,6 +47,7 @@ module Graph
       end
 
       def observation_in_range?(observation, after_time, before_time)
+        # Observations without a timestamp predate time-tracking; treat as always in range.
         return true unless observation.observed_at
 
         return false if after_time  && observation.observed_at < after_time

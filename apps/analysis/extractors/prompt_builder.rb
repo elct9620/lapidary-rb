@@ -78,8 +78,8 @@ module Analysis
 
       def ontology_vars
         {
-          node_type_descriptions: format_descriptions(Analysis::Entities::NodeType::DESCRIPTIONS),
-          relationship_type_descriptions: format_descriptions(Analysis::Entities::RelationshipType::DESCRIPTIONS),
+          node_type_descriptions: format_descriptions(Entities::NodeType::DESCRIPTIONS),
+          relationship_type_descriptions: format_descriptions(Entities::RelationshipType::DESCRIPTIONS),
           core_module_names: Ontology::ModuleRegistry.core_module_names.join(', '),
           stdlib_names: Ontology::ModuleRegistry.stdlib_names.join(', ')
         }
@@ -90,7 +90,7 @@ module Analysis
       end
 
       def journal_context(job_arguments)
-        return '' unless job_arguments.entity_type == Analysis::Entities::EntityType::JOURNAL.to_s
+        return '' unless job_arguments.entity_type == Entities::EntityType::JOURNAL.to_s
 
         "Issue ##{job_arguments.issue_id}: #{job_arguments.issue_content}"
       end

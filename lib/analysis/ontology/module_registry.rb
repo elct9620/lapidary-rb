@@ -18,10 +18,12 @@ module Analysis
       def self.core_module?(name)
         CORE_MODULES.include?(name)
       end
+      private_class_method :core_module?
 
       def self.stdlib?(name)
         STDLIBS.include?(name)
       end
+      private_class_method :stdlib?
 
       def self.valid?(name)
         core_module?(name) || stdlib?(name)

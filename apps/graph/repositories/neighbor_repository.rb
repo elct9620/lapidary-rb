@@ -23,7 +23,10 @@ module Graph
       def find_edges(node_id, direction: Entities::Direction::BOTH, include_archived: false)
         with_error_wrapping do
           rows = query_edges(node_id, direction, include_archived)
-          rows.map { |row| build_edge(row) }
+          return [] if rows.empty?
+
+          obs_map = load_observations_batch(rows)
+          rows.map { |row| build_edge(row, obs_map) }
         end
       end
 
@@ -64,21 +67,29 @@ module Graph
         end
       end
 
-      def build_edge(row)
+      def build_edge(row, obs_map)
+        key = [row[:source], row[:target], row[:relationship]]
         Entities::Edge.new(
           source: row[:source],
           target: row[:target],
           relationship: row[:relationship],
-          observations: load_observations(row),
+          observations: obs_map[key] || [],
           archived_at: row[:archived_at]
         )
       end
 
-      def load_observations(edge_row)
-        observations_table.where(
-          edge_source: edge_row[:source], edge_target: edge_row[:target],
-          edge_relationship: edge_row[:relationship]
-        ).map { |obs| build_observation(obs) }
+      def load_observations_batch(edge_rows)
+        conditions = edge_rows.map do |r|
+          { edge_source: r[:source], edge_target: r[:target], edge_relationship: r[:relationship] }
+        end
+        observations_table.where(Sequel.|(*conditions))
+                          .each_with_object(Hash.new { |h, k| h[k] = [] }) do |obs, map|
+                            map[observation_key(obs)] << build_observation(obs)
+        end
+      end
+
+      def observation_key(obs)
+        [obs[:edge_source], obs[:edge_target], obs[:edge_relationship]]
       end
 
       def build_observation(obs)
