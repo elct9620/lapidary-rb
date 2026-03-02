@@ -11,8 +11,8 @@ RSpec.describe Health::API do
     described_class
   end
 
-  describe 'GET /' do
-    before { get '/' }
+  describe 'GET /health' do
+    before { get '/health' }
 
     it 'returns 200 OK' do
       expect(last_response).to be_ok

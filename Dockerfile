@@ -45,6 +45,6 @@ VOLUME /app/data
 EXPOSE 9292
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:9292/ || exit 1
+  CMD curl -f http://localhost:9292/health || exit 1
 
 CMD ["bundle", "exec", "falcon", "host"]
