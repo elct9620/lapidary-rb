@@ -28,7 +28,8 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Graph node query endpoint supports listing nodes by type, searching by name/display_name, and paginated results
 - Expired jobs are automatically removed from the database based on a configurable retention period
 - Knowledge graph explorer UI renders at `GET /` and allows visual exploration of nodes, edges, time-range filtering, and direction selection using existing Graph API endpoints
-- Expired graph observations are automatically archived based on a configurable retention period; cascading archive status affects edge and node visibility in queries
+- Expired graph edges are automatically archived when the most recent observation exceeds a configurable retention period
+- Archived edges and orphan nodes are excluded from default query results
 - A maintenance console (`bin/console`) loads the application container for manual data inspection and correction
 
 ## Non-goals
@@ -67,7 +68,7 @@ The complete system encompasses four capabilities:
 13. **Job cleanup** — TTL-based cleanup of expired jobs, executed periodically by the Analysis Service
 14. **Graph node query** — List and search nodes in the knowledge graph, with optional type filtering, keyword search, and pagination
 15. **Knowledge graph explorer** — A browser-based UI at the application root that visualizes the knowledge graph using Cytoscape.js, consuming the existing Graph API endpoints
-16. **Graph observation archiving** — TTL-based archiving of expired observations, executed periodically by the Analysis Service; archived observations are excluded from queries by default, and corresponding analysis records are cleared for re-analysis
+16. **Graph edge archiving** — TTL-based archiving of expired edges, executed periodically by the Analysis Service; an edge is archived when its most recent observation exceeds the retention cutoff; archived edges are excluded from queries by default, and corresponding analysis records are cleared for re-analysis
 17. **Maintenance console** — A `bin/console` entry point that loads the application container into an IRB session for manual data inspection and correction
 
 ## User Journeys
@@ -144,17 +145,17 @@ The complete system encompasses four capabilities:
 - **Action**: The researcher clicks on a node or edge
 - **Outcome**: A detail panel displays the node's metadata or the edge's observations (evidence, timestamps, source entities)
 
-### Graph Observation Archiving
+### Graph Edge Archiving
 
 - **Context**: Over time, observations accumulate and may include outdated or incorrect LLM analysis results
-- **Action**: The Analysis Service periodically archives observations where `observed_at` exceeds the configured retention period by setting `archived_at`
-- **Outcome**: Expired observations are archived, edges and nodes with only archived observations are excluded from queries by default, and corresponding analysis records are cleared so that entities can be re-analyzed on the next webhook notification
+- **Action**: The Analysis Service periodically checks each edge's most recent observation; when the most recent `observed_at` exceeds the configured retention period, the entire edge is archived by setting `edges.archived_at`
+- **Outcome**: Expired edges are archived, nodes with no active (non-archived) edges are excluded from queries by default, and corresponding analysis records are cleared so that entities can be re-analyzed on the next webhook notification; if the LLM no longer produces the same triplet on re-analysis, the edge remains archived (self-correcting)
 
-### Manual Observation Archiving
+### Manual Edge Archiving
 
-- **Context**: An operator discovers incorrect or unwanted observations in the knowledge graph
-- **Action**: The operator runs `bin/console` to load the application container and manually archives specific observations by setting their `archived_at` timestamp
-- **Outcome**: Targeted observations are archived and excluded from default queries; corresponding analysis records are cleared to allow re-analysis on the next webhook notification
+- **Context**: An operator discovers incorrect or unwanted edges in the knowledge graph
+- **Action**: The operator runs `bin/console` to load the application container and manually archives specific edges by setting their `archived_at` timestamp
+- **Outcome**: Targeted edges are archived and excluded from default queries; corresponding analysis records are cleared to allow re-analysis on the next webhook notification
 
 ### Manual Graph Maintenance
 
@@ -395,9 +396,9 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 
 **Deletion method**: Hard delete — rows are removed directly from the jobs table. No archival is performed, as job data has no value after the graph has been written.
 
-### Graph Observation Archiving
+### Graph Edge Archiving
 
-**Trigger**: The Analysis Service poll loop periodically executes graph observation archiving. Archiving does not need to run on every poll iteration — it may run at a configured interval (e.g., every N polls or a fixed time interval), following the same pattern as job cleanup.
+**Trigger**: The Analysis Service poll loop periodically executes graph edge archiving. Archiving does not need to run on every poll iteration — it may run at a configured interval (e.g., every N polls or a fixed time interval), following the same pattern as job cleanup.
 
 **Retention period**: Configured via the `GRAPH_RETENTION` environment variable, formatted as a number followed by a unit suffix (`12h`, `1d`, `180d`). Default: `180d`.
 
@@ -406,12 +407,14 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 
 **Archive rules** (executed in order):
 
-1. Archive observations where `observed_at < cutoff` and `archived_at IS NULL` by setting `archived_at` to the current timestamp, collecting their `(source_entity_type, source_entity_id)` pairs for use in step 2
+1. For each non-archived edge (`archived_at IS NULL`), find its most recent observation (`MAX(observed_at)`). If the most recent `observed_at < cutoff`, archive the edge by setting `edges.archived_at` to the current timestamp, collecting the edge's observations' `(source_entity_type, source_entity_id)` pairs for use in step 2
 2. Perform Analysis Record Reset: clear analysis records whose `(entity_type, entity_id)` match the `(source_entity_type, source_entity_id)` pairs collected in step 1 — this allows the entity to be re-analyzed on the next webhook notification
 
-**Visibility**: Edges and nodes are not physically deleted. Query-time filtering determines visibility — edges with no active (non-archived) observations and nodes with no active edges are excluded from default query results.
+**Unarchive rule**: When a new observation is inserted into an archived edge (i.e., the edge has `archived_at IS NOT NULL`), clear the edge's `archived_at` to restore it to active status. This happens naturally when re-analysis produces the same triplet.
 
-**Archive method**: Soft archive — observations are marked with `archived_at` timestamp. Edge and node visibility is determined at query time based on active observation status.
+**Visibility**: Edges and nodes are not physically deleted. Query-time filtering determines visibility — archived edges (`archived_at IS NOT NULL`) and nodes with no active (non-archived) edges are excluded from default query results.
+
+**Archive method**: Soft archive — edges are marked with `archived_at` timestamp. Node visibility is determined at query time based on whether the node has any active edges.
 
 ### Analysis Service
 
@@ -424,7 +427,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 - The analysis record marks the entity in the tracking table as analyzed
 - Job Arguments carry entity data for knowledge graph construction
 - Periodically executes job cleanup to remove expired jobs from the queue (see Job Queue § Job Cleanup)
-- Periodically executes graph observation archiving to archive expired observations (see Graph Observation Archiving)
+- Periodically executes graph edge archiving to archive expired edges (see Graph Edge Archiving)
 
 **Analysis domain model**:
 
@@ -511,7 +514,7 @@ The pipeline processes each job through four stages:
 | `direction` | No | String | `both` | Edge direction filter: `outbound`, `inbound`, or `both` |
 | `observed_after` | No | String | — | ISO 8601 datetime — include edges where `observed_at >= observed_after` (inclusive) |
 | `observed_before` | No | String | — | ISO 8601 datetime — include edges where `observed_at <= observed_before` (inclusive) |
-| `include_archived` | No | Boolean | `false` | When `true`, include archived observations in results; when `false`, only active observations (`archived_at IS NULL`) are returned |
+| `include_archived` | No | Boolean | `false` | When `true`, include archived edges in results; when `false`, only active edges (`edges.archived_at IS NULL`) are returned |
 
 **Response 200**:
 
@@ -557,11 +560,11 @@ Content-Type: `application/json`
 - When `direction` is `outbound`, only edges where the queried node is the source are included
 - When `direction` is `inbound`, only edges where the queried node is the target are included
 - When `direction` is `both`, edges in either direction are included
-- By default, only active observations (`archived_at IS NULL`) are included; when `include_archived` is `true`, both active and archived observations are returned
+- By default, only active edges (`edges.archived_at IS NULL`) are included; when `include_archived` is `true`, both active and archived edges are returned
 - When time-range parameters are specified, only edges with at least one matching observation are included; the `observations` array in the response is filtered to contain only matching observations
-- When no time-range parameters are specified, all edges with at least one qualifying observation are included
-- An edge is included only if it has at least one observation that satisfies the active/archived filter and time-range filter
-- When `include_archived` is `true`, each observation object in the response includes an `archived_at` field (`null` for active, ISO 8601 datetime for archived); when `include_archived` is `false` (default), `archived_at` is omitted from observation objects since all returned observations are active
+- When no time-range parameters are specified, all qualifying edges and their observations are included
+- An edge is included only if it satisfies the active/archived filter and has at least one observation matching the time-range filter (if specified)
+- When `include_archived` is `true`, each edge object in the response includes an `archived_at` field (`null` for active, ISO 8601 datetime for archived); when `include_archived` is `false` (default), `archived_at` is omitted from edge objects since all returned edges are active
 - Neighbors with no matching edges after filtering are excluded from the response
 
 **Validation rules**:
@@ -593,6 +596,7 @@ Content-Type: `application/json`
 | `q` | No | String | — | Search keyword — matches against node name (extracted from ID) and `display_name` in node data |
 | `limit` | No | Integer | `20` | Maximum number of nodes per page (max: 100) |
 | `offset` | No | Integer | `0` | Number of nodes to skip |
+| `include_orphans` | No | Boolean | `false` | When `false` (default), exclude nodes that have no active edges; when `true`, include all nodes regardless of edge status |
 
 **Search behavior**:
 
@@ -600,6 +604,13 @@ Content-Type: `application/json`
 - Search scope: the name portion of the node ID (`type://name`) and the `display_name` field in node data (currently only `Rubyist` nodes carry `display_name`; other node types have empty `data`)
 - `type` and `q` can be used together (AND logic)
 - When no filter parameters are provided, all nodes are returned (paginated)
+
+**Node visibility**:
+
+- By default (`include_orphans=false`), only nodes that have at least one active edge (`edges.archived_at IS NULL`) are returned
+- When `include_orphans=true`, all nodes are returned regardless of edge status
+- `include_orphans` operates independently from the neighbor query's `include_archived` parameter; `include_orphans` controls node-level visibility based on active edge existence, while `include_archived` controls edge-level visibility in neighbor queries
+- This filtering is applied after `type` and `q` filters and before pagination
 
 **Response 200**:
 
@@ -626,6 +637,7 @@ Content-Type: `application/json`
 - `limit` must be a positive integer between 1 and 100
 - `offset` must be a non-negative integer
 - `q`, if provided, must be at least 1 character long
+- `include_orphans`, if provided, must be a boolean value (`true` or `false`)
 
 **Responses**:
 
@@ -670,12 +682,14 @@ Content-Type: `application/json`
 | `target` | Text (NOT NULL, FK → nodes.id) | Target node |
 | `relationship` | Text (NOT NULL) | Relationship type — constrained to ontology types: `Maintenance`, `Contribute` |
 | `properties` | Text (JSON) | Edge metadata as JSON (reserved for future non-observation metadata) |
+| `archived_at` | DateTime | Archive timestamp — `NULL` means active, non-NULL means archived |
 | `created_at` | DateTime | Creation timestamp |
 | `updated_at` | DateTime | Last update timestamp |
 
 - Directed: `source → target`
 - `UNIQUE(source, target, relationship)` — one relationship type per node pair
 - Indexes on `source` and `target` for traversal performance
+- Index on `archived_at` for efficient active/archived filtering
 - `relationship` values are constrained by the ontology (see [Ontology](docs/ontology.md))
 
 **Observation table**:
@@ -689,12 +703,10 @@ Content-Type: `application/json`
 | `source_entity_type` | Text (NOT NULL) | `issue` or `journal` — provenance of this observation |
 | `source_entity_id` | Integer (NOT NULL) | ID of the source entity |
 | `evidence` | Text | Brief LLM-generated summary explaining why this relationship was identified from the source content |
-| `archived_at` | DateTime | Archive timestamp — `NULL` means active, non-NULL means archived |
 | `created_at` | DateTime | Row creation timestamp |
 
 - `UNIQUE(edge_source, edge_target, edge_relationship, source_entity_type, source_entity_id)` — one observation per source entity per edge
 - FK: `(edge_source, edge_target, edge_relationship)` references `edges(source, target, relationship)`
-- Index on `archived_at` for efficient active/archived filtering
 - Index on `observed_at` for time-range queries
 
 **Edge upsert behavior**: When a triplet matches an existing edge (`UNIQUE(source, target, relationship)`), the new observation is inserted into the `observations` table. Existing observations are preserved. Duplicate observations (same `source_entity_type` + `source_entity_id` for the same edge) are not added.
@@ -708,8 +720,8 @@ Content-Type: `application/json`
 
 - Queries may specify a time range to filter edges by `observed_at` values in the `observations` table
 - An edge is included if at least one of its observations falls within the specified time range
-- When no time range is specified, all edges and their active observations are included
-- By default, only active observations (`archived_at IS NULL`) are considered; archived observations are excluded unless explicitly requested
+- When no time range is specified, all qualifying edges and their observations are included
+- By default, only active edges (`edges.archived_at IS NULL`) are included; archived edges are excluded unless explicitly requested via `include_archived`
 
 **Constraints**:
 
@@ -749,7 +761,7 @@ Content-Type: `application/json`
 | LLM correction attempt fails (timeout, API error) | Skip correction, apply original validation result (reject or downgrade); log warning |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 | Job cleanup database error | Log error, continue processing — cleanup failure must not block job processing |
-| Graph observation archiving database error | Log error, continue processing — archiving failure must not block job processing |
+| Graph edge archiving database error | Log error, continue processing — archiving failure must not block job processing |
 
 **Graph Neighbor Query Errors**:
 
@@ -770,6 +782,7 @@ Content-Type: `application/json`
 | Invalid `type` value (not in ontology) | Respond 400, do not query |
 | `limit` out of range or not an integer | Respond 400, do not query |
 | `offset` negative or not an integer | Respond 400, do not query |
+| Invalid `include_orphans` value (not a boolean) | Respond 400, do not query |
 | Empty `q` parameter | Respond 400, do not query |
 | Database query failure | Respond 500, log error |
 
@@ -825,8 +838,8 @@ Content-Type: `application/json`
 | Job cleanup execution | `info` | Number of jobs cleaned, retention period |
 | Job cleanup failure | `error` | Error message |
 | Invalid `JOB_RETENTION` value | `warn` | Provided value, using default |
-| Graph observation archiving execution | `info` | Number of observations archived and records reset; retention period |
-| Graph observation archiving failure | `error` | Error message |
+| Graph edge archiving execution | `info` | Number of edges archived and analysis records reset; retention period |
+| Graph edge archiving failure | `error` | Error message |
 | Invalid `GRAPH_RETENTION` value | `warn` | Provided value, using default |
 
 **Principles**:
@@ -873,7 +886,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `OPENAI_API_KEY` | Yes | — | API key for OpenAI LLM used in triplet extraction |
 | `OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model used for triplet extraction |
 | `JOB_RETENTION` | No | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `12h`, `1d`, `7d` |
-| `GRAPH_RETENTION` | No | `180d` | Retention period for graph observations. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `30d`, `180d`, `365d` |
+| `GRAPH_RETENTION` | No | `180d` | Retention period for graph edges. An edge is archived when its most recent observation exceeds this period. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `30d`, `180d`, `365d` |
 
 #### Port
 
@@ -933,12 +946,12 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | TTL (Time to Live) | A configured duration after which data is eligible for removal or archiving |
 | Knowledge Graph Explorer | A browser-based single-page application for visually exploring the knowledge graph |
 | Cytoscape.js | A JavaScript graph visualization library used to render the knowledge graph in the browser |
-| Graph Observation Archiving | The process of marking observations older than a configured retention period as archived by setting `archived_at`; archived observations are excluded from default queries |
-| Active Observation | An observation where `archived_at IS NULL` — included in default query results |
-| Archived Observation | An observation where `archived_at IS NOT NULL` — excluded from default query results unless explicitly requested |
-| Orphan Node | A node in the knowledge graph that has no remaining active edges connecting it to other nodes |
+| Graph Edge Archiving | The process of marking edges as archived (by setting `edges.archived_at`) when their most recent observation exceeds a configured retention period; archived edges are excluded from default queries |
+| Active Edge | An edge where `archived_at IS NULL` — included in default query results |
+| Archived Edge | An edge where `archived_at IS NOT NULL` — excluded from default query results unless explicitly requested via `include_archived` |
+| Orphan Node | A node in the knowledge graph that has no remaining active (non-archived) edges connecting it to other nodes |
 | Maintenance Console | An IRB-based operational tool (`bin/console`) that loads the application container for manual data inspection and correction |
-| Analysis Record Reset | The process of clearing analysis records for entities whose observations have been archived, enabling re-analysis on the next webhook notification (see Graph Observation Archiving § archive step 2) |
+| Analysis Record Reset | The process of clearing analysis records for entities whose edges have been archived, enabling re-analysis on the next webhook notification (see Graph Edge Archiving § archive step 2) |
 
 ## Patterns
 
@@ -958,8 +971,8 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | TTL-based cleanup | Delete records older than a configured retention period, preventing unbounded data growth | Job Cleanup |
 | Paginated listing | Return a subset of records with total count, limit, and offset metadata for client-side pagination | Graph Node Query Endpoint |
 | Server-rendered SPA | Serve a self-contained HTML page from the server; client-side JavaScript handles all interactivity and data fetching | Knowledge Graph Explorer |
-| Soft archive with query-time filtering | Expired data is marked as archived rather than deleted; queries dynamically exclude archived records by default | Graph Observation Archiving |
-| TTL-triggered re-analysis | Archived observations clear corresponding analysis records, allowing webhooks to naturally trigger fresh analysis | Graph Observation Archiving |
+| Soft archive with query-time filtering | Expired edges are marked as archived rather than deleted; queries dynamically exclude archived edges by default | Graph Edge Archiving |
+| TTL-triggered re-analysis | Archived edges clear corresponding analysis records, allowing webhooks to naturally trigger fresh analysis; if the LLM no longer produces the same triplet, the edge stays archived (self-correcting) | Graph Edge Archiving |
 
 ## Architecture
 
@@ -1000,7 +1013,7 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph storage model | Property graph (Node + Edge tables) | Simple relational model, no external graph DB dependency |
 | Node ID system | Independent text-based IDs | Decouples graph identity from source system |
 | Edge directionality | Directed graph | Relationships have explicit source and target |
-| Metadata storage | JSON text columns for node/edge data; dedicated table for observations | Observations require column-level `archived_at` and efficient SQL filtering; other metadata remains flexible JSON |
+| Metadata storage | JSON text columns for node/edge data; dedicated table for observations; `archived_at` on edges table | Edge-level archiving requires column-level `archived_at` on edges; observations are append-only records used for time-range filtering; other metadata remains flexible JSON |
 | Graph traversal | SQL CTE | Leverages SQLite's recursive CTE support, no external engine needed |
 | Ontology approach | Wikontic-inspired (static ontology + LLM extraction + validation) | Predefined types ensure consistent graph structure; LLM handles unstructured text |
 | Validation feedback strategy | LLM correction with max 1 attempt; role constraint falls back to automatic downgrade | Balances extraction quality improvement with API cost; single attempt captures most correctable errors (name typos, case mismatches) without diminishing returns |
@@ -1022,10 +1035,10 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph visualization library | Cytoscape.js via CDN | Purpose-built for graph/network visualization; no bundler needed |
 | UI data fetching | Client-side fetch from existing Graph API endpoints | Reuses existing API; no server-side rendering of graph data |
 | Health check endpoint path | `GET /health` | Frees root path for UI; follows common health check conventions |
-| Graph observation retention default | `180d` | bugs.ruby-lang.org issues evolve very slowly; 180 days (half a year) provides sufficient history while allowing periodic refresh |
-| Graph archiving strategy | TTL-based soft archive in Analysis Service | Mirrors job cleanup pattern; no additional process required; soft archive preserves data for auditing and allows re-activation |
-| Observation archiving triggers re-analysis | Clear corresponding analysis records | Simplest approach — lets webhooks naturally trigger re-analysis without a dedicated re-analysis scheduler |
-| Observation storage strategy | Dedicated `observations` table instead of JSON in edge `properties` | Enables column-level `archived_at` and efficient SQL filtering; avoids JSON parsing for time-range and archive queries |
+| Graph edge retention default | `180d` | bugs.ruby-lang.org issues evolve very slowly; 180 days (half a year) provides sufficient history while allowing periodic refresh |
+| Graph archiving strategy | TTL-based soft archive at edge level in Analysis Service | Mirrors job cleanup pattern; no additional process required; edge-level archiving ensures that when the most recent observation exceeds the retention period, the entire edge is archived and analysis records are cleared for re-analysis; if the LLM no longer produces the same triplet, the edge stays archived (self-correcting erroneous extractions) |
+| Edge archiving triggers re-analysis | Clear corresponding analysis records | Simplest approach — lets webhooks naturally trigger re-analysis without a dedicated re-analysis scheduler |
+| Observation storage strategy | Dedicated `observations` table (no `archived_at`) with archiving at edge level | Observations are append-only evidence records; archiving is determined by edge staleness (`edges.archived_at`), not per-observation; avoids complexity of observation-level archive management |
 | Maintenance console | `bin/console` + IRB + container | Standard Ruby convention; no predefined commands, operators use the container API directly |
 | Graph retention env var name | `GRAPH_RETENTION` | Follows `JOB_RETENTION` naming convention |
 
