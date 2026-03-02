@@ -27,13 +27,13 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Graph neighbor query returns connected nodes with edge observations, supporting direction and time-range filtering
 - Graph node query endpoint supports listing nodes by type, searching by name/display_name, and paginated results
 - Expired jobs are automatically removed from the database based on a configurable retention period
+- Knowledge graph explorer UI renders at `GET /` and allows visual exploration of nodes, edges, time-range filtering, and direction selection using existing Graph API endpoints
 
 ## Non-goals
 
 - Ontology evolution — The ontology is static and predefined; automatic discovery or modification of node types and relationship types is out of scope
 - Multi-hop reasoning — No inference chains or logical deduction across multiple edges; graph traversal queries are supported for exploration but do not derive new knowledge
 - End-user authentication and access control
-- Frontend UI
 - Multi-worker concurrency
 - Job priority queues
 
@@ -46,7 +46,7 @@ The complete system encompasses four capabilities:
 1. **Webhook reception** — Receive issue change notifications, fetch data from the Redmine API, and track analyzed entities
 2. **Ontology-guided extraction** — Use a predefined ontology and LLM to extract structured triplets from issue data
 3. **Knowledge graph construction** — Write validated triplets into a directed property graph
-4. **Query and exploration** — Provide APIs and interfaces for querying the knowledge graph
+4. **Query and exploration** — Provide APIs and a browser-based visual explorer for querying the knowledge graph
 
 ## Features
 
@@ -55,7 +55,7 @@ The complete system encompasses four capabilities:
 3. **Analysis service** — A background worker that dequeues and processes analysis jobs sequentially
 4. **Issue data fetching** — Retrieve Issue data from the Redmine JSON API to identify entities for analysis
 5. **Analysis tracking** — Record analyzed Issues and Journals to avoid redundant processing and support incremental analysis
-6. **Health check endpoint** — Report application availability status
+6. **Health check endpoint** — Report application availability status at a dedicated path
 7. **Container deployment** — Package the application as a container image for deployment
 8. **Knowledge graph storage** — Store entities and relationships as a directed graph using Node and Edge tables with flexible metadata
 9. **Ontology definition** — Define permitted node types, relationship types, and domain-range constraints that govern the knowledge graph structure
@@ -64,6 +64,7 @@ The complete system encompasses four capabilities:
 12. **Graph neighbor query** — Query the knowledge graph to find nodes connected to a given node, with optional time-range filtering on edge observations
 13. **Job cleanup** — TTL-based cleanup of expired jobs, executed periodically by the Analysis Service
 14. **Graph node query** — List and search nodes in the knowledge graph, with optional type filtering, keyword search, and pagination
+15. **Knowledge graph explorer** — A browser-based UI at the application root that visualizes the knowledge graph using Cytoscape.js, consuming the existing Graph API endpoints
 
 ## User Journeys
 
@@ -121,13 +122,31 @@ The complete system encompasses four capabilities:
 - **Action**: The researcher queries the graph node API with optional type filter and/or search keyword
 - **Outcome**: The API returns a paginated list of matching nodes, enabling the researcher to discover entities in the knowledge graph
 
+### Visual Graph Exploration
+
+- **Context**: A researcher wants to visually explore the knowledge graph
+- **Action**: The researcher opens the application root URL in a browser
+- **Outcome**: The UI renders an interactive graph visualization; the researcher can search for nodes, click to explore neighbors, and see relationship details
+
+### Time-based Visual Filtering
+
+- **Context**: A researcher is viewing a node's neighborhood in the UI
+- **Action**: The researcher sets a time range and direction filter
+- **Outcome**: The graph view updates to show only edges with observations within the specified time range and matching direction
+
+### Node Detail Inspection
+
+- **Context**: A researcher sees an interesting node or edge in the graph visualization
+- **Action**: The researcher clicks on a node or edge
+- **Outcome**: A detail panel displays the node's metadata or the edge's observations (evidence, timestamps, source entities)
+
 ---
 
 ## Behavior
 
 ### Health Check Endpoint
 
-**Endpoint**: `GET /`
+**Endpoint**: `GET /health`
 
 **Responses**:
 
@@ -136,6 +155,40 @@ The complete system encompasses four capabilities:
 | Application is running | `200 OK` | `{ "status": "ok" }` |
 
 Content-Type: `application/json`
+
+### Knowledge Graph Explorer Endpoint
+
+**Endpoint**: `GET /`
+
+**Purpose**: Serve a single-page HTML application that provides interactive visual exploration of the knowledge graph.
+
+**Response 200**: HTML page with:
+- Cytoscape.js loaded via CDN
+- JavaScript that consumes the existing Graph API endpoints (`GET /graph/nodes`, `GET /graph/neighbors`)
+
+**UI Capabilities** (constrain design, open implementation):
+
+| Capability | Description |
+|------------|-------------|
+| Node search | Search nodes by type and keyword, displaying results as a selectable list |
+| Graph visualization | Display nodes and edges as an interactive graph using Cytoscape.js |
+| Neighbor exploration | Click a node to fetch and display its neighbors from the Graph API |
+| Direction filter | Select edge direction (outbound, inbound, both) for neighbor queries |
+| Time-range filter | Set observed_after/observed_before to filter edges by observation time |
+| Node detail | Display node metadata (type, data) when a node is selected |
+| Edge detail | Display edge observations (evidence, timestamps, source entities) when an edge is selected |
+
+**Content-Type**: `text/html`
+
+**Initial state**: On page load, the UI displays the node search interface with no graph rendered. The graph visualization area remains empty until the user searches for and selects a node.
+
+**Data source**: All graph data is fetched client-side via the existing JSON API endpoints. The server only serves the static HTML page.
+
+**Responses**:
+
+| Condition | Status Code | Body |
+|-----------|-------------|------|
+| Application is running | `200 OK` | HTML page |
 
 ### Webhook Endpoint
 
@@ -668,6 +721,14 @@ Each observation record contains:
 | Empty `q` parameter | Respond 400, do not query |
 | Database query failure | Respond 500, log error |
 
+**Knowledge Graph Explorer Errors**:
+
+| Scenario | Behavior |
+|----------|----------|
+| Graph API returns error during client-side fetch | UI displays an inline error message describing the failure; graph visualization remains interactive and does not crash |
+| Graph API returns zero results (empty graph) | UI displays an informational message indicating no matching data is available |
+| Cytoscape.js CDN unavailable | Page loads but graph visualization is non-functional; search and filters remain visible |
+
 ### Global Error Handling
 
 **Scope**: All Controller endpoints
@@ -764,7 +825,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 
 #### Health Check
 
-- Uses the existing `GET /` endpoint as the container health check
+- Uses the dedicated `GET /health` endpoint as the container health check
 - Expected response: `200 OK` with `{ "status": "ok" }`
 
 #### Data Persistence
@@ -806,6 +867,8 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Job Cleanup | The process of removing expired jobs from the database based on a configured retention period |
 | Validation Feedback Correction | The process of sending a failed triplet and its validation errors back to the LLM for a single correction attempt before final rejection |
 | TTL (Time to Live) | A configured duration after which data is eligible for deletion |
+| Knowledge Graph Explorer | A browser-based single-page application for visually exploring the knowledge graph |
+| Cytoscape.js | A JavaScript graph visualization library used to render the knowledge graph in the browser |
 
 ## Patterns
 
@@ -824,6 +887,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Neighbor query | Find all nodes directly connected to a given node by traversing edges in specified directions | Graph Neighbor Query Endpoint |
 | TTL-based cleanup | Delete records older than a configured retention period, preventing unbounded data growth | Job Cleanup |
 | Paginated listing | Return a subset of records with total count, limit, and offset metadata for client-side pagination | Graph Node Query Endpoint |
+| Server-rendered SPA | Serve a self-contained HTML page from the server; client-side JavaScript handles all interactivity and data fetching | Knowledge Graph Explorer |
 
 ## Architecture
 
@@ -882,6 +946,10 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Node query pagination | `limit` + `offset` with total count | Simple, suitable for small datasets; consistent with project's simplicity philosophy |
 | Node search mechanism | Case-insensitive substring match on name and display_name | Simple SQL LIKE query; sufficient for knowledge graph scale |
 | Node query default page size | 20 (max 100) | Reasonable default balancing response size and usability |
+| UI rendering approach | Server-rendered single HTML page with client-side JS | No build step, no asset pipeline; keeps deployment simple |
+| Graph visualization library | Cytoscape.js via CDN | Purpose-built for graph/network visualization; no bundler needed |
+| UI data fetching | Client-side fetch from existing Graph API endpoints | Reuses existing API; no server-side rendering of graph data |
+| Health check endpoint path | `GET /health` | Frees root path for UI; follows common health check conventions |
 
 ### To Be Decided
 
