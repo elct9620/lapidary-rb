@@ -28,7 +28,7 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Graph node query endpoint supports listing nodes by type, searching by name/display_name, and paginated results
 - Expired jobs are automatically removed from the database based on a configurable retention period
 - Knowledge graph explorer UI renders at `GET /` and allows visual exploration of nodes, edges, time-range filtering, and direction selection using existing Graph API endpoints
-- Expired graph observations are automatically removed based on a configurable retention period, cascading to edges and orphan nodes
+- Expired graph observations are automatically archived based on a configurable retention period; cascading archive status affects edge and node visibility in queries
 - A maintenance console (`bin/console`) loads the application container for manual data inspection and correction
 
 ## Non-goals
@@ -67,7 +67,7 @@ The complete system encompasses four capabilities:
 13. **Job cleanup** — TTL-based cleanup of expired jobs, executed periodically by the Analysis Service
 14. **Graph node query** — List and search nodes in the knowledge graph, with optional type filtering, keyword search, and pagination
 15. **Knowledge graph explorer** — A browser-based UI at the application root that visualizes the knowledge graph using Cytoscape.js, consuming the existing Graph API endpoints
-16. **Graph observation expiration** — TTL-based removal of expired observations, executed periodically by the Analysis Service; cascades to empty edges, orphan nodes, and corresponding analysis records
+16. **Graph observation archiving** — TTL-based archiving of expired observations, executed periodically by the Analysis Service; archived observations are excluded from queries by default, and corresponding analysis records are cleared for re-analysis
 17. **Maintenance console** — A `bin/console` entry point that loads the application container into an IRB session for manual data inspection and correction
 
 ## User Journeys
@@ -144,11 +144,17 @@ The complete system encompasses four capabilities:
 - **Action**: The researcher clicks on a node or edge
 - **Outcome**: A detail panel displays the node's metadata or the edge's observations (evidence, timestamps, source entities)
 
-### Graph Observation Expiration
+### Graph Observation Archiving
 
 - **Context**: Over time, observations accumulate and may include outdated or incorrect LLM analysis results
-- **Action**: The Analysis Service periodically removes observations where `observed_at` exceeds the configured retention period
-- **Outcome**: Expired observations are removed, empty edges and orphan nodes are deleted, and corresponding analysis records are cleared so that entities can be re-analyzed on the next webhook notification
+- **Action**: The Analysis Service periodically archives observations where `observed_at` exceeds the configured retention period by setting `archived_at`
+- **Outcome**: Expired observations are archived, edges and nodes with only archived observations are excluded from queries by default, and corresponding analysis records are cleared so that entities can be re-analyzed on the next webhook notification
+
+### Manual Observation Archiving
+
+- **Context**: An operator discovers incorrect or unwanted observations in the knowledge graph
+- **Action**: The operator runs `bin/console` to load the application container and manually archives specific observations by setting their `archived_at` timestamp
+- **Outcome**: Targeted observations are archived and excluded from default queries; corresponding analysis records are cleared to allow re-analysis on the next webhook notification
 
 ### Manual Graph Maintenance
 
@@ -389,23 +395,23 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 
 **Deletion method**: Hard delete — rows are removed directly from the jobs table. No archival is performed, as job data has no value after the graph has been written.
 
-### Graph Observation Expiration
+### Graph Observation Archiving
 
-**Trigger**: The Analysis Service poll loop periodically executes graph observation expiration. Expiration does not need to run on every poll iteration — it may run at a configured interval (e.g., every N polls or a fixed time interval), following the same pattern as job cleanup.
+**Trigger**: The Analysis Service poll loop periodically executes graph observation archiving. Archiving does not need to run on every poll iteration — it may run at a configured interval (e.g., every N polls or a fixed time interval), following the same pattern as job cleanup.
 
 **Retention period**: Configured via the `GRAPH_RETENTION` environment variable, formatted as a number followed by a unit suffix (`12h`, `1d`, `180d`). Default: `180d`.
 
 - Supported units: `h` (hours), `d` (days)
 - Invalid values are treated as errors: a warning is logged at startup and the default value is used
 
-**Cascade rules** (executed in order):
+**Archive rules** (executed in order):
 
-1. Remove observations where `observed_at < cutoff` from edge `properties.observations` arrays, collecting their `(source_entity_type, source_entity_id)` pairs for use in step 4
-2. Delete edges whose `observations` array is now empty
-3. Delete orphan nodes — nodes that have no remaining edges (neither as source nor as target)
-4. Perform Analysis Record Reset: clear analysis records whose `(entity_type, entity_id)` match the `(source_entity_type, source_entity_id)` pairs collected in step 1 — this allows the entity to be re-analyzed on the next webhook notification
+1. Archive observations where `observed_at < cutoff` and `archived_at IS NULL` by setting `archived_at` to the current timestamp, collecting their `(source_entity_type, source_entity_id)` pairs for use in step 2
+2. Perform Analysis Record Reset: clear analysis records whose `(entity_type, entity_id)` match the `(source_entity_type, source_entity_id)` pairs collected in step 1 — this allows the entity to be re-analyzed on the next webhook notification
 
-**Deletion method**: Hard delete — rows and observation entries are removed directly. No archival is performed.
+**Visibility**: Edges and nodes are not physically deleted. Query-time filtering determines visibility — edges with no active (non-archived) observations and nodes with no active edges are excluded from default query results.
+
+**Archive method**: Soft archive — observations are marked with `archived_at` timestamp. Edge and node visibility is determined at query time based on active observation status.
 
 ### Analysis Service
 
@@ -418,7 +424,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 - The analysis record marks the entity in the tracking table as analyzed
 - Job Arguments carry entity data for knowledge graph construction
 - Periodically executes job cleanup to remove expired jobs from the queue (see Job Queue § Job Cleanup)
-- Periodically executes graph observation expiration to remove expired observations and cascade to edges and orphan nodes (see Graph Observation Expiration)
+- Periodically executes graph observation archiving to archive expired observations (see Graph Observation Archiving)
 
 **Analysis domain model**:
 
@@ -475,7 +481,7 @@ The pipeline processes each job through four stages:
 **4. Graph Writing** — Normalized triplets are written to the knowledge graph.
 
 - Subject and object are created as Nodes (upserted by canonical identity); Rubyist node `data` is merged with `display_name` from normalization
-- The relationship is upserted as an Edge; an observation record is appended to the `observations` array in `properties`:
+- The relationship is upserted as an Edge; an observation record is inserted into the `observations` table:
   - `observed_at`: the `created_on` timestamp from the source Issue or Journal
   - `source_entity_type`: `issue` or `journal`
   - `source_entity_id`: the ID of the source entity
@@ -505,6 +511,7 @@ The pipeline processes each job through four stages:
 | `direction` | No | String | `both` | Edge direction filter: `outbound`, `inbound`, or `both` |
 | `observed_after` | No | String | — | ISO 8601 datetime — include edges where `observed_at >= observed_after` (inclusive) |
 | `observed_before` | No | String | — | ISO 8601 datetime — include edges where `observed_at <= observed_before` (inclusive) |
+| `include_archived` | No | Boolean | `false` | When `true`, include archived observations in results; when `false`, only active observations (`archived_at IS NULL`) are returned |
 
 **Response 200**:
 
@@ -550,8 +557,11 @@ Content-Type: `application/json`
 - When `direction` is `outbound`, only edges where the queried node is the source are included
 - When `direction` is `inbound`, only edges where the queried node is the target are included
 - When `direction` is `both`, edges in either direction are included
-- When time-range parameters are specified, only edges with at least one observation within the range are included; the `observations` array in the response is filtered to contain only matching observations
-- When no time-range parameters are specified, all edges and observations are included
+- By default, only active observations (`archived_at IS NULL`) are included; when `include_archived` is `true`, both active and archived observations are returned
+- When time-range parameters are specified, only edges with at least one matching observation are included; the `observations` array in the response is filtered to contain only matching observations
+- When no time-range parameters are specified, all edges with at least one qualifying observation are included
+- An edge is included only if it has at least one observation that satisfies the active/archived filter and time-range filter
+- When `include_archived` is `true`, each observation object in the response includes an `archived_at` field (`null` for active, ISO 8601 datetime for archived); when `include_archived` is `false` (default), `archived_at` is omitted from observation objects since all returned observations are active
 - Neighbors with no matching edges after filtering are excluded from the response
 
 **Validation rules**:
@@ -659,7 +669,7 @@ Content-Type: `application/json`
 | `source` | Text (NOT NULL, FK → nodes.id) | Source node |
 | `target` | Text (NOT NULL, FK → nodes.id) | Target node |
 | `relationship` | Text (NOT NULL) | Relationship type — constrained to ontology types: `Maintenance`, `Contribute` |
-| `properties` | Text (JSON) | Edge metadata as JSON, including temporal qualifiers |
+| `properties` | Text (JSON) | Edge metadata as JSON (reserved for future non-observation metadata) |
 | `created_at` | DateTime | Creation timestamp |
 | `updated_at` | DateTime | Last update timestamp |
 
@@ -668,22 +678,26 @@ Content-Type: `application/json`
 - Indexes on `source` and `target` for traversal performance
 - `relationship` values are constrained by the ontology (see [Ontology](docs/ontology.md))
 
-**Edge `properties` qualifiers**:
+**Observation table**:
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `observations` | Array | List of observation records, one per source entity that produced this edge |
+| Field | Type | Description |
+|-------|------|-------------|
+| `edge_source` | Text (NOT NULL, FK) | Edge source node |
+| `edge_target` | Text (NOT NULL, FK) | Edge target node |
+| `edge_relationship` | Text (NOT NULL) | Edge relationship type |
+| `observed_at` | DateTime (NOT NULL) | Timestamp of the source Issue or Journal (`created_on`) |
+| `source_entity_type` | Text (NOT NULL) | `issue` or `journal` — provenance of this observation |
+| `source_entity_id` | Integer (NOT NULL) | ID of the source entity |
+| `evidence` | Text | Brief LLM-generated summary explaining why this relationship was identified from the source content |
+| `archived_at` | DateTime | Archive timestamp — `NULL` means active, non-NULL means archived |
+| `created_at` | DateTime | Row creation timestamp |
 
-Each observation record contains:
+- `UNIQUE(edge_source, edge_target, edge_relationship, source_entity_type, source_entity_id)` — one observation per source entity per edge
+- FK: `(edge_source, edge_target, edge_relationship)` references `edges(source, target, relationship)`
+- Index on `archived_at` for efficient active/archived filtering
+- Index on `observed_at` for time-range queries
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `observed_at` | DateTime | Timestamp of the source Issue or Journal (`created_on`) |
-| `source_entity_type` | String | `issue` or `journal` — provenance of this observation |
-| `source_entity_id` | Integer | ID of the source entity |
-| `evidence` | String | Brief LLM-generated summary explaining why this relationship was identified from the source content |
-
-**Edge upsert behavior**: When a triplet matches an existing edge (`UNIQUE(source, target, relationship)`), the new observation is appended to the `observations` array. Existing observations are preserved. Duplicate observations (same `source_entity_type` + `source_entity_id`) are not added.
+**Edge upsert behavior**: When a triplet matches an existing edge (`UNIQUE(source, target, relationship)`), the new observation is inserted into the `observations` table. Existing observations are preserved. Duplicate observations (same `source_entity_type` + `source_entity_id` for the same edge) are not added.
 
 **CTE Query patterns**:
 
@@ -692,9 +706,10 @@ Each observation record contains:
 
 **Time-based query filtering**:
 
-- Queries may specify a time range to filter edges by `observed_at` values in the `observations` array
+- Queries may specify a time range to filter edges by `observed_at` values in the `observations` table
 - An edge is included if at least one of its observations falls within the specified time range
-- When no time range is specified, all edges are included
+- When no time range is specified, all edges and their active observations are included
+- By default, only active observations (`archived_at IS NULL`) are considered; archived observations are excluded unless explicitly requested
 
 **Constraints**:
 
@@ -734,7 +749,7 @@ Each observation record contains:
 | LLM correction attempt fails (timeout, API error) | Skip correction, apply original validation result (reject or downgrade); log warning |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 | Job cleanup database error | Log error, continue processing — cleanup failure must not block job processing |
-| Graph observation expiration database error | Log error, continue processing — expiration failure must not block job processing |
+| Graph observation archiving database error | Log error, continue processing — archiving failure must not block job processing |
 
 **Graph Neighbor Query Errors**:
 
@@ -744,6 +759,7 @@ Each observation record contains:
 | `node_id` does not match `type://name` format | Respond 400, do not query |
 | Invalid `direction` value | Respond 400, do not query |
 | Invalid `observed_after` or `observed_before` format | Respond 400, do not query |
+| Invalid `include_archived` value (not a boolean) | Respond 400, do not query |
 | `node_id` references a node that does not exist | Respond 404 |
 | Database query failure | Respond 500, log error |
 
@@ -809,8 +825,8 @@ Each observation record contains:
 | Job cleanup execution | `info` | Number of jobs cleaned, retention period |
 | Job cleanup failure | `error` | Error message |
 | Invalid `JOB_RETENTION` value | `warn` | Provided value, using default |
-| Graph observation expiration execution | `info` | Number of observations, edges, nodes, and records removed; retention period |
-| Graph observation expiration failure | `error` | Error message |
+| Graph observation archiving execution | `info` | Number of observations archived and records reset; retention period |
+| Graph observation archiving failure | `error` | Error message |
 | Invalid `GRAPH_RETENTION` value | `warn` | Provided value, using default |
 
 **Principles**:
@@ -914,13 +930,15 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Neighbor | A node directly connected to a given node by one or more edges |
 | Job Cleanup | The process of removing expired jobs from the database based on a configured retention period |
 | Validation Feedback Correction | The process of sending a failed triplet and its validation errors back to the LLM for a single correction attempt before final rejection |
-| TTL (Time to Live) | A configured duration after which data is eligible for deletion |
+| TTL (Time to Live) | A configured duration after which data is eligible for removal or archiving |
 | Knowledge Graph Explorer | A browser-based single-page application for visually exploring the knowledge graph |
 | Cytoscape.js | A JavaScript graph visualization library used to render the knowledge graph in the browser |
-| Graph Observation Expiration | The process of removing observations older than a configured retention period, cascading to empty edges and orphan nodes |
-| Orphan Node | A node in the knowledge graph that has no remaining edges connecting it to other nodes |
+| Graph Observation Archiving | The process of marking observations older than a configured retention period as archived by setting `archived_at`; archived observations are excluded from default queries |
+| Active Observation | An observation where `archived_at IS NULL` — included in default query results |
+| Archived Observation | An observation where `archived_at IS NOT NULL` — excluded from default query results unless explicitly requested |
+| Orphan Node | A node in the knowledge graph that has no remaining active edges connecting it to other nodes |
 | Maintenance Console | An IRB-based operational tool (`bin/console`) that loads the application container for manual data inspection and correction |
-| Analysis Record Reset | The process of clearing analysis records for entities whose observations have expired, enabling re-analysis on the next webhook notification (see Graph Observation Expiration § cascade step 4) |
+| Analysis Record Reset | The process of clearing analysis records for entities whose observations have been archived, enabling re-analysis on the next webhook notification (see Graph Observation Archiving § archive step 2) |
 
 ## Patterns
 
@@ -940,8 +958,8 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | TTL-based cleanup | Delete records older than a configured retention period, preventing unbounded data growth | Job Cleanup |
 | Paginated listing | Return a subset of records with total count, limit, and offset metadata for client-side pagination | Graph Node Query Endpoint |
 | Server-rendered SPA | Serve a self-contained HTML page from the server; client-side JavaScript handles all interactivity and data fetching | Knowledge Graph Explorer |
-| Cascade cleanup | Parent data removal triggers dependent data removal in a defined order | Graph Observation Expiration |
-| TTL-triggered re-analysis | Expired observations clear corresponding analysis records, allowing webhooks to naturally trigger fresh analysis | Graph Observation Expiration |
+| Soft archive with query-time filtering | Expired data is marked as archived rather than deleted; queries dynamically exclude archived records by default | Graph Observation Archiving |
+| TTL-triggered re-analysis | Archived observations clear corresponding analysis records, allowing webhooks to naturally trigger fresh analysis | Graph Observation Archiving |
 
 ## Architecture
 
@@ -982,7 +1000,7 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph storage model | Property graph (Node + Edge tables) | Simple relational model, no external graph DB dependency |
 | Node ID system | Independent text-based IDs | Decouples graph identity from source system |
 | Edge directionality | Directed graph | Relationships have explicit source and target |
-| Metadata storage | JSON text columns | Flexible, schema-free properties |
+| Metadata storage | JSON text columns for node/edge data; dedicated table for observations | Observations require column-level `archived_at` and efficient SQL filtering; other metadata remains flexible JSON |
 | Graph traversal | SQL CTE | Leverages SQLite's recursive CTE support, no external engine needed |
 | Ontology approach | Wikontic-inspired (static ontology + LLM extraction + validation) | Predefined types ensure consistent graph structure; LLM handles unstructured text |
 | Validation feedback strategy | LLM correction with max 1 attempt; role constraint falls back to automatic downgrade | Balances extraction quality improvement with API cost; single attempt captures most correctable errors (name typos, case mismatches) without diminishing returns |
@@ -1005,8 +1023,9 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | UI data fetching | Client-side fetch from existing Graph API endpoints | Reuses existing API; no server-side rendering of graph data |
 | Health check endpoint path | `GET /health` | Frees root path for UI; follows common health check conventions |
 | Graph observation retention default | `180d` | bugs.ruby-lang.org issues evolve very slowly; 180 days (half a year) provides sufficient history while allowing periodic refresh |
-| Graph cleanup strategy | TTL-based cascade in Analysis Service | Mirrors job cleanup pattern; no additional process required |
-| Observation expiration triggers re-analysis | Clear corresponding analysis records | Simplest approach — lets webhooks naturally trigger re-analysis without a dedicated re-analysis scheduler |
+| Graph archiving strategy | TTL-based soft archive in Analysis Service | Mirrors job cleanup pattern; no additional process required; soft archive preserves data for auditing and allows re-activation |
+| Observation archiving triggers re-analysis | Clear corresponding analysis records | Simplest approach — lets webhooks naturally trigger re-analysis without a dedicated re-analysis scheduler |
+| Observation storage strategy | Dedicated `observations` table instead of JSON in edge `properties` | Enables column-level `archived_at` and efficient SQL filtering; avoids JSON parsing for time-range and archive queries |
 | Maintenance console | `bin/console` + IRB + container | Standard Ruby convention; no predefined commands, operators use the container API directly |
 | Graph retention env var name | `GRAPH_RETENTION` | Follows `JOB_RETENTION` naming convention |
 
