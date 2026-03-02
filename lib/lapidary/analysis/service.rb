@@ -38,13 +38,31 @@ module Lapidary
       def poll_loop
         job_repository = container['analysis.repositories.job_repository']
         use_case = build_use_case(job_repository)
-        cleanup = build_cleanup(job_repository)
-        last_cleanup_at = Time.now - cleanup_interval
+        periodic_tasks = build_periodic_tasks(job_repository)
 
         loop do
-          last_cleanup_at = maybe_cleanup(cleanup, last_cleanup_at)
+          periodic_tasks.each { |t| t[:last_at] = maybe_run(t[:action], t[:last_at]) }
           poll_once(use_case, job_repository)
         end
+      end
+
+      def build_periodic_tasks(job_repository)
+        initial = Time.now - cleanup_interval
+        [
+          { action: build_cleanup(job_repository), last_at: initial },
+          { action: build_archiver, last_at: initial }
+        ]
+      end
+
+      def maybe_run(action, last_run_at)
+        return last_run_at if Time.now - last_run_at < cleanup_interval
+
+        action.call
+        Time.now
+      rescue ::Analysis::Entities::JobError, ::Analysis::Entities::GraphError => e
+        ::Sentry.capture_exception(e)
+        logger.error(self, "Periodic task error: #{e.class}: #{e.message}")
+        Time.now
       end
 
       def poll_once(use_case, job_repository)
@@ -61,17 +79,6 @@ module Lapidary
         sleep poll_interval
       end
 
-      def maybe_cleanup(cleanup, last_cleanup_at)
-        return last_cleanup_at if Time.now - last_cleanup_at < cleanup_interval
-
-        cleanup.call
-        Time.now
-      rescue ::Analysis::Entities::JobError => e
-        ::Sentry.capture_exception(e)
-        logger.error(self, "Job cleanup error: #{e.class}: #{e.message}")
-        Time.now
-      end
-
       def parse_retention_period
         raw = Lapidary.config.analysis.job_retention
         return ::Analysis::Entities::RetentionPeriod.default unless raw
@@ -82,6 +89,27 @@ module Lapidary
         logger.warn(self, "Invalid JOB_RETENTION '#{raw}', using default #{::Analysis::Entities::RetentionPeriod.default}",
                     value: raw)
         ::Analysis::Entities::RetentionPeriod.default
+      end
+
+      def parse_graph_retention
+        raw = Lapidary.config.graph.retention
+        default = ::Analysis::Entities::RetentionPeriod.new(amount: 180, unit: 'd')
+        return default unless raw
+
+        parsed = ::Analysis::Entities::RetentionPeriod.parse(raw)
+        return parsed if parsed
+
+        logger.warn(self, "Invalid GRAPH_RETENTION '#{raw}', using default #{default}", value: raw)
+        default
+      end
+
+      def build_archiver
+        ::Analysis::UseCases::ArchiveEdges.new(
+          graph_repository: container['analysis.repositories.graph_repository'],
+          analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
+          retention_period: parse_graph_retention,
+          logger: logger
+        )
       end
 
       def build_cleanup(job_repository)

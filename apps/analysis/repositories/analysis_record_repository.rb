@@ -21,6 +21,15 @@ module Analysis
           )
         end
       end
+
+      def delete_by_entities(entity_pairs)
+        with_error_wrapping do
+          return 0 if entity_pairs.empty?
+
+          pairs = entity_pairs.map { |ep| [ep[:entity_type], ep[:entity_id]] }
+          dataset.where(%i[entity_type entity_id] => pairs).delete
+        end
+      end
     end
   end
 end

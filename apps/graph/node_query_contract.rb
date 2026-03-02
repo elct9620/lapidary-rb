@@ -13,6 +13,7 @@ module Graph
       optional(:q).filled(:string)
       optional(:limit).filled(:integer)
       optional(:offset).filled(:integer)
+      optional(:include_orphans).filled(:bool)
     end
 
     rule(:type) do

@@ -19,7 +19,8 @@ module Graph
         type: result[:type],
         query: result[:q],
         limit: result[:limit] || 20,
-        offset: result[:offset] || 0
+        offset: result[:offset] || 0,
+        include_orphans: result[:include_orphans] || false
       )
 
       respond_json(container['graph.serializers.node_list_serializer'].call(output))
@@ -35,7 +36,8 @@ module Graph
         node_id: result[:node_id],
         direction: Entities::Direction.parse(result[:direction]),
         observed_after: result[:observed_after],
-        observed_before: result[:observed_before]
+        observed_before: result[:observed_before],
+        include_archived: result[:include_archived] || false
       )
 
       halt_json 404, error: 'node not found' unless output

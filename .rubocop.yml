@@ -13,8 +13,14 @@ AllCops:
   SuggestExtensions: false
   NewCops: enable
 
+Metrics/ClassLength:
+  Exclude:
+    - 'apps/analysis/repositories/graph_repository.rb'
+    - 'lib/lapidary/analysis/service.rb'
+
 Metrics/BlockLength:
   Exclude:
     - 'spec/**/*_spec.rb'
     - 'spec/support/**/*.rb'
+    - 'db/migrations/**/*.rb'
 

@@ -12,6 +12,7 @@ module Graph
       optional(:direction).filled(:string)
       optional(:observed_after).filled(:string)
       optional(:observed_before).filled(:string)
+      optional(:include_archived).filled(:bool)
     end
 
     rule(:node_id) do

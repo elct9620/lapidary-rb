@@ -7,6 +7,7 @@ module Graph
       include NodeSerializer
 
       def call(output)
+        @include_archived = output[:include_archived]
         {
           node: serialize_node(output[:node]),
           neighbors: output[:neighbors].map { |neighbor| serialize_neighbor(neighbor) }
@@ -23,12 +24,14 @@ module Graph
       end
 
       def serialize_edge(edge)
-        {
+        result = {
           source: edge.source,
           target: edge.target,
           relationship: edge.relationship,
           observations: edge.observations.map { |obs| serialize_observation(obs) }
         }
+        result[:archived_at] = edge.archived_at&.iso8601 if @include_archived
+        result
       end
 
       def serialize_observation(observation)

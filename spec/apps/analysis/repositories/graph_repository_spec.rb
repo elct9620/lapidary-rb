@@ -34,16 +34,16 @@ RSpec.describe Analysis::Repositories::GraphRepository do
       expect(db[:nodes].where(id: 'core_module://String').count).to eq(1)
     end
 
-    it 'creates an edge with observation' do
+    it 'creates an edge with observation in observations table' do
       repository.save_triplet(triplet, observation)
 
       edge = db[:edges].where(source: 'rubyist://matz', target: 'core_module://String').first
       expect(edge).not_to be_nil
       expect(edge[:relationship]).to eq('Maintenance')
 
-      observations = JSON.parse(edge[:properties], symbolize_names: true)
-      expect(observations.size).to eq(1)
-      expect(observations.first[:source_entity_type]).to eq('issue')
+      obs_rows = db[:observations].where(edge_source: 'rubyist://matz', edge_target: 'core_module://String').all
+      expect(obs_rows.size).to eq(1)
+      expect(obs_rows.first[:source_entity_type]).to eq('issue')
     end
 
     it 'upserts existing node on second save' do
@@ -88,9 +88,8 @@ RSpec.describe Analysis::Repositories::GraphRepository do
 
       expect(result).to eq(:appended)
 
-      edge = db[:edges].where(source: 'rubyist://matz', target: 'core_module://String').first
-      observations = JSON.parse(edge[:properties], symbolize_names: true)
-      expect(observations.size).to eq(2)
+      obs_rows = db[:observations].where(edge_source: 'rubyist://matz', edge_target: 'core_module://String').all
+      expect(obs_rows.size).to eq(2)
     end
 
     it 'skips duplicate observation' do
@@ -100,9 +99,8 @@ RSpec.describe Analysis::Repositories::GraphRepository do
 
       expect(result).to eq(:duplicate)
 
-      edge = db[:edges].where(source: 'rubyist://matz', target: 'core_module://String').first
-      observations = JSON.parse(edge[:properties], symbolize_names: true)
-      expect(observations.size).to eq(1)
+      obs_rows = db[:observations].where(edge_source: 'rubyist://matz', edge_target: 'core_module://String').all
+      expect(obs_rows.size).to eq(1)
     end
 
     it 'wraps Sequel errors as GraphError' do
@@ -110,6 +108,20 @@ RSpec.describe Analysis::Repositories::GraphRepository do
 
       expect { repository.save_triplet(triplet, observation) }
         .to raise_error(Analysis::Entities::GraphError, 'db error')
+    end
+
+    it 'clears archived_at when appending observation to archived edge' do
+      repository.save_triplet(triplet, observation)
+
+      db[:edges].where(source: 'rubyist://matz', target: 'core_module://String')
+                .update(archived_at: Time.now)
+
+      second_observation = Analysis::Entities::Observation.new(observed_at: Time.now.iso8601,
+                                                               source_entity_type: 'journal', source_entity_id: 2)
+      repository.save_triplet(triplet, second_observation)
+
+      edge = db[:edges].where(source: 'rubyist://matz', target: 'core_module://String').first
+      expect(edge[:archived_at]).to be_nil
     end
 
     it 'builds correct URI for Stdlib nodes' do
@@ -125,6 +137,55 @@ RSpec.describe Analysis::Repositories::GraphRepository do
       repository.save_triplet(stdlib_triplet, observation)
 
       expect(db[:nodes].where(id: 'stdlib://json').count).to eq(1)
+    end
+  end
+
+  describe '#archive_expired' do
+    let(:old_time) { Time.now - (86_400 * 200) }
+    let(:recent_time) { Time.now - 3600 }
+    let(:cutoff) { Time.now - (86_400 * 180) }
+
+    before do
+      repository.save_triplet(triplet, observation)
+    end
+
+    it 'archives edges whose latest observation is before cutoff' do
+      db[:observations].where(edge_source: 'rubyist://matz').update(observed_at: old_time)
+
+      result = repository.archive_expired(cutoff: cutoff)
+
+      expect(result[:archived_count]).to eq(1)
+      edge = db[:edges].where(source: 'rubyist://matz', target: 'core_module://String').first
+      expect(edge[:archived_at]).not_to be_nil
+    end
+
+    it 'does not archive edges with recent observations' do
+      db[:observations].where(edge_source: 'rubyist://matz').update(observed_at: recent_time)
+
+      result = repository.archive_expired(cutoff: cutoff)
+
+      expect(result[:archived_count]).to eq(0)
+      edge = db[:edges].where(source: 'rubyist://matz', target: 'core_module://String').first
+      expect(edge[:archived_at]).to be_nil
+    end
+
+    it 'returns entity pairs from archived edge observations' do
+      db[:observations].where(edge_source: 'rubyist://matz').update(observed_at: old_time)
+
+      result = repository.archive_expired(cutoff: cutoff)
+
+      expect(result[:entity_pairs]).to contain_exactly(
+        { entity_type: 'issue', entity_id: 1 }
+      )
+    end
+
+    it 'skips already archived edges' do
+      db[:observations].where(edge_source: 'rubyist://matz').update(observed_at: old_time)
+      db[:edges].where(source: 'rubyist://matz').update(archived_at: Time.now)
+
+      result = repository.archive_expired(cutoff: cutoff)
+
+      expect(result[:archived_count]).to eq(0)
     end
   end
 end

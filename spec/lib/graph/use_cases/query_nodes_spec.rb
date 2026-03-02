@@ -31,19 +31,21 @@ RSpec.describe Graph::UseCases::QueryNodes do
     it 'passes parameters to repository search' do
       use_case.call(type: 'Rubyist', query: 'matz', limit: 10, offset: 5)
 
-      expect(node_repository).to have_received(:search).with(type: 'Rubyist', query: 'matz', limit: 10, offset: 5)
+      expect(node_repository).to have_received(:search)
+        .with(type: 'Rubyist', query: 'matz', limit: 10, offset: 5, include_orphans: false)
     end
 
     it 'passes parameters to repository count' do
       use_case.call(type: 'Rubyist', query: 'matz', limit: 10, offset: 5)
 
-      expect(node_repository).to have_received(:count).with(type: 'Rubyist', query: 'matz')
+      expect(node_repository).to have_received(:count).with(type: 'Rubyist', query: 'matz', include_orphans: false)
     end
 
     it 'uses default limit and offset' do
       use_case.call
 
-      expect(node_repository).to have_received(:search).with(type: nil, query: nil, limit: 20, offset: 0)
+      expect(node_repository).to have_received(:search)
+        .with(type: nil, query: nil, limit: 20, offset: 0, include_orphans: false)
     end
   end
 end

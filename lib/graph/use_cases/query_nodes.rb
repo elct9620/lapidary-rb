@@ -10,9 +10,10 @@ module Graph
         @node_repository = node_repository
       end
 
-      def call(type: nil, query: nil, limit: 20, offset: 0)
-        nodes = @node_repository.search(type: type, query: query, limit: limit, offset: offset)
-        total = @node_repository.count(type: type, query: query)
+      def call(type: nil, query: nil, limit: 20, offset: 0, include_orphans: false)
+        nodes = @node_repository.search(type: type, query: query, limit: limit, offset: offset,
+                                        include_orphans: include_orphans)
+        total = @node_repository.count(type: type, query: query, include_orphans: include_orphans)
 
         { nodes: nodes, total: total, limit: limit, offset: offset }
       end

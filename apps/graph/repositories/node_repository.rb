@@ -11,26 +11,38 @@ module Graph
       table :nodes
       wraps_errors Entities::GraphQueryError
 
-      def search(type: nil, query: nil, limit: 20, offset: 0)
+      def search(type: nil, query: nil, limit: 20, offset: 0, include_orphans: false)
         with_error_wrapping do
-          apply_filters(dataset, type, query)
+          apply_filters(dataset, type, query, include_orphans)
             .limit(limit, offset)
             .map { |row| build_node(row) }
         end
       end
 
-      def count(type: nil, query: nil)
+      def count(type: nil, query: nil, include_orphans: false)
         with_error_wrapping do
-          apply_filters(dataset, type, query).count
+          apply_filters(dataset, type, query, include_orphans).count
         end
       end
 
       private
 
-      def apply_filters(dataset, type, query)
-        dataset = dataset.where(type: type) if type
-        dataset = apply_search(dataset, query) if query
-        dataset
+      def apply_filters(scope, type, query, include_orphans)
+        scope = scope.where(type: type) if type
+        scope = apply_search(scope, query) if query
+        scope = exclude_orphans(scope) unless include_orphans
+        scope
+      end
+
+      def exclude_orphans(scope)
+        active_edge_exists = database[:edges].where(archived_at: nil)
+                                             .where(
+                                               Sequel.|(
+                                                 { source: Sequel[:nodes][:id] },
+                                                 { target: Sequel[:nodes][:id] }
+                                               )
+                                             ).exists
+        scope.where(active_edge_exists)
       end
 
       def apply_search(dataset, query)

@@ -4,8 +4,8 @@
 module Graph
   module Entities
     # Immutable value object representing a knowledge graph edge with observations.
-    Edge = Data.define(:source, :target, :relationship, :observations) do
-      def initialize(source:, target:, relationship:, observations: [])
+    Edge = Data.define(:source, :target, :relationship, :observations, :archived_at) do
+      def initialize(source:, target:, relationship:, observations: [], archived_at: nil)
         super
       end
     end

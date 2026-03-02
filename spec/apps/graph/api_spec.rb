@@ -27,20 +27,24 @@ RSpec.describe Graph::API do
     now = Time.now
     db[:edges].insert(
       source: 'rubyist://matz', target: 'core_module://String', relationship: 'Contribute',
-      properties: JSON.generate([
-                                  { observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue',
-                                    source_entity_id: 1, evidence: 'Discussed String encoding' },
-                                  { observed_at: '2024-07-01T00:00:00Z', source_entity_type: 'journal',
-                                    source_entity_id: 10, evidence: 'Follow-up comment' }
-                                ]),
       created_at: now, updated_at: now
     )
+    db[:observations].insert(edge_source: 'rubyist://matz', edge_target: 'core_module://String',
+                             edge_relationship: 'Contribute', observed_at: '2024-01-15T10:30:00Z',
+                             source_entity_type: 'issue', source_entity_id: 1,
+                             evidence: 'Discussed String encoding', created_at: now)
+    db[:observations].insert(edge_source: 'rubyist://matz', edge_target: 'core_module://String',
+                             edge_relationship: 'Contribute', observed_at: '2024-07-01T00:00:00Z',
+                             source_entity_type: 'journal', source_entity_id: 10,
+                             evidence: 'Follow-up comment', created_at: now)
+
     db[:edges].insert(
       source: 'core_module://Array', target: 'rubyist://matz', relationship: 'MaintainedBy',
-      properties: JSON.generate([{ observed_at: '2024-06-01T00:00:00Z', source_entity_type: 'issue',
-                                   source_entity_id: 2 }]),
       created_at: now, updated_at: now
     )
+    db[:observations].insert(edge_source: 'core_module://Array', edge_target: 'rubyist://matz',
+                             edge_relationship: 'MaintainedBy', observed_at: '2024-06-01T00:00:00Z',
+                             source_entity_type: 'issue', source_entity_id: 2, created_at: now)
   end
 
   def seed_graph
@@ -52,7 +56,7 @@ RSpec.describe Graph::API do
     context 'with no filters' do
       before do
         seed_nodes(db)
-        get '/graph/nodes'
+        get '/graph/nodes', include_orphans: 'true'
       end
 
       it 'returns 200 OK' do
@@ -79,7 +83,7 @@ RSpec.describe Graph::API do
     context 'with type filter' do
       before do
         seed_nodes(db)
-        get '/graph/nodes', type: 'CoreModule'
+        get '/graph/nodes', type: 'CoreModule', include_orphans: 'true'
       end
 
       it 'returns only matching type' do
@@ -97,7 +101,7 @@ RSpec.describe Graph::API do
     context 'with q search matching node name' do
       before do
         seed_nodes(db)
-        get '/graph/nodes', q: 'matz'
+        get '/graph/nodes', q: 'matz', include_orphans: 'true'
       end
 
       it 'returns matching nodes' do
@@ -110,7 +114,7 @@ RSpec.describe Graph::API do
     context 'with q search matching display_name' do
       before do
         seed_nodes(db)
-        get '/graph/nodes', q: 'Yukihiro'
+        get '/graph/nodes', q: 'Yukihiro', include_orphans: 'true'
       end
 
       it 'returns matching nodes' do
@@ -123,7 +127,7 @@ RSpec.describe Graph::API do
     context 'with type and q combined' do
       before do
         seed_nodes(db)
-        get '/graph/nodes', type: 'CoreModule', q: 'String'
+        get '/graph/nodes', type: 'CoreModule', q: 'String', include_orphans: 'true'
       end
 
       it 'returns nodes matching both filters' do
@@ -136,7 +140,7 @@ RSpec.describe Graph::API do
     context 'with pagination' do
       before do
         seed_nodes(db)
-        get '/graph/nodes', limit: '2', offset: '1'
+        get '/graph/nodes', limit: '2', offset: '1', include_orphans: 'true'
       end
 
       it 'respects limit and offset' do
@@ -147,6 +151,25 @@ RSpec.describe Graph::API do
       end
 
       it 'returns full total regardless of pagination' do
+        body = JSON.parse(last_response.body)
+        expect(body['total']).to eq(3)
+      end
+    end
+
+    context 'with orphan filtering' do
+      before do
+        seed_graph
+      end
+
+      it 'excludes orphan nodes by default' do
+        get '/graph/nodes'
+        body = JSON.parse(last_response.body)
+        ids = body['nodes'].map { |n| n['id'] }
+        expect(ids).to contain_exactly('rubyist://matz', 'core_module://String', 'core_module://Array')
+      end
+
+      it 'includes orphan nodes when include_orphans=true' do
+        get '/graph/nodes', include_orphans: 'true'
         body = JSON.parse(last_response.body)
         expect(body['total']).to eq(3)
       end
@@ -357,6 +380,41 @@ RSpec.describe Graph::API do
       it 'returns JSON error body' do
         body = JSON.parse(last_response.body)
         expect(body).to eq('error' => 'node not found')
+      end
+    end
+
+    context 'with archived edges' do
+      before do
+        seed_graph
+        db[:edges].where(source: 'core_module://Array').update(archived_at: Time.now)
+      end
+
+      it 'excludes archived edges by default' do
+        get '/graph/neighbors', node_id: 'rubyist://matz'
+        body = JSON.parse(last_response.body)
+        expect(body['neighbors'].size).to eq(1)
+        expect(body['neighbors'].first['node']['id']).to eq('core_module://String')
+      end
+
+      it 'includes archived edges when include_archived=true' do
+        get '/graph/neighbors', node_id: 'rubyist://matz', include_archived: 'true'
+        body = JSON.parse(last_response.body)
+        expect(body['neighbors'].size).to eq(2)
+      end
+
+      it 'includes archived_at in edge serialization when include_archived=true' do
+        get '/graph/neighbors', node_id: 'rubyist://matz', include_archived: 'true'
+        body = JSON.parse(last_response.body)
+        archived_neighbor = body['neighbors'].find { |n| n['node']['id'] == 'core_module://Array' }
+        expect(archived_neighbor['edges'].first).to have_key('archived_at')
+        expect(archived_neighbor['edges'].first['archived_at']).not_to be_nil
+      end
+
+      it 'does not include archived_at field when include_archived is not set' do
+        get '/graph/neighbors', node_id: 'rubyist://matz'
+        body = JSON.parse(last_response.body)
+        string_neighbor = body['neighbors'].find { |n| n['node']['id'] == 'core_module://String' }
+        expect(string_neighbor['edges'].first).not_to have_key('archived_at')
       end
     end
 

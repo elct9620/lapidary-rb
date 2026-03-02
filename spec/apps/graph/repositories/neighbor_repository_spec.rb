@@ -18,15 +18,20 @@ RSpec.describe Graph::Repositories::NeighborRepository do
 
     db[:edges].insert(
       source: 'rubyist://matz', target: 'core_module://String', relationship: 'Contribute',
-      properties: JSON.generate([{ observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue',
-                                   source_entity_id: 1 }]),
       created_at: now, updated_at: now
     )
+    db[:observations].insert(
+      edge_source: 'rubyist://matz', edge_target: 'core_module://String', edge_relationship: 'Contribute',
+      observed_at: '2024-01-15T10:30:00Z', source_entity_type: 'issue', source_entity_id: 1, created_at: now
+    )
+
     db[:edges].insert(
       source: 'core_module://Array', target: 'rubyist://matz', relationship: 'MaintainedBy',
-      properties: JSON.generate([{ observed_at: '2024-06-01T00:00:00Z', source_entity_type: 'issue',
-                                   source_entity_id: 2 }]),
       created_at: now, updated_at: now
+    )
+    db[:observations].insert(
+      edge_source: 'core_module://Array', edge_target: 'rubyist://matz', edge_relationship: 'MaintainedBy',
+      observed_at: '2024-06-01T00:00:00Z', source_entity_type: 'issue', source_entity_id: 2, created_at: now
     )
   end
 
@@ -86,22 +91,35 @@ RSpec.describe Graph::Repositories::NeighborRepository do
     end
   end
 
-  describe '#find_edges with malformed timestamp' do
+  describe '#find_edges with archived edges' do
     before do
       now = Time.now
       db[:edges].insert(
         source: 'rubyist://matz', target: 'core_module://Array', relationship: 'Maintenance',
-        properties: JSON.generate([{ observed_at: 'not-a-timestamp', source_entity_type: 'issue',
-                                     source_entity_id: 99 }]),
-        created_at: now, updated_at: now
+        archived_at: now, created_at: now, updated_at: now
+      )
+      db[:observations].insert(
+        edge_source: 'rubyist://matz', edge_target: 'core_module://Array', edge_relationship: 'Maintenance',
+        observed_at: '2024-01-01T00:00:00Z', source_entity_type: 'issue', source_entity_id: 99, created_at: now
       )
     end
 
-    it 'returns nil for malformed observed_at instead of raising' do
+    it 'excludes archived edges by default' do
       edges = repository.find_edges('rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND)
-      malformed_edge = edges.find { |e| e.target == 'core_module://Array' }
+      expect(edges.map(&:target)).to contain_exactly('core_module://String')
+    end
 
-      expect(malformed_edge.observations.first.observed_at).to be_nil
+    it 'includes archived edges when include_archived is true' do
+      edges = repository.find_edges('rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND,
+                                                      include_archived: true)
+      expect(edges.map(&:target)).to contain_exactly('core_module://String', 'core_module://Array')
+    end
+
+    it 'populates archived_at on archived edges' do
+      edges = repository.find_edges('rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND,
+                                                      include_archived: true)
+      archived_edge = edges.find { |e| e.target == 'core_module://Array' }
+      expect(archived_edge.archived_at).not_to be_nil
     end
   end
 

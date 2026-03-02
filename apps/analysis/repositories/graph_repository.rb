@@ -20,6 +20,19 @@ module Analysis
         end
       end
 
+      def archive_expired(cutoff:)
+        with_error_wrapping do
+          now = Time.now
+          expired = find_expired_edges(cutoff)
+          return { archived_count: 0, entity_pairs: [] } if expired.empty?
+
+          entity_pairs = collect_entity_pairs(expired)
+          archive_edges(expired, now)
+
+          { archived_count: expired.size, entity_pairs: entity_pairs }
+        end
+      end
+
       private
 
       # Unlike other repositories, GraphRepository manages a multi-table aggregate (nodes + edges),
@@ -31,6 +44,10 @@ module Analysis
 
       def edges
         database[:edges]
+      end
+
+      def observations
+        database[:observations]
       end
 
       def upsert_nodes(triplet)
@@ -74,29 +91,77 @@ module Analysis
       end
 
       def append_observation(existing, observation, now)
-        observations = parse_json(existing[:properties], default: [])
-        return :duplicate if duplicate_observation?(observations, observation)
+        return :duplicate if duplicate_observation?(existing, observation)
 
-        observations << observation.to_h
-        edges.where(source: existing[:source], target: existing[:target], relationship: existing[:relationship])
-             .update(properties: generate_json(observations), updated_at: now)
+        insert_observation(existing, observation, now)
+        unarchive_edge(existing, now)
         :appended
       end
 
-      def duplicate_observation?(observations, observation)
-        observations.any? do |obs|
-          obs[:source_entity_type] == observation.source_entity_type &&
-            obs[:source_entity_id] == observation.source_entity_id
-        end
+      def duplicate_observation?(existing, observation)
+        observations.where(
+          edge_source: existing[:source],
+          edge_target: existing[:target],
+          edge_relationship: existing[:relationship],
+          source_entity_type: observation.source_entity_type,
+          source_entity_id: observation.source_entity_id
+        ).any?
+      end
+
+      def insert_observation(edge_row, observation, now)
+        observations.insert(
+          edge_source: edge_row[:source],
+          edge_target: edge_row[:target],
+          edge_relationship: edge_row[:relationship],
+          observed_at: observation.observed_at,
+          source_entity_type: observation.source_entity_type,
+          source_entity_id: observation.source_entity_id,
+          evidence: observation.evidence,
+          created_at: now
+        )
+      end
+
+      def unarchive_edge(existing, now)
+        return unless existing[:archived_at]
+
+        edges.where(source: existing[:source], target: existing[:target], relationship: existing[:relationship])
+             .update(archived_at: nil, updated_at: now)
       end
 
       def insert_edge(source:, target:, relationship:, observation:, now:)
         edges.insert(
           source: source, target: target, relationship: relationship,
-          properties: generate_json([observation.to_h]),
           created_at: now, updated_at: now
         )
+        insert_observation({ source: source, target: target, relationship: relationship }, observation, now)
         :inserted
+      end
+
+      def find_expired_edges(cutoff)
+        max_observed = observations.group(:edge_source, :edge_target, :edge_relationship)
+                                   .select { max(observed_at).as(latest) }
+                                   .select_append(:edge_source, :edge_target, :edge_relationship)
+                                   .having { max(observed_at) < cutoff }
+
+        edges.where(archived_at: nil)
+             .where(
+               %i[source target relationship] => max_observed.select(:edge_source, :edge_target,
+                                                                     :edge_relationship)
+             ).all
+      end
+
+      def collect_entity_pairs(expired_edges)
+        keys = expired_edges.map { |e| [e[:source], e[:target], e[:relationship]] }
+        observations.where(%i[edge_source edge_target edge_relationship] => keys)
+                    .distinct
+                    .select(:source_entity_type, :source_entity_id)
+                    .map { |row| { entity_type: row[:source_entity_type], entity_id: row[:source_entity_id] } }
+      end
+
+      def archive_edges(expired_edges, now)
+        keys = expired_edges.map { |e| [e[:source], e[:target], e[:relationship]] }
+        edges.where(%i[source target relationship] => keys)
+             .update(archived_at: now, updated_at: now)
       end
     end
   end

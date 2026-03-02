@@ -10,11 +10,12 @@ module Graph
         @neighbor_repository = neighbor_repository
       end
 
-      def call(node_id:, direction: Entities::Direction::BOTH, observed_after: nil, observed_before: nil)
+      def call(node_id:, direction: Entities::Direction::BOTH, observed_after: nil, observed_before: nil,
+               include_archived: false)
         node = @neighbor_repository.find_node(node_id)
         return nil unless node
 
-        edges = @neighbor_repository.find_edges(node_id, direction: direction)
+        edges = @neighbor_repository.find_edges(node_id, direction: direction, include_archived: include_archived)
         edges = filter_observations(edges, observed_after: observed_after, observed_before: observed_before)
 
         neighbor_ids = collect_neighbor_ids(edges, node_id)
@@ -22,7 +23,7 @@ module Graph
 
         neighbors = build_neighbors(edges, node_id, neighbor_nodes)
 
-        { node: node, neighbors: neighbors }
+        { node: node, neighbors: neighbors, include_archived: include_archived }
       end
 
       private

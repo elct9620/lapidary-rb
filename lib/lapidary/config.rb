@@ -20,6 +20,10 @@ module Lapidary
       setting :cleanup_interval, default: 600
     end
 
+    setting :graph do
+      setting :retention, default: ENV.fetch('GRAPH_RETENTION', nil)
+    end
+
     setting :redmine do
       setting :url, default: ENV.fetch('REDMINE_URL', 'https://bugs.ruby-lang.org')
       setting :timeout, default: 10
