@@ -263,4 +263,5 @@ Mock external boundaries, not internal collaborators. Use real repositories with
 | `OPENAI_MODEL` | `gpt-5-mini` | OpenAI model for triplet extraction |
 | `WEBHOOK_SECRET` | `nil` | When set, webhook requests must include `?token=<value>` matching this secret |
 | `JOB_RETENTION` | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
+| `GRAPH_RETENTION` | `180d` | Retention period for graph observations. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
 | `SENTRY_DSN` | `nil` | Sentry DSN for error tracking and performance monitoring. When unset, Sentry is a no-op |

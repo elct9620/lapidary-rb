@@ -28,6 +28,8 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Graph node query endpoint supports listing nodes by type, searching by name/display_name, and paginated results
 - Expired jobs are automatically removed from the database based on a configurable retention period
 - Knowledge graph explorer UI renders at `GET /` and allows visual exploration of nodes, edges, time-range filtering, and direction selection using existing Graph API endpoints
+- Expired graph observations are automatically removed based on a configurable retention period, cascading to edges and orphan nodes
+- A maintenance console (`bin/console`) loads the application container for manual data inspection and correction
 
 ## Non-goals
 
@@ -65,6 +67,8 @@ The complete system encompasses four capabilities:
 13. **Job cleanup** — TTL-based cleanup of expired jobs, executed periodically by the Analysis Service
 14. **Graph node query** — List and search nodes in the knowledge graph, with optional type filtering, keyword search, and pagination
 15. **Knowledge graph explorer** — A browser-based UI at the application root that visualizes the knowledge graph using Cytoscape.js, consuming the existing Graph API endpoints
+16. **Graph observation expiration** — TTL-based removal of expired observations, executed periodically by the Analysis Service; cascades to empty edges, orphan nodes, and corresponding analysis records
+17. **Maintenance console** — A `bin/console` entry point that loads the application container into an IRB session for manual data inspection and correction
 
 ## User Journeys
 
@@ -139,6 +143,18 @@ The complete system encompasses four capabilities:
 - **Context**: A researcher sees an interesting node or edge in the graph visualization
 - **Action**: The researcher clicks on a node or edge
 - **Outcome**: A detail panel displays the node's metadata or the edge's observations (evidence, timestamps, source entities)
+
+### Graph Observation Expiration
+
+- **Context**: Over time, observations accumulate and may include outdated or incorrect LLM analysis results
+- **Action**: The Analysis Service periodically removes observations where `observed_at` exceeds the configured retention period
+- **Outcome**: Expired observations are removed, empty edges and orphan nodes are deleted, and corresponding analysis records are cleared so that entities can be re-analyzed on the next webhook notification
+
+### Manual Graph Maintenance
+
+- **Context**: An operator discovers incorrect data in the knowledge graph
+- **Action**: The operator runs `bin/console` to load the application container and uses repositories and database tools to inspect and correct data
+- **Outcome**: The operator can examine and fix graph data directly through the container API
 
 ---
 
@@ -373,6 +389,24 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 
 **Deletion method**: Hard delete — rows are removed directly from the jobs table. No archival is performed, as job data has no value after the graph has been written.
 
+### Graph Observation Expiration
+
+**Trigger**: The Analysis Service poll loop periodically executes graph observation expiration. Expiration does not need to run on every poll iteration — it may run at a configured interval (e.g., every N polls or a fixed time interval), following the same pattern as job cleanup.
+
+**Retention period**: Configured via the `GRAPH_RETENTION` environment variable, formatted as a number followed by a unit suffix (`12h`, `1d`, `180d`). Default: `180d`.
+
+- Supported units: `h` (hours), `d` (days)
+- Invalid values are treated as errors: a warning is logged at startup and the default value is used
+
+**Cascade rules** (executed in order):
+
+1. Remove observations where `observed_at < cutoff` from edge `properties.observations` arrays, collecting their `(source_entity_type, source_entity_id)` pairs for use in step 4
+2. Delete edges whose `observations` array is now empty
+3. Delete orphan nodes — nodes that have no remaining edges (neither as source nor as target)
+4. Perform Analysis Record Reset: clear analysis records whose `(entity_type, entity_id)` match the `(source_entity_type, source_entity_id)` pairs collected in step 1 — this allows the entity to be re-analyzed on the next webhook notification
+
+**Deletion method**: Hard delete — rows and observation entries are removed directly. No archival is performed.
+
 ### Analysis Service
 
 **Purpose**: A background worker service that dequeues and processes analysis jobs from the job queue.
@@ -384,6 +418,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 - The analysis record marks the entity in the tracking table as analyzed
 - Job Arguments carry entity data for knowledge graph construction
 - Periodically executes job cleanup to remove expired jobs from the queue (see Job Queue § Job Cleanup)
+- Periodically executes graph observation expiration to remove expired observations and cascade to edges and orphan nodes (see Graph Observation Expiration)
 
 **Analysis domain model**:
 
@@ -699,6 +734,7 @@ Each observation record contains:
 | LLM correction attempt fails (timeout, API error) | Skip correction, apply original validation result (reject or downgrade); log warning |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 | Job cleanup database error | Log error, continue processing — cleanup failure must not block job processing |
+| Graph observation expiration database error | Log error, continue processing — expiration failure must not block job processing |
 
 **Graph Neighbor Query Errors**:
 
@@ -773,6 +809,9 @@ Each observation record contains:
 | Job cleanup execution | `info` | Number of jobs cleaned, retention period |
 | Job cleanup failure | `error` | Error message |
 | Invalid `JOB_RETENTION` value | `warn` | Provided value, using default |
+| Graph observation expiration execution | `info` | Number of observations, edges, nodes, and records removed; retention period |
+| Graph observation expiration failure | `error` | Error message |
+| Invalid `GRAPH_RETENTION` value | `warn` | Provided value, using default |
 
 **Principles**:
 
@@ -818,6 +857,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `OPENAI_API_KEY` | Yes | — | API key for OpenAI LLM used in triplet extraction |
 | `OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model used for triplet extraction |
 | `JOB_RETENTION` | No | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `12h`, `1d`, `7d` |
+| `GRAPH_RETENTION` | No | `180d` | Retention period for graph observations. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `30d`, `180d`, `365d` |
 
 #### Port
 
@@ -833,6 +873,14 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 - SQLite database file must be persisted via volume mount
 - Database path is determined by application configuration
 - The job queue uses the same SQLite database
+
+### Maintenance Console
+
+**Entry point**: `bin/console`
+
+**Behavior**: Loads the application environment, finalizes the container, and starts an IRB session with the container available.
+
+**Scope**: An operational tool for manual data inspection and correction. No predefined commands are provided — operators use the container API directly (e.g., resolving repositories, querying the database).
 
 ---
 
@@ -869,6 +917,10 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | TTL (Time to Live) | A configured duration after which data is eligible for deletion |
 | Knowledge Graph Explorer | A browser-based single-page application for visually exploring the knowledge graph |
 | Cytoscape.js | A JavaScript graph visualization library used to render the knowledge graph in the browser |
+| Graph Observation Expiration | The process of removing observations older than a configured retention period, cascading to empty edges and orphan nodes |
+| Orphan Node | A node in the knowledge graph that has no remaining edges connecting it to other nodes |
+| Maintenance Console | An IRB-based operational tool (`bin/console`) that loads the application container for manual data inspection and correction |
+| Analysis Record Reset | The process of clearing analysis records for entities whose observations have expired, enabling re-analysis on the next webhook notification (see Graph Observation Expiration § cascade step 4) |
 
 ## Patterns
 
@@ -888,6 +940,8 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | TTL-based cleanup | Delete records older than a configured retention period, preventing unbounded data growth | Job Cleanup |
 | Paginated listing | Return a subset of records with total count, limit, and offset metadata for client-side pagination | Graph Node Query Endpoint |
 | Server-rendered SPA | Serve a self-contained HTML page from the server; client-side JavaScript handles all interactivity and data fetching | Knowledge Graph Explorer |
+| Cascade cleanup | Parent data removal triggers dependent data removal in a defined order | Graph Observation Expiration |
+| TTL-triggered re-analysis | Expired observations clear corresponding analysis records, allowing webhooks to naturally trigger fresh analysis | Graph Observation Expiration |
 
 ## Architecture
 
@@ -950,6 +1004,11 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph visualization library | Cytoscape.js via CDN | Purpose-built for graph/network visualization; no bundler needed |
 | UI data fetching | Client-side fetch from existing Graph API endpoints | Reuses existing API; no server-side rendering of graph data |
 | Health check endpoint path | `GET /health` | Frees root path for UI; follows common health check conventions |
+| Graph observation retention default | `180d` | bugs.ruby-lang.org issues evolve very slowly; 180 days (half a year) provides sufficient history while allowing periodic refresh |
+| Graph cleanup strategy | TTL-based cascade in Analysis Service | Mirrors job cleanup pattern; no additional process required |
+| Observation expiration triggers re-analysis | Clear corresponding analysis records | Simplest approach — lets webhooks naturally trigger re-analysis without a dedicated re-analysis scheduler |
+| Maintenance console | `bin/console` + IRB + container | Standard Ruby convention; no predefined commands, operators use the container API directly |
+| Graph retention env var name | `GRAPH_RETENTION` | Follows `JOB_RETENTION` naming convention |
 
 ### To Be Decided
 
