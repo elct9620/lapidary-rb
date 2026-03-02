@@ -14,6 +14,7 @@ export default class extends Controller {
     if (q) params.set("q", q)
     params.set("limit", "20")
     params.set("offset", "0")
+    params.set("include_orphans", "true")
 
     this.statusTarget.textContent = "Searching..."
     this.resultsListTarget.innerHTML = ""

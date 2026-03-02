@@ -36,7 +36,7 @@ export default class extends Controller {
   }
 
   showEdge(event) {
-    const { source, target, relationship, observations } = event.detail
+    const { source, target, relationship, observations, archivedAt } = event.detail
 
     const obsHtml = (observations || []).map(obs => `
       <li class="border-l-2 border-gray-200 pl-3 py-1">
@@ -45,6 +45,17 @@ export default class extends Controller {
         <div class="text-xs text-gray-500 mt-0.5">Source: ${this.escapeHtml(obs.source_entity_type || "")} #${obs.source_entity_id || ""}</div>
       </li>
     `).join("")
+
+    const archivedBadge = archivedAt
+      ? `<div class="flex justify-between">
+          <dt class="text-gray-500">Status</dt>
+          <dd><span class="inline-block px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600">Archived</span></dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-gray-500">Archived At</dt>
+          <dd class="text-xs">${this.escapeHtml(archivedAt)}</dd>
+        </div>`
+      : ""
 
     this.contentTarget.innerHTML = `
       <h3 class="font-semibold text-lg mb-2">${this.escapeHtml(relationship)}</h3>
@@ -57,6 +68,7 @@ export default class extends Controller {
           <dt class="text-gray-500">To</dt>
           <dd class="font-mono text-xs break-all">${this.escapeHtml(target)}</dd>
         </div>
+        ${archivedBadge}
       </dl>
       <h4 class="font-medium text-sm text-gray-600 mb-2">Observations (${observations ? observations.length : 0})</h4>
       <ul class="space-y-2">${obsHtml || '<li class="text-sm text-gray-400">No observations</li>'}</ul>

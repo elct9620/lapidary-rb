@@ -17,7 +17,7 @@ export default class extends Controller {
 
   connect() {
     this.cy = null
-    this.filters = { direction: "both", observedAfter: "", observedBefore: "" }
+    this.filters = { direction: "both", observedAfter: "", observedBefore: "", includeArchived: false }
     this.loadedNodes = new Set()
   }
 
@@ -72,6 +72,13 @@ export default class extends Controller {
           }
         },
         {
+          selector: "edge[?archived]",
+          style: {
+            "line-style": "dotted",
+            opacity: 0.5
+          }
+        },
+        {
           selector: "edge:selected",
           style: {
             width: 4,
@@ -108,6 +115,7 @@ export default class extends Controller {
     if (this.filters.direction) params.set("direction", this.filters.direction)
     if (this.filters.observedAfter) params.set("observed_after", this.filters.observedAfter)
     if (this.filters.observedBefore) params.set("observed_before", this.filters.observedBefore)
+    if (this.filters.includeArchived) params.set("include_archived", "true")
 
     try {
       const response = await fetch(`/graph/neighbors?${params}`)
@@ -146,6 +154,7 @@ export default class extends Controller {
     const edgeId = `${edge.source}-${edge.relationship}-${edge.target}`
     if (this.cy.getElementById(edgeId).length > 0) return
 
+    const archived = edge.archived_at != null
     this.cy.add({
       group: "edges",
       data: {
@@ -153,8 +162,10 @@ export default class extends Controller {
         source: edge.source,
         target: edge.target,
         relationship: edge.relationship,
-        color: EDGE_COLORS[edge.relationship] || "#9CA3AF",
-        observations: edge.observations
+        color: archived ? "#D1D5DB" : (EDGE_COLORS[edge.relationship] || "#9CA3AF"),
+        observations: edge.observations,
+        archivedAt: edge.archived_at || null,
+        archived: archived
       }
     })
   }
@@ -196,7 +207,8 @@ export default class extends Controller {
         source: edge.data("source"),
         target: edge.data("target"),
         relationship: edge.data("relationship"),
-        observations: edge.data("observations")
+        observations: edge.data("observations"),
+        archivedAt: edge.data("archivedAt")
       }
     })
   }
@@ -206,8 +218,8 @@ export default class extends Controller {
   }
 
   async applyFilters(event) {
-    const { direction, observedAfter, observedBefore } = event.detail
-    this.filters = { direction, observedAfter, observedBefore }
+    const { direction, observedAfter, observedBefore, includeArchived } = event.detail
+    this.filters = { direction, observedAfter, observedBefore, includeArchived }
 
     if (this.loadedNodes.size === 0) return
 

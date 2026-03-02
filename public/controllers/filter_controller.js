@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["directionSelect", "observedAfter", "observedBefore"]
+  static targets = ["directionSelect", "observedAfter", "observedBefore", "includeArchived"]
 
   apply() {
     this.dispatch("filter-changed", {
@@ -12,7 +12,8 @@ export default class extends Controller {
           : "",
         observedBefore: this.observedBeforeTarget.value
           ? new Date(this.observedBeforeTarget.value).toISOString()
-          : ""
+          : "",
+        includeArchived: this.includeArchivedTarget.checked
       }
     })
   }
