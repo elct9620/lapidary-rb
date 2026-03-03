@@ -381,7 +381,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 
 #### Job Cleanup
 
-**Trigger**: The Analysis Service poll loop periodically executes job cleanup. Cleanup does not need to run on every poll iteration — it may run at a configured interval (e.g., every N polls or a fixed time interval).
+**Trigger**: The Analysis Service poll loop periodically executes job cleanup. Cleanup does not need to run on every poll iteration — it runs at the interval configured by `CLEANUP_INTERVAL` (default: 86400 seconds / 1 day).
 
 **Retention period**: Configured via the `JOB_RETENTION` environment variable, formatted as a number followed by a unit suffix (`12h`, `1d`, `7d`). Default: `7d`.
 
@@ -398,7 +398,7 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 
 ### Graph Edge Archiving
 
-**Trigger**: The Analysis Service poll loop periodically executes graph edge archiving. Archiving does not need to run on every poll iteration — it may run at a configured interval (e.g., every N polls or a fixed time interval), following the same pattern as job cleanup.
+**Trigger**: The Analysis Service poll loop periodically executes graph edge archiving. Archiving does not need to run on every poll iteration — it shares the same `CLEANUP_INTERVAL` as job cleanup (default: 86400 seconds / 1 day).
 
 **Retention period**: Configured via the `GRAPH_RETENTION` environment variable, formatted as a number followed by a unit suffix (`12h`, `1d`, `180d`). Default: `180d`.
 
@@ -494,6 +494,7 @@ The pipeline processes each job through four stages:
 
 - Failed jobs are retried with exponential backoff
 - A maximum number of attempts is enforced; jobs exceeding this limit are marked as permanently failed
+- Specific backoff parameters (base delay, max delay, max attempts) are implementation choices and not prescribed by this specification
 
 **Graceful shutdown**:
 
@@ -887,6 +888,8 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model used for triplet extraction |
 | `JOB_RETENTION` | No | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `12h`, `1d`, `7d` |
 | `GRAPH_RETENTION` | No | `180d` | Retention period for graph edges. An edge is archived when its most recent observation exceeds this period. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `30d`, `180d`, `365d` |
+| `CLEANUP_INTERVAL` | No | `86400` | Interval in seconds between retention cleanup runs (expired jobs + archived edges). Default is 1 day |
+| `SENTRY_DSN` | No | — | Sentry DSN for error tracking and performance monitoring. When unset, Sentry is a no-op |
 
 #### Port
 
