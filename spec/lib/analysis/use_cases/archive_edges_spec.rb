@@ -5,14 +5,14 @@ require 'spec_helper'
 RSpec.describe Analysis::UseCases::ArchiveEdges do
   subject(:use_case) do
     described_class.new(
-      edge_archive_repository: edge_archive_repository,
+      edge_archive_writer: edge_archive_writer,
       analysis_record_repository: analysis_record_repository,
       retention_period: retention_period,
       logger: logger
     )
   end
 
-  let(:edge_archive_repository) { instance_double(Analysis::Repositories::EdgeArchiveRepository) }
+  let(:edge_archive_writer) { instance_double(Analysis::Repositories::EdgeArchiveWriter) }
   let(:analysis_record_repository) { instance_double(Analysis::Repositories::AnalysisRecordRepository) }
   let(:retention_period) { Analysis::Entities::RetentionPeriod.new(amount: 180, unit: 'd') }
   let(:logger) { instance_double(Console::Logger, info: nil) }
@@ -22,7 +22,7 @@ RSpec.describe Analysis::UseCases::ArchiveEdges do
       let(:entity_pairs) { [{ entity_type: 'issue', entity_id: 1 }] }
 
       before do
-        allow(edge_archive_repository).to receive(:archive_expired)
+        allow(edge_archive_writer).to receive(:archive_expired)
           .and_return(Analysis::Entities::ArchiveResult.new(archived_count: 2, entity_pairs: entity_pairs))
         allow(analysis_record_repository).to receive(:delete_by_entities).and_return(1)
       end
@@ -30,7 +30,7 @@ RSpec.describe Analysis::UseCases::ArchiveEdges do
       it 'archives expired edges via graph repository' do
         use_case.call
 
-        expect(edge_archive_repository).to have_received(:archive_expired).with(cutoff: an_instance_of(Time))
+        expect(edge_archive_writer).to have_received(:archive_expired).with(cutoff: an_instance_of(Time))
       end
 
       it 'resets analysis records for archived edge entities' do
@@ -52,7 +52,7 @@ RSpec.describe Analysis::UseCases::ArchiveEdges do
 
     context 'when no edges are archived' do
       before do
-        allow(edge_archive_repository).to receive(:archive_expired)
+        allow(edge_archive_writer).to receive(:archive_expired)
           .and_return(Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
       end
 
@@ -70,12 +70,12 @@ RSpec.describe Analysis::UseCases::ArchiveEdges do
     it 'computes cutoff from retention period' do
       freeze_time = Time.new(2026, 1, 15, 12, 0, 0)
       expected_cutoff = freeze_time - (180 * 86_400)
-      allow(edge_archive_repository).to receive(:archive_expired)
+      allow(edge_archive_writer).to receive(:archive_expired)
         .and_return(Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
 
       use_case.call(now: freeze_time)
 
-      expect(edge_archive_repository).to have_received(:archive_expired).with(cutoff: expected_cutoff)
+      expect(edge_archive_writer).to have_received(:archive_expired).with(cutoff: expected_cutoff)
     end
   end
 end

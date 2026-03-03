@@ -2,8 +2,8 @@
 
 require 'spec_helper'
 
-RSpec.describe Analysis::Repositories::EdgeArchiveRepository do
-  subject(:repository) { Lapidary::Container['analysis.repositories.edge_archive_repository'] }
+RSpec.describe Analysis::Repositories::EdgeArchiveWriter do
+  subject(:repository) { Lapidary::Container['analysis.repositories.edge_archive_writer'] }
 
   let(:db) { Lapidary::Container['database'] }
   let(:graph_repository) { Lapidary::Container['analysis.repositories.graph_repository'] }

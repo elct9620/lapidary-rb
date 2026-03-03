@@ -2,8 +2,8 @@
 
 module Analysis
   module Repositories
-    # Repository for archiving graph edges based on observation staleness.
-    class EdgeArchiveRepository
+    # Writer for archiving graph edges based on observation staleness.
+    class EdgeArchiveWriter
       include Lapidary::Dependency['database']
       include Lapidary::RepositorySupport
 

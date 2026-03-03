@@ -101,7 +101,7 @@ module Lapidary
 
       def build_archiver
         ::Analysis::UseCases::ArchiveEdges.new(
-          edge_archive_repository: container['analysis.repositories.edge_archive_repository'],
+          edge_archive_writer: container['analysis.repositories.edge_archive_writer'],
           analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
           retention_period: parse_graph_retention,
           logger: logger
