@@ -1,38 +1,57 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["typeSelect", "queryInput", "resultsList", "status"]
+  static targets = ["typeSelect", "queryInput", "resultsList", "status", "loadMoreButton"]
+
+  connect() {
+    this.pageSize = 20
+    this.currentOffset = 0
+    this.currentTotal = 0
+  }
 
   async search(event) {
     event.preventDefault()
+    this.currentOffset = 0
+    this.resultsListTarget.innerHTML = ""
+    this.statusTarget.textContent = "Searching..."
+    await this.fetchNodes(false)
+  }
 
+  async loadMore() {
+    this.currentOffset += this.pageSize
+    await this.fetchNodes(true)
+  }
+
+  async fetchNodes(append) {
     const type = this.typeSelectTarget.value
     const q = this.queryInputTarget.value.trim()
     const params = new URLSearchParams()
 
     if (type) params.set("type", type)
     if (q) params.set("q", q)
-    params.set("limit", "20")
-    params.set("offset", "0")
+    params.set("limit", String(this.pageSize))
+    params.set("offset", String(this.currentOffset))
     params.set("include_orphans", "true")
-
-    this.statusTarget.textContent = "Searching..."
-    this.resultsListTarget.innerHTML = ""
 
     try {
       const response = await fetch(`/graph/nodes?${params}`)
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
       const data = await response.json()
-      this.renderResults(data.nodes, data.total)
+      this.currentTotal = data.total
+      this.renderResults(data.nodes, data.total, append)
+      this.updateLoadMoreButton()
     } catch (error) {
       this.statusTarget.textContent = `Error: ${error.message}`
     }
   }
 
-  renderResults(nodes, total) {
+  renderResults(nodes, total, append) {
     this.statusTarget.textContent = `${total} node${total === 1 ? "" : "s"} found`
-    this.resultsListTarget.innerHTML = ""
+
+    if (!append) {
+      this.resultsListTarget.innerHTML = ""
+    }
 
     nodes.forEach(node => {
       const li = document.createElement("li")
@@ -48,6 +67,14 @@ export default class extends Controller {
 
       this.resultsListTarget.appendChild(li)
     })
+  }
+
+  updateLoadMoreButton() {
+    if (this.currentOffset + this.pageSize < this.currentTotal) {
+      this.loadMoreButtonTarget.classList.remove("hidden")
+    } else {
+      this.loadMoreButtonTarget.classList.add("hidden")
+    }
   }
 
   selectNode(event) {

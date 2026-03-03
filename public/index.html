@@ -55,6 +55,13 @@
       <!-- Results -->
       <div class="flex-1 overflow-y-auto">
         <ul data-search-target="resultsList" class="p-2 space-y-1"></ul>
+        <div class="p-2 hidden" data-search-target="loadMoreButton">
+          <button type="button"
+                  data-action="click->search#loadMore"
+                  class="w-full text-indigo-600 border border-indigo-300 rounded px-3 py-1.5 text-sm font-medium hover:bg-indigo-50 transition">
+            Load More
+          </button>
+        </div>
       </div>
 
       <!-- Filter Panel -->
