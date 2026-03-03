@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { typeBadge, escapeHtml } from "./helpers.js"
 
 const REDMINE_BASE_URL = "https://bugs.ruby-lang.org"
 
@@ -32,23 +33,23 @@ export default class extends Controller {
   showNode(event) {
     const { id, type, data, label } = event.detail
     const dataEntries = Object.entries(data || {})
-      .map(([k, v]) => `<li class="flex justify-between"><span class="text-gray-500">${this.escapeHtml(k)}</span><span class="font-medium">${this.escapeHtml(String(v))}</span></li>`)
+      .map(([k, v]) => `<li class="flex justify-between"><span class="text-gray-500">${escapeHtml(k)}</span><span class="font-medium">${escapeHtml(String(v))}</span></li>`)
       .join("")
 
     const nodeName = id.includes("://") ? id.split("://")[1] : id
     const searchUrl = redmineSearchUrl(nodeName)
-    const searchLink = `<a href="${this.escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline text-xs">Search on bugs.ruby-lang.org ↗</a>`
+    const searchLink = `<a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline text-xs">Search on bugs.ruby-lang.org ↗</a>`
 
     this.contentTarget.innerHTML = `
-      <h3 class="font-semibold text-lg mb-2">${this.escapeHtml(label)}</h3>
+      <h3 class="font-semibold text-lg mb-2">${escapeHtml(label)}</h3>
       <dl class="space-y-1 text-sm mb-3">
         <div class="flex justify-between">
           <dt class="text-gray-500">Type</dt>
-          <dd>${this.typeBadge(type)}</dd>
+          <dd>${typeBadge(type)}</dd>
         </div>
         <div class="flex justify-between">
           <dt class="text-gray-500">ID</dt>
-          <dd class="font-mono text-xs break-all">${this.escapeHtml(id)}</dd>
+          <dd class="font-mono text-xs break-all">${escapeHtml(id)}</dd>
         </div>
       </dl>
       <div class="mb-3">${searchLink}</div>
@@ -61,15 +62,15 @@ export default class extends Controller {
 
     const obsHtml = (observations || []).map(obs => {
       const sourceUrl = redmineSourceUrl(obs.source_entity_type, obs.source_entity_id, obs.parent_entity_id)
-      const sourceLabel = `${this.escapeHtml(obs.source_entity_type || "")} #${obs.source_entity_id || ""}`
+      const sourceLabel = `${escapeHtml(obs.source_entity_type || "")} #${obs.source_entity_id || ""}`
       const sourceContent = sourceUrl
-        ? `<a href="${this.escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">${sourceLabel} ↗</a>`
+        ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">${sourceLabel} ↗</a>`
         : sourceLabel
 
       return `
         <li class="border-l-2 border-gray-200 pl-3 py-1">
-          <div class="text-xs text-gray-400">${this.escapeHtml(obs.observed_at || "")}</div>
-          <div class="text-sm">${this.escapeHtml(obs.evidence || "(no evidence)")}</div>
+          <div class="text-xs text-gray-400">${escapeHtml(obs.observed_at || "")}</div>
+          <div class="text-sm">${escapeHtml(obs.evidence || "(no evidence)")}</div>
           <div class="text-xs text-gray-500 mt-0.5">Source: ${sourceContent}</div>
         </li>
       `
@@ -82,20 +83,20 @@ export default class extends Controller {
         </div>
         <div class="flex justify-between">
           <dt class="text-gray-500">Archived At</dt>
-          <dd class="text-xs">${this.escapeHtml(archivedAt)}</dd>
+          <dd class="text-xs">${escapeHtml(archivedAt)}</dd>
         </div>`
       : ""
 
     this.contentTarget.innerHTML = `
-      <h3 class="font-semibold text-lg mb-2">${this.escapeHtml(relationship)}</h3>
+      <h3 class="font-semibold text-lg mb-2">${escapeHtml(relationship)}</h3>
       <dl class="space-y-1 text-sm mb-3">
         <div class="flex justify-between">
           <dt class="text-gray-500">From</dt>
-          <dd class="font-mono text-xs break-all">${this.escapeHtml(source)}</dd>
+          <dd class="font-mono text-xs break-all">${escapeHtml(source)}</dd>
         </div>
         <div class="flex justify-between">
           <dt class="text-gray-500">To</dt>
-          <dd class="font-mono text-xs break-all">${this.escapeHtml(target)}</dd>
+          <dd class="font-mono text-xs break-all">${escapeHtml(target)}</dd>
         </div>
         ${archivedBadge}
       </dl>
@@ -106,21 +107,5 @@ export default class extends Controller {
 
   clear() {
     this.showPlaceholder()
-  }
-
-  typeBadge(type) {
-    const colors = {
-      Rubyist: "bg-blue-100 text-blue-800",
-      CoreModule: "bg-green-100 text-green-800",
-      Stdlib: "bg-amber-100 text-amber-800"
-    }
-    const cls = colors[type] || "bg-gray-100 text-gray-800"
-    return `<span class="inline-block px-1.5 py-0.5 text-xs font-medium rounded ${cls}">${type}</span>`
-  }
-
-  escapeHtml(text) {
-    const div = document.createElement("div")
-    div.textContent = text
-    return div.innerHTML
   }
 }

@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import cytoscape from "cytoscape"
+import { LoadingGuard } from "./loading_guard.js"
 
 const NODE_COLORS = {
   Rubyist: "#3B82F6",
@@ -19,34 +20,17 @@ export default class extends Controller {
     this.cy = null
     this.filters = { direction: "both", observedAfter: "", observedBefore: "", includeArchived: false }
     this.loadedNodes = new Set()
-  }
 
-  showLoading() {
-    this.loadingDelay = setTimeout(() => {
-      this.loadingShownAt = Date.now()
-      this.overlayTarget.classList.remove("hidden")
-      this.overlayTarget.setAttribute("aria-busy", "true")
-    }, 200)
-  }
-
-  hideLoading() {
-    clearTimeout(this.loadingDelay)
-
-    if (!this.loadingShownAt) return
-
-    const remaining = Math.max(0, 500 - (Date.now() - this.loadingShownAt))
-    this.loadingShownAt = null
-
-    if (remaining === 0) {
-      this.overlayTarget.classList.add("hidden")
-      this.overlayTarget.setAttribute("aria-busy", "false")
-      return
-    }
-
-    setTimeout(() => {
-      this.overlayTarget.classList.add("hidden")
-      this.overlayTarget.setAttribute("aria-busy", "false")
-    }, remaining)
+    this.loading = new LoadingGuard({
+      onShow: () => {
+        this.overlayTarget.classList.remove("hidden")
+        this.overlayTarget.setAttribute("aria-busy", "true")
+      },
+      onHide: () => {
+        this.overlayTarget.classList.add("hidden")
+        this.overlayTarget.setAttribute("aria-busy", "false")
+      }
+    })
   }
 
   initCytoscape() {
@@ -132,11 +116,11 @@ export default class extends Controller {
     this.initCytoscape()
     this.loadedNodes.clear()
     this.cy.elements().remove()
-    this.showLoading()
+    this.loading.show()
     try {
       await this.fetchAndRenderNeighbors(nodeId)
     } finally {
-      this.hideLoading()
+      this.loading.hide()
     }
   }
 
@@ -230,11 +214,11 @@ export default class extends Controller {
         label: node.data("label")
       }
     })
-    this.showLoading()
+    this.loading.show()
     try {
       await this.fetchAndRenderNeighbors(node.id())
     } finally {
-      this.hideLoading()
+      this.loading.hide()
     }
   }
 
@@ -264,11 +248,11 @@ export default class extends Controller {
     const centerNodeId = [...this.loadedNodes][0]
     this.loadedNodes.clear()
     this.cy.elements().remove()
-    this.showLoading()
+    this.loading.show()
     try {
       await this.fetchAndRenderNeighbors(centerNodeId)
     } finally {
-      this.hideLoading()
+      this.loading.hide()
     }
   }
 }

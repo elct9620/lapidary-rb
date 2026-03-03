@@ -1,4 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
+import { typeBadge, escapeHtml } from "./helpers.js"
+import { LoadingGuard } from "./loading_guard.js"
 
 export default class extends Controller {
   static targets = ["typeSelect", "queryInput", "resultsList", "status", "loadMoreButton", "submitButton", "loadMoreBtn"]
@@ -7,6 +9,29 @@ export default class extends Controller {
     this.pageSize = 20
     this.currentOffset = 0
     this.currentTotal = 0
+
+    this.searchGuard = new LoadingGuard({
+      onShow: () => {
+        this.statusTarget.textContent = "Searching..."
+        this.statusTarget.classList.add("text-indigo-600")
+        this.statusTarget.classList.remove("text-gray-500")
+        this.submitButtonTarget.innerHTML = `<svg class="animate-spin inline-block h-4 w-4 mr-1 -mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Searching...`
+      },
+      onHide: () => {
+        this.submitButtonTarget.disabled = false
+        this.submitButtonTarget.innerHTML = "Search"
+      }
+    })
+
+    this.loadMoreGuard = new LoadingGuard({
+      onShow: () => {
+        this.loadMoreBtnTarget.textContent = "Loading..."
+      },
+      onHide: () => {
+        this.loadMoreBtnTarget.disabled = false
+        this.loadMoreBtnTarget.textContent = "Load More"
+      }
+    })
   }
 
   async search(event) {
@@ -14,23 +39,14 @@ export default class extends Controller {
     this.currentOffset = 0
     this.resultsListTarget.innerHTML = ""
     this.submitButtonTarget.disabled = true
-    this.searchSpinnerDelay = setTimeout(() => {
-      this.searchSpinnerShownAt = Date.now()
-      this.statusTarget.textContent = "Searching..."
-      this.statusTarget.classList.add("text-indigo-600")
-      this.statusTarget.classList.remove("text-gray-500")
-      this.submitButtonTarget.innerHTML = `<svg class="animate-spin inline-block h-4 w-4 mr-1 -mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Searching...`
-    }, 200)
+    this.searchGuard.show()
     await this.fetchNodes(false)
   }
 
   async loadMore() {
     this.currentOffset += this.pageSize
     this.loadMoreBtnTarget.disabled = true
-    this.loadMoreSpinnerDelay = setTimeout(() => {
-      this.loadMoreSpinnerShownAt = Date.now()
-      this.loadMoreBtnTarget.textContent = "Loading..."
-    }, 200)
+    this.loadMoreGuard.show()
     await this.fetchNodes(true)
   }
 
@@ -58,8 +74,8 @@ export default class extends Controller {
       this.statusTarget.classList.remove("text-indigo-600")
       this.statusTarget.classList.add("text-red-600")
     } finally {
-      this.restoreSearchButton()
-      this.restoreLoadMoreButton()
+      this.searchGuard.hide()
+      this.loadMoreGuard.hide()
     }
   }
 
@@ -80,9 +96,9 @@ export default class extends Controller {
       li.dataset.nodeType = node.type
       li.dataset.nodeData = JSON.stringify(node.data)
 
-      const badge = this.typeBadge(node.type)
+      const badge = typeBadge(node.type)
       const name = node.data.display_name || node.id.split("://")[1]
-      li.innerHTML = `${badge} <span>${this.escapeHtml(name)}</span>`
+      li.innerHTML = `${badge} <span>${escapeHtml(name)}</span>`
 
       this.resultsListTarget.appendChild(li)
     })
@@ -105,53 +121,5 @@ export default class extends Controller {
         nodeData: JSON.parse(li.dataset.nodeData)
       }
     })
-  }
-
-  typeBadge(type) {
-    const colors = {
-      Rubyist: "bg-blue-100 text-blue-800",
-      CoreModule: "bg-green-100 text-green-800",
-      Stdlib: "bg-amber-100 text-amber-800"
-    }
-    const cls = colors[type] || "bg-gray-100 text-gray-800"
-    return `<span class="inline-block px-1.5 py-0.5 text-xs font-medium rounded ${cls}">${type}</span>`
-  }
-
-  restoreSearchButton() {
-    clearTimeout(this.searchSpinnerDelay)
-
-    const reset = () => {
-      this.submitButtonTarget.disabled = false
-      this.submitButtonTarget.innerHTML = "Search"
-      this.searchSpinnerShownAt = null
-    }
-
-    if (!this.searchSpinnerShownAt) { reset(); return }
-
-    const remaining = Math.max(0, 500 - (Date.now() - this.searchSpinnerShownAt))
-    if (remaining === 0) { reset(); return }
-    setTimeout(reset, remaining)
-  }
-
-  restoreLoadMoreButton() {
-    clearTimeout(this.loadMoreSpinnerDelay)
-
-    const reset = () => {
-      this.loadMoreBtnTarget.disabled = false
-      this.loadMoreBtnTarget.textContent = "Load More"
-      this.loadMoreSpinnerShownAt = null
-    }
-
-    if (!this.loadMoreSpinnerShownAt) { reset(); return }
-
-    const remaining = Math.max(0, 500 - (Date.now() - this.loadMoreSpinnerShownAt))
-    if (remaining === 0) { reset(); return }
-    setTimeout(reset, remaining)
-  }
-
-  escapeHtml(text) {
-    const div = document.createElement("div")
-    div.textContent = text
-    return div.innerHTML
   }
 }
