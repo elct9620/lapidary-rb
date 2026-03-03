@@ -33,6 +33,18 @@ module Analysis
         end
       end
 
+      def archive_by_key(source:, target:, relationship:)
+        with_error_wrapping do
+          edge = edges.where(source: source, target: target, relationship: relationship).first
+          raise Entities::GraphError, 'Edge not found' unless edge
+
+          entity_pairs = collect_entity_pairs([edge])
+          archive_edges([edge], Time.now)
+
+          Entities::ArchiveResult.new(archived_count: 1, entity_pairs: entity_pairs)
+        end
+      end
+
       private
 
       # Unlike other repositories, GraphRepository manages a multi-table aggregate (nodes + edges),

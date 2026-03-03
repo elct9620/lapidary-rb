@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'bundler'
+Bundler.require(:default, ENV.fetch('RACK_ENV', 'development').to_sym)
+
+Dotenv.load if defined?(Dotenv)
+
+require_relative '../lib/lapidary/container'
+Lapidary::Container.finalize!
+
+# Convenience methods available at the top level in IRB
+module ConsoleHelpers
+  def container
+    Lapidary::Container
+  end
+
+  def db
+    container['database']
+  end
+
+  def nodes(type = nil)
+    node_repository.search(type: type, include_orphans: true, limit: 10_000)
+  end
+
+  def node(id)
+    neighbor_repository.find_node(id)
+  end
+
+  def neighbors(node_id)
+    neighbor_repository.find_edges(node_id, include_archived: true)
+  end
+
+  def edges(node_id = nil, archived: false)
+    if node_id
+      neighbor_repository.find_edges(node_id, include_archived: archived)
+    else
+      all_edges(archived)
+    end
+  end
+
+  def archive_edge(source, target, relationship)
+    result = graph_repository.archive_by_key(source: source, target: target, relationship: relationship)
+    analysis_record_repository.delete_by_entities(result.entity_pairs)
+    puts "Archived edge: #{source} -> #{target} [#{relationship}]"
+    puts "Cleared #{result.entity_pairs.length} analysis record(s)"
+  end
+
+  private
+
+  def node_repository
+    container['graph.repositories.node_repository']
+  end
+
+  def neighbor_repository
+    container['graph.repositories.neighbor_repository']
+  end
+
+  def graph_repository
+    container['analysis.repositories.graph_repository']
+  end
+
+  def analysis_record_repository
+    container['analysis.repositories.analysis_record_repository']
+  end
+
+  def all_edges(archived)
+    dataset = db[:edges]
+    dataset = dataset.where(archived_at: nil) unless archived
+    dataset.all
+  end
+end
+
+include ConsoleHelpers # rubocop:disable Style/MixinUsage
+
+require 'irb'
+IRB.start(__FILE__)

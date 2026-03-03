@@ -7,6 +7,7 @@ gem 'dry-events'
 gem 'dry-system'
 gem 'dry-validation'
 gem 'falcon', require: false
+gem 'irb', require: false
 gem 'rake', require: false
 gem 'ruby_llm'
 gem 'sentry-ruby'

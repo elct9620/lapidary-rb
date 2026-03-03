@@ -907,9 +907,21 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 
 **Entry point**: `bin/console`
 
-**Behavior**: Loads the application environment, finalizes the container, and starts an IRB session with the container available.
+**Behavior**: Loads the application environment, finalizes the container, and starts an IRB session with convenience methods available at the top level.
 
-**Scope**: An operational tool for manual data inspection and correction. No predefined commands are provided — operators use the container API directly (e.g., resolving repositories, querying the database).
+**Scope**: An operational tool for manual data inspection and correction.
+
+#### Convenience Methods
+
+| Method | Behavior |
+|--------|----------|
+| `container` | Returns the finalized `Lapidary::Container` |
+| `db` | Returns the Sequel database connection |
+| `nodes(type = nil)` | Lists all nodes; when type is given, filters by node type |
+| `node(id)` | Looks up a single node by ID |
+| `neighbors(node_id)` | Returns edges connected to the node, each with its observations |
+| `edges(node_id = nil, archived: false)` | Returns edges with their observations; filters by node when given; excludes archived edges by default |
+| `archive_edge(source, target, relationship)` | Sets `archived_at` on the edge and deletes corresponding analysis records derived from the edge's observations |
 
 ---
 

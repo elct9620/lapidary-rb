@@ -188,4 +188,33 @@ RSpec.describe Analysis::Repositories::GraphRepository do
       expect(result.archived_count).to eq(0)
     end
   end
+
+  describe '#archive_by_key' do
+    before do
+      repository.save_triplet(triplet, observation)
+    end
+
+    it 'archives the specified edge' do
+      result = repository.archive_by_key(source: 'rubyist://matz', target: 'core_module://String',
+                                         relationship: 'Maintenance')
+
+      expect(result.archived_count).to eq(1)
+      edge = db[:edges].where(source: 'rubyist://matz', target: 'core_module://String').first
+      expect(edge[:archived_at]).not_to be_nil
+    end
+
+    it 'returns entity pairs from the edge observations' do
+      result = repository.archive_by_key(source: 'rubyist://matz', target: 'core_module://String',
+                                         relationship: 'Maintenance')
+
+      expect(result.entity_pairs).to contain_exactly({ entity_type: 'issue', entity_id: 1 })
+    end
+
+    it 'raises GraphError when edge does not exist' do
+      expect do
+        repository.archive_by_key(source: 'rubyist://nobody', target: 'core_module://String',
+                                  relationship: 'Maintenance')
+      end.to raise_error(Analysis::Entities::GraphError, 'Edge not found')
+    end
+  end
 end

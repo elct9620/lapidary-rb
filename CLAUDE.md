@@ -18,6 +18,7 @@ bundle exec rubocop         # Lint
 bundle exec rubocop --autocorrect  # Lint with auto-fix
 bundle exec rake db:migrate # Run database migrations
 bundle exec rake 'db:generate[create_foo]'  # Generate a new migration file with timestamp
+bin/console                 # Start IRB with container and convenience methods
 docker build -t lapidary .  # Build container image
 docker run -p 9292:9292 lapidary  # Run container
 ```
