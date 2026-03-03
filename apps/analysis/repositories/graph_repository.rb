@@ -133,8 +133,7 @@ module Analysis
       end
 
       def observation_edge_key(edge_row)
-        { edge_source: edge_row[:source], edge_target: edge_row[:target],
-          edge_relationship: edge_row[:relationship] }
+        Lapidary::EdgeKey.from_edge_row(edge_row).to_observation_where
       end
 
       def unarchive_edge(existing, now)
@@ -179,7 +178,7 @@ module Analysis
       end
 
       def edge_keys(expired_edges)
-        expired_edges.map { |e| [e[:source], e[:target], e[:relationship]] }
+        expired_edges.map { |e| Lapidary::EdgeKey.from_edge_row(e).to_a }
       end
     end
   end

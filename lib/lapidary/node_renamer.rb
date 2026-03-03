@@ -38,16 +38,16 @@ module Lapidary
 
     def migrate_edges(old_id, new_id)
       database[:edges].where(Sequel.or(source: old_id, target: old_id)).all.each do |edge|
-        old_key = edge.slice(:source, :target, :relationship)
+        old_key = EdgeKey.from_edge_row(edge)
         new_key = remap_key(old_key, old_id, new_id)
         migrate_single_edge(old_key, new_key)
       end
     end
 
     def migrate_single_edge(old_key, new_key)
-      if database[:edges].where(new_key).any?
+      if database[:edges].where(new_key.to_where).any?
         merge_edge_observations(old_key, new_key)
-        database[:edges].where(old_key).delete
+        database[:edges].where(old_key.to_where).delete
       else
         transfer_edge(old_key, new_key)
       end
@@ -56,32 +56,31 @@ module Lapidary
     def transfer_edge(old_key, new_key)
       copy_edge(old_key, new_key)
       repoint_observations(old_key, new_key)
-      database[:edges].where(old_key).delete
+      database[:edges].where(old_key.to_where).delete
     end
 
     def copy_edge(old_key, new_key)
-      old_edge = database[:edges].where(old_key).first
+      old_edge = database[:edges].where(old_key.to_where).first
       database[:edges].insert(
-        new_key.merge(created_at: old_edge[:created_at], updated_at: Time.now, archived_at: old_edge[:archived_at])
+        new_key.to_where.merge(created_at: old_edge[:created_at], updated_at: Time.now,
+                               archived_at: old_edge[:archived_at])
       )
     end
 
     def repoint_observations(old_key, new_key)
-      obs_by_edge(old_key).update(
-        edge_source: new_key[:source], edge_target: new_key[:target], edge_relationship: new_key[:relationship]
-      )
+      obs_by_edge(old_key).update(new_key.to_observation_where)
     end
 
     def remap_key(key, old_id, new_id)
-      { source: key[:source] == old_id ? new_id : key[:source],
-        target: key[:target] == old_id ? new_id : key[:target],
-        relationship: key[:relationship] }
+      EdgeKey.new(
+        source: key.source == old_id ? new_id : key.source,
+        target: key.target == old_id ? new_id : key.target,
+        relationship: key.relationship
+      )
     end
 
     def obs_by_edge(key)
-      database[:observations].where(
-        edge_source: key[:source], edge_target: key[:target], edge_relationship: key[:relationship]
-      )
+      database[:observations].where(key.to_observation_where)
     end
 
     def merge_edge_observations(old_key, new_key)

@@ -68,28 +68,22 @@ module Graph
       end
 
       def build_edge(row, obs_map)
-        key = [row[:source], row[:target], row[:relationship]]
+        edge_key = Lapidary::EdgeKey.from_edge_row(row)
         Entities::Edge.new(
-          source: row[:source],
-          target: row[:target],
-          relationship: row[:relationship],
-          observations: obs_map[key] || [],
+          source: edge_key.source,
+          target: edge_key.target,
+          relationship: edge_key.relationship,
+          observations: obs_map[edge_key] || [],
           archived_at: row[:archived_at]
         )
       end
 
       def load_observations_batch(edge_rows)
-        conditions = edge_rows.map do |r|
-          { edge_source: r[:source], edge_target: r[:target], edge_relationship: r[:relationship] }
-        end
+        conditions = edge_rows.map { |r| Lapidary::EdgeKey.from_edge_row(r).to_observation_where }
         observations_table.where(Sequel.|(*conditions))
                           .each_with_object(Hash.new { |h, k| h[k] = [] }) do |obs, map|
-                            map[observation_key(obs)] << build_observation(obs)
+                            map[Lapidary::EdgeKey.from_observation_row(obs)] << build_observation(obs)
         end
-      end
-
-      def observation_key(obs)
-        [obs[:edge_source], obs[:edge_target], obs[:edge_relationship]]
       end
 
       def build_observation(obs)
