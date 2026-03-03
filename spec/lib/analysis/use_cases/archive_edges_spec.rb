@@ -23,7 +23,7 @@ RSpec.describe Analysis::UseCases::ArchiveEdges do
 
       before do
         allow(graph_repository).to receive(:archive_expired)
-          .and_return({ archived_count: 2, entity_pairs: entity_pairs })
+          .and_return(Analysis::Entities::ArchiveResult.new(archived_count: 2, entity_pairs: entity_pairs))
         allow(analysis_record_repository).to receive(:delete_by_entities).and_return(1)
       end
 
@@ -53,7 +53,7 @@ RSpec.describe Analysis::UseCases::ArchiveEdges do
     context 'when no edges are archived' do
       before do
         allow(graph_repository).to receive(:archive_expired)
-          .and_return({ archived_count: 0, entity_pairs: [] })
+          .and_return(Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
       end
 
       it 'does not call delete_by_entities' do
@@ -71,7 +71,7 @@ RSpec.describe Analysis::UseCases::ArchiveEdges do
       freeze_time = Time.new(2026, 1, 15, 12, 0, 0)
       expected_cutoff = freeze_time - (180 * 86_400)
       allow(graph_repository).to receive(:archive_expired)
-        .and_return({ archived_count: 0, entity_pairs: [] })
+        .and_return(Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
 
       use_case.call(now: freeze_time)
 

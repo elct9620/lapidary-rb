@@ -16,14 +16,14 @@ module Analysis
         cutoff = @retention_period.cutoff(now: now)
         result = @graph_repository.archive_expired(cutoff: cutoff)
 
-        reset_analysis_records(result[:entity_pairs])
+        reset_analysis_records(result.entity_pairs)
 
         @logger.info(self,
-                     "Graph archiving: archived #{result[:archived_count]} edges " \
+                     "Graph archiving: archived #{result.archived_count} edges " \
                      "(retention: #{@retention_period})",
-                     archived: result[:archived_count], retention: @retention_period.to_s)
+                     archived: result.archived_count, retention: @retention_period.to_s)
 
-        result[:archived_count]
+        result.archived_count
       end
 
       private

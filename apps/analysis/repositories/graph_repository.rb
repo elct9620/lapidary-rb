@@ -24,12 +24,12 @@ module Analysis
         with_error_wrapping do
           now = Time.now
           expired = find_expired_edges(cutoff)
-          return { archived_count: 0, entity_pairs: [] } if expired.empty?
+          return Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []) if expired.empty?
 
           entity_pairs = collect_entity_pairs(expired)
           archive_edges(expired, now)
 
-          { archived_count: expired.size, entity_pairs: entity_pairs }
+          Entities::ArchiveResult.new(archived_count: expired.size, entity_pairs: entity_pairs)
         end
       end
 
@@ -151,17 +151,19 @@ module Analysis
       end
 
       def collect_entity_pairs(expired_edges)
-        keys = expired_edges.map { |e| [e[:source], e[:target], e[:relationship]] }
-        observations.where(%i[edge_source edge_target edge_relationship] => keys)
+        observations.where(%i[edge_source edge_target edge_relationship] => edge_keys(expired_edges))
                     .distinct
                     .select(:source_entity_type, :source_entity_id)
                     .map { |row| { entity_type: row[:source_entity_type], entity_id: row[:source_entity_id] } }
       end
 
       def archive_edges(expired_edges, now)
-        keys = expired_edges.map { |e| [e[:source], e[:target], e[:relationship]] }
-        edges.where(%i[source target relationship] => keys)
+        edges.where(%i[source target relationship] => edge_keys(expired_edges))
              .update(archived_at: now, updated_at: now)
+      end
+
+      def edge_keys(expired_edges)
+        expired_edges.map { |e| [e[:source], e[:target], e[:relationship]] }
       end
     end
   end

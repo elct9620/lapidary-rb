@@ -154,7 +154,7 @@ RSpec.describe Analysis::Repositories::GraphRepository do
 
       result = repository.archive_expired(cutoff: cutoff)
 
-      expect(result[:archived_count]).to eq(1)
+      expect(result.archived_count).to eq(1)
       edge = db[:edges].where(source: 'rubyist://matz', target: 'core_module://String').first
       expect(edge[:archived_at]).not_to be_nil
     end
@@ -164,7 +164,7 @@ RSpec.describe Analysis::Repositories::GraphRepository do
 
       result = repository.archive_expired(cutoff: cutoff)
 
-      expect(result[:archived_count]).to eq(0)
+      expect(result.archived_count).to eq(0)
       edge = db[:edges].where(source: 'rubyist://matz', target: 'core_module://String').first
       expect(edge[:archived_at]).to be_nil
     end
@@ -174,7 +174,7 @@ RSpec.describe Analysis::Repositories::GraphRepository do
 
       result = repository.archive_expired(cutoff: cutoff)
 
-      expect(result[:entity_pairs]).to contain_exactly(
+      expect(result.entity_pairs).to contain_exactly(
         { entity_type: 'issue', entity_id: 1 }
       )
     end
@@ -185,7 +185,7 @@ RSpec.describe Analysis::Repositories::GraphRepository do
 
       result = repository.archive_expired(cutoff: cutoff)
 
-      expect(result[:archived_count]).to eq(0)
+      expect(result.archived_count).to eq(0)
     end
   end
 end

@@ -21,7 +21,8 @@ RSpec.describe Lapidary::Analysis::Service do
     let(:job_repository) { double('JobRepository', claim_next: nil, delete_expired: 0) }
     let(:analysis_record_repository) { double('AnalysisRecordRepository') }
     let(:graph_repository) do
-      double('GraphRepository', archive_expired: { archived_count: 0, entity_pairs: [] })
+      double('GraphRepository',
+             archive_expired: Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
     end
     let(:extractor) { double('Extractor') }
     let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
