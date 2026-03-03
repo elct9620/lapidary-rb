@@ -4,11 +4,11 @@ module Lapidary
   # Archives a single edge by key and clears associated analysis records.
   # Orchestrates GraphRepository and AnalysisRecordRepository.
   class EdgeArchiver
-    include Dependency['analysis.repositories.graph_repository']
+    include Dependency['analysis.repositories.edge_archive_repository']
     include Dependency['analysis.repositories.analysis_record_repository']
 
     def call(source:, target:, relationship:)
-      result = graph_repository.archive_by_key(source: source, target: target, relationship: relationship)
+      result = edge_archive_repository.archive_by_key(source: source, target: target, relationship: relationship)
       deleted = analysis_record_repository.delete_by_entities(result.entity_pairs)
       { archived: 1, analysis_records_cleared: deleted }
     end

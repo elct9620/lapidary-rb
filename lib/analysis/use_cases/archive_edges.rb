@@ -5,8 +5,8 @@ module Analysis
   module UseCases
     # Archives expired graph edges and resets corresponding analysis records.
     class ArchiveEdges
-      def initialize(graph_repository:, analysis_record_repository:, retention_period:, logger:)
-        @graph_repository = graph_repository
+      def initialize(edge_archive_repository:, analysis_record_repository:, retention_period:, logger:)
+        @edge_archive_repository = edge_archive_repository
         @analysis_record_repository = analysis_record_repository
         @retention_period = retention_period
         @logger = logger
@@ -14,7 +14,7 @@ module Analysis
 
       def call(now: Time.now)
         cutoff = @retention_period.cutoff(now: now)
-        result = @graph_repository.archive_expired(cutoff: cutoff)
+        result = @edge_archive_repository.archive_expired(cutoff: cutoff)
 
         reset_analysis_records(result.entity_pairs)
 

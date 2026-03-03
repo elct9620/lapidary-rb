@@ -15,7 +15,6 @@ AllCops:
 
 Metrics/ClassLength:
   Exclude:
-    - 'apps/analysis/repositories/graph_repository.rb'
     - 'lib/lapidary/analysis/service.rb'
 
 Metrics/BlockLength:

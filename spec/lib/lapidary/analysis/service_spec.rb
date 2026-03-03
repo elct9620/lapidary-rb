@@ -20,8 +20,8 @@ RSpec.describe Lapidary::Analysis::Service do
   shared_context 'with stubbed container' do
     let(:job_repository) { double('JobRepository', claim_next: nil, delete_expired: 0) }
     let(:analysis_record_repository) { double('AnalysisRecordRepository') }
-    let(:graph_repository) do
-      double('GraphRepository',
+    let(:edge_archive_repository) do
+      double('EdgeArchiveRepository',
              archive_expired: Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
     end
     let(:extractor) { double('Extractor') }
@@ -30,12 +30,14 @@ RSpec.describe Lapidary::Analysis::Service do
     before do
       @orig_job_repo = Lapidary::Container['analysis.repositories.job_repository']
       @orig_analysis_repo = Lapidary::Container['analysis.repositories.analysis_record_repository']
+      @orig_edge_archive_repo = Lapidary::Container['analysis.repositories.edge_archive_repository']
       @orig_graph_repo = Lapidary::Container['analysis.repositories.graph_repository']
       @orig_extractor = Lapidary::Container['analysis.extractors.llm_extractor']
 
       Lapidary::Container.stub('analysis.repositories.job_repository', job_repository)
       Lapidary::Container.stub('analysis.repositories.analysis_record_repository', analysis_record_repository)
-      Lapidary::Container.stub('analysis.repositories.graph_repository', graph_repository)
+      Lapidary::Container.stub('analysis.repositories.edge_archive_repository', edge_archive_repository)
+      Lapidary::Container.stub('analysis.repositories.graph_repository', @orig_graph_repo)
       Lapidary::Container.stub('analysis.extractors.llm_extractor', extractor)
       Lapidary::Container.stub('logger', logger)
     end
@@ -43,6 +45,7 @@ RSpec.describe Lapidary::Analysis::Service do
     after do
       Lapidary::Container.stub('analysis.repositories.job_repository', @orig_job_repo)
       Lapidary::Container.stub('analysis.repositories.analysis_record_repository', @orig_analysis_repo)
+      Lapidary::Container.stub('analysis.repositories.edge_archive_repository', @orig_edge_archive_repo)
       Lapidary::Container.stub('analysis.repositories.graph_repository', @orig_graph_repo)
       Lapidary::Container.stub('analysis.extractors.llm_extractor', @orig_extractor)
       Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
@@ -149,13 +152,13 @@ RSpec.describe Lapidary::Analysis::Service do
           task.sleep(0.05)
           result.stop
 
-          expect(graph_repository).to have_received(:archive_expired).at_least(:once)
+          expect(edge_archive_repository).to have_received(:archive_expired).at_least(:once)
         end
       end
 
       context 'when archiving raises GraphError' do
         before do
-          allow(graph_repository).to receive(:archive_expired).and_raise(
+          allow(edge_archive_repository).to receive(:archive_expired).and_raise(
             Analysis::Entities::GraphError, 'archive failed'
           )
         end
