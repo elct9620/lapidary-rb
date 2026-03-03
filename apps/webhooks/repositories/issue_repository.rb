@@ -43,9 +43,9 @@ module Webhooks
       def parse_author(name)
         return nil unless name
 
-        match = name.match(/\A(.+?)\s*\((.+)\)\z/)
-        if match
-          Entities::Author.new(username: match[1].strip, display_name: match[2].strip)
+        result = Lapidary::ParentheticalName.parse(name)
+        if result
+          Entities::Author.new(username: result[0], display_name: result[1])
         else
           Entities::Author.new(username: name.strip, display_name: nil)
         end

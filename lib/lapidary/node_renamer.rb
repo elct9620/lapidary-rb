@@ -7,8 +7,6 @@ module Lapidary
   class NodeRenamer
     include Dependency['database']
 
-    PARENTHETICAL_PATTERN = /\A(.+?)\s*\((.+)\)\z/
-
     class NodeNotFoundError < StandardError; end
 
     def call(old_id, new_id)
@@ -112,8 +110,8 @@ module Lapidary
     end
 
     def infer_display_name(old_id)
-      match = PARENTHETICAL_PATTERN.match(old_id.split('://', 2).last)
-      match ? { display_name: match[2].strip } : nil
+      result = ParentheticalName.parse(old_id.split('://', 2).last)
+      result ? { display_name: result[1] } : nil
     end
   end
 end
