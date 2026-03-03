@@ -145,9 +145,11 @@ module Lapidary
       end
 
       def build_tools
+        database = container['database']
         [
-          ::Analysis::Extractors::Tools::SearchNodeTool.new(container['database']),
-          ::Analysis::Extractors::Tools::ValidateModuleTool.new
+          ::Analysis::Extractors::Tools::SearchNodeTool.new(database),
+          ::Analysis::Extractors::Tools::ValidateModuleTool.new,
+          ::Analysis::Extractors::Tools::SearchEdgeTool.new(database)
         ]
       end
     end

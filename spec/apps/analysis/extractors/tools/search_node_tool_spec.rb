@@ -8,8 +8,8 @@ RSpec.describe Analysis::Extractors::Tools::SearchNodeTool do
   let(:database) { Lapidary::Container['database'] }
 
   before do
-    database[:nodes].insert(id: 'rubyist://matz', type: 'Rubyist', data: '{}')
-    database[:nodes].insert(id: 'rubyist://nobu', type: 'Rubyist', data: '{}')
+    database[:nodes].insert(id: 'rubyist://matz', type: 'Rubyist', data: '{"display_name":"Yukihiro Matsumoto"}')
+    database[:nodes].insert(id: 'rubyist://nobu', type: 'Rubyist', data: '{"display_name":"Nobuyoshi Nakada"}')
     database[:nodes].insert(id: 'core_module://String', type: 'CoreModule', data: '{}')
   end
 
@@ -38,6 +38,18 @@ RSpec.describe Analysis::Extractors::Tools::SearchNodeTool do
       expect(results).to be_empty
     end
 
+    it 'finds nodes by display_name in data' do
+      results = JSON.parse(tool.execute(query: 'Yukihiro'))
+
+      expect(results).to contain_exactly(a_hash_including('id' => 'rubyist://matz'))
+    end
+
+    it 'includes data in results' do
+      results = JSON.parse(tool.execute(query: 'matz'))
+
+      expect(results.first).to have_key('data')
+    end
+
     it 'escapes LIKE wildcards in the query' do
       results = JSON.parse(tool.execute(query: '%'))
 
@@ -53,7 +65,7 @@ RSpec.describe Analysis::Extractors::Tools::SearchNodeTool do
 
   describe '#description' do
     it 'returns the tool description' do
-      expect(tool.description).to include('Search for existing nodes')
+      expect(tool.description).to include('Search for existing nodes in the knowledge graph by name or display name')
     end
   end
 end

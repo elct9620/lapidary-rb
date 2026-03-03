@@ -95,7 +95,7 @@ module Analysis
       def journal_context(job_arguments)
         return '' unless job_arguments.entity_type == Entities::EntityType::JOURNAL.to_s
 
-        "Issue ##{job_arguments.issue_id}: #{job_arguments.issue_content}"
+        "\n\n## Parent Issue\nIssue ##{job_arguments.issue_id}\n#{job_arguments.issue_content}"
       end
     end
   end

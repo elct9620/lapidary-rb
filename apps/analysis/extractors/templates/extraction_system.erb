@@ -19,9 +19,16 @@ Analyze the following content from bugs.ruby-lang.org and extract relationships 
 
 <%= extraction_rules %>
 
+## Output Format
+
+- Return zero or more triplets based on the content
+- Each triplet must include: reasoning (Y/N step-by-step evaluation), subject, relationship, object, and evidence
+- If no clear relationships can be identified, return an empty triplets array
+
 ## Available Tools
 
 You have access to the following tools to improve extraction accuracy:
 
-- **search_node**: Search for existing nodes in the knowledge graph by name. Use this to verify if a Rubyist username or module name already exists before extracting.
+- **search_node**: Search for existing nodes in the knowledge graph by name or display name. Use this to verify if a Rubyist username, display name, or module name already exists before extracting.
 - **validate_module**: Validate whether a module name exists in the curated module lists. Use this when you are uncertain about a module name's exact spelling or validity.
+- **search_edge**: Search for existing edges (relationships) in the knowledge graph. Use this to check if a relationship between a Rubyist and a module already exists.

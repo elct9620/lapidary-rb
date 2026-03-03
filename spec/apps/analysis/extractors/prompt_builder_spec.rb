@@ -33,7 +33,7 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       end
 
       it 'does not include journal context in the user prompt' do
-        expect(result.user).not_to match(/Issue #\d+:/)
+        expect(result.user).not_to include('## Parent Issue')
       end
 
       it 'includes system instructions in the system prompt' do
@@ -58,8 +58,10 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
         expect(result.user).to include('Patch submitted for review')
       end
 
-      it 'includes journal context with issue reference in the user prompt' do
-        expect(result.user).to match(/Issue #12345: Bug in String#encode/)
+      it 'includes journal context with parent issue section in the user prompt' do
+        expect(result.user).to include('## Parent Issue')
+          .and include('Issue #12345')
+          .and include('Bug in String#encode')
       end
     end
 
