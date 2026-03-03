@@ -127,13 +127,28 @@ module Lapidary
 
       def build_pipeline
         ::Analysis::UseCases::TripletPipeline.new(
-          extractor: container['analysis.extractors.llm_extractor'],
+          extractor: build_extractor,
           # Validator and Normalizer are inner-layer domain objects, not container-managed
           validator: ::Analysis::Ontology::Validator.new,
           normalizer: ::Analysis::Ontology::Normalizer.new,
           graph_repository: container['analysis.repositories.graph_repository'],
           logger: logger
         )
+      end
+
+      def build_extractor
+        ::Analysis::Extractors::LlmExtractor.new(
+          llm: container['llm'],
+          logger: logger,
+          tools: build_tools
+        )
+      end
+
+      def build_tools
+        [
+          ::Analysis::Extractors::Tools::SearchNodeTool.new(container['database']),
+          ::Analysis::Extractors::Tools::ValidateModuleTool.new
+        ]
       end
     end
   end

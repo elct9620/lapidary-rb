@@ -69,7 +69,7 @@ Indicates that a Rubyist maintains or is responsible for a module.
 
 ### Contribute
 
-Indicates that a Rubyist contributes to or interacts with a module.
+Indicates that a Rubyist contributes implementation to a module.
 
 | Attribute | Value |
 |-----------|-------|
@@ -77,7 +77,7 @@ Indicates that a Rubyist contributes to or interacts with a module.
 | Range (target) | `CoreModule` or `Stdlib` |
 | Direction | Rubyist → Module |
 
-**Semantics**: The Rubyist has reported bugs, proposed features, submitted patches, or participated in discussions about the module.
+**Semantics**: The Rubyist has submitted patches, pull requests, or concrete code fixes for the module. Bug reports, feature discussions, and issue confirmations alone do not qualify as Contribute relationships.
 
 ## Domain-Range Constraints
 

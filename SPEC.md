@@ -443,7 +443,23 @@ The pipeline processes each job through four stages:
 - The LLM may return zero triplets if the content does not describe a relevant relationship
 - Jobs with empty `content` (e.g., journals with no notes) are sent to the LLM normally; the expected result is zero triplets
 
-**2. Ontology Validation** — Each candidate triplet is validated against the ontology constraints. When validation fails, the system attempts correction via LLM feedback before rejecting.
+**2. Entity Normalization** — Extracted triplets are normalized to canonical entities using Job Arguments context.
+
+*Rubyist Normalization (Job-context resolution):*
+
+- Matching uses case-insensitive string comparison (LLM output may vary in casing)
+- Canonical identity for a Rubyist is `username` (see [Ontology](docs/ontology.md) § Rubyist Identity)
+- If the extracted subject name matches the Job's `author_username`, use `author_username` as the canonical username
+- If the extracted subject name matches the Job's `author_display_name`, resolve to `author_username`
+- If neither matches, use the extracted name directly as the canonical username (represents a different Rubyist mentioned in the content)
+- When the subject resolves to the Job's author, `author_display_name` from Job Arguments is carried forward as the Rubyist's `display_name` for node data
+
+*Module Normalization:*
+
+- Validation (Stage 3) ensures the object name exists in the curated module list via case-sensitive exact match (consistent with [Ontology](docs/ontology.md) § CoreModule/Stdlib Identity)
+- Normalization passes the extracted name through as-is — no additional transformation is applied
+
+**3. Ontology Validation** — Each normalized triplet is validated against the ontology constraints. When validation fails, the system attempts correction via LLM feedback before rejecting.
 
 *Validation rules:*
 
@@ -464,22 +480,6 @@ The pipeline processes each job through four stages:
 - Triplets that pass initial validation proceed directly without correction
 - Correction attempts are logged at `info` level with the original error and correction result
 - Final rejections (after failed correction) are logged at `warn` level
-
-**3. Entity Normalization** — Validated triplets are normalized to canonical entities using Job Arguments context.
-
-*Rubyist Normalization (Job-context resolution):*
-
-- Matching uses case-insensitive string comparison (LLM output may vary in casing)
-- Canonical identity for a Rubyist is `username` (see [Ontology](docs/ontology.md) § Rubyist Identity)
-- If the extracted subject name matches the Job's `author_username`, use `author_username` as the canonical username
-- If the extracted subject name matches the Job's `author_display_name`, resolve to `author_username`
-- If neither matches, use the extracted name directly as the canonical username (represents a different Rubyist mentioned in the content)
-- When the subject resolves to the Job's author, `author_display_name` from Job Arguments is carried forward as the Rubyist's `display_name` for node data
-
-*Module Normalization:*
-
-- Validation (Stage 2) already ensures the object name exists in the curated module list via case-sensitive exact match (consistent with [Ontology](docs/ontology.md) § CoreModule/Stdlib Identity)
-- Normalization passes the validated name through as-is — no additional transformation is applied
 
 **4. Graph Writing** — Normalized triplets are written to the knowledge graph.
 

@@ -32,8 +32,9 @@ module Analysis
         validated = validate_or_correct(normalized, arguments)
         return :rejected unless validated
 
-        log_role_downgrade(normalized, validated.triplet)
-        write_triplet(validated.triplet, observation)
+        final_triplet = apply_role_fallback(validated.triplet)
+        log_role_downgrade(normalized, final_triplet)
+        write_triplet(final_triplet, observation)
       end
 
       def validate_or_correct(triplet, arguments)
@@ -50,6 +51,7 @@ module Analysis
         corrected = @extractor.correct(triplet, errors, arguments)
         return log_correction_failure(errors, ['no correction returned']) unless corrected
 
+        corrected = apply_role_fallback(corrected)
         re_result = @validator.call(corrected)
         return log_correction_failure(errors, re_result.errors) if re_result.errors.any?
 
@@ -62,6 +64,13 @@ module Analysis
         @logger.warn(self, "Correction failed: original=#{original_errors.join(', ')}, " \
                            "after=#{correction_errors.join(', ')}")
         nil
+      end
+
+      def apply_role_fallback(triplet)
+        return triplet unless triplet.relationship == Entities::RelationshipType::MAINTENANCE
+        return triplet if triplet.subject.properties[:role] == 'maintainer'
+
+        triplet.with(relationship: Entities::RelationshipType::CONTRIBUTE)
       end
 
       def log_role_downgrade(original, validated)

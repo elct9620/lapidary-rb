@@ -12,18 +12,16 @@ module Analysis
       VALID_RELATIONSHIPS = Entities::RelationshipType::ALL
 
       def call(triplet)
-        # Phase 1: Structural validation
         errors = [
           validate_subject_type(triplet),
           validate_subject_name(triplet),
           validate_object_type(triplet),
-          validate_relationship(triplet)
+          validate_relationship(triplet),
+          validate_role_constraint(triplet),
+          validate_module_name(triplet)
         ].compact
 
-        # Phase 2: Semantic validation
-        triplet = apply_role_constraint(triplet)
-        errors << validate_module_name(triplet)
-        ValidationResult.new(triplet: triplet, errors: errors.compact)
+        ValidationResult.new(triplet: triplet, errors: errors)
       end
 
       private
@@ -53,11 +51,11 @@ module Analysis
         "relationship must be Maintenance or Contribute, got #{triplet.relationship}"
       end
 
-      def apply_role_constraint(triplet)
-        return triplet unless triplet.relationship == Entities::RelationshipType::MAINTENANCE
-        return triplet if triplet.subject.properties[:role] == 'maintainer'
+      def validate_role_constraint(triplet)
+        return unless triplet.relationship == Entities::RelationshipType::MAINTENANCE
+        return if triplet.subject.properties[:role] == 'maintainer'
 
-        triplet.with(relationship: Entities::RelationshipType::CONTRIBUTE)
+        "Maintenance relationship requires role=maintainer, got role=#{triplet.subject.properties[:role]}"
       end
 
       def validate_module_name(triplet)

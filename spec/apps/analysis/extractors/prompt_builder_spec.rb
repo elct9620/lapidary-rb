@@ -165,6 +165,18 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       expect(result.system).to include('correct')
     end
 
+    it 'includes extraction rules in the system prompt' do
+      expect(result.system).to include('Extraction Rules')
+    end
+
+    it 'includes evaluation steps in the system prompt' do
+      expect(result.system).to include('Evaluation Steps')
+    end
+
+    it 'includes extraction rubric in the system prompt' do
+      expect(result.system).to include('Extraction Rubric')
+    end
+
     it 'includes the failed triplet in the user prompt' do
       expect(result.user).to include('matz')
         .and include('InvalidModule')

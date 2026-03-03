@@ -17,9 +17,11 @@ module Analysis
       ALL = [MAINTENANCE, CONTRIBUTE].freeze
 
       DESCRIPTIONS = {
-        MAINTENANCE => 'A Rubyist who actively maintains a module (commits, merges, backports, or assigns issues)',
+        MAINTENANCE => 'A Rubyist who actively maintains a module (commits, merges, backports, or assigns issues). ' \
+                       'Domain: Rubyist (role = maintainer). Range: CoreModule or Stdlib.',
         CONTRIBUTE => 'A Rubyist who contributes implementation to a module ' \
-                      '(submits patches, pull requests, or concrete code fixes)'
+                      '(submits patches, pull requests, or concrete code fixes). ' \
+                      'Domain: Rubyist (any role). Range: CoreModule or Stdlib.'
       }.freeze
     end
   end

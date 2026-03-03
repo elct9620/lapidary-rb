@@ -1,0 +1,40 @@
+# auto_register: false
+# frozen_string_literal: true
+
+module Analysis
+  module Extractors
+    module Tools
+      # Searches for existing nodes in the knowledge graph by name.
+      # Lets the LLM verify Rubyist usernames or module names.
+      class SearchNodeTool < RubyLLM::Tool
+        description 'Search for existing nodes in the knowledge graph by name. ' \
+                    'Use this to verify if a Rubyist username or module name already exists.'
+
+        param :query, desc: 'Name or partial name to search for'
+        param :type, desc: 'Node type filter: Rubyist, CoreModule, or Stdlib', required: false
+
+        def initialize(database)
+          super()
+          @database = database
+        end
+
+        def execute(query:, type: nil)
+          dataset = @database[:nodes]
+          dataset = dataset.where(type: type.to_s) if type
+          pattern = "%#{escape_like(query)}%"
+          results = dataset.where(Sequel.ilike(:id, pattern))
+                           .limit(10)
+                           .select(:id, :type)
+                           .all
+          results.map { |row| { id: row[:id], type: row[:type] } }.to_json
+        end
+
+        private
+
+        def escape_like(value)
+          value.to_s.gsub(/[%_\\]/) { |c| "\\#{c}" }
+        end
+      end
+    end
+  end
+end

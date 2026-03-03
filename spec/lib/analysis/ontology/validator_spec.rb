@@ -145,7 +145,7 @@ RSpec.describe Analysis::Ontology::Validator do
     end
 
     context 'when Maintenance subject has role=submaintainer' do
-      it 'downgrades to Contribute' do
+      it 'returns a role constraint error' do
         submaintainer = Analysis::Entities::Node.new(
           type: Analysis::Entities::NodeType::RUBYIST,
           name: 'helper',
@@ -159,13 +159,13 @@ RSpec.describe Analysis::Ontology::Validator do
 
         result = validator.call(triplet)
 
-        expect(result.errors).to be_empty
-        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::CONTRIBUTE)
+        expect(result.errors).to include('Maintenance relationship requires role=maintainer, got role=submaintainer')
+        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::MAINTENANCE)
       end
     end
 
     context 'when Maintenance subject has role=contributor' do
-      it 'downgrades to Contribute' do
+      it 'returns a role constraint error' do
         contributor = Analysis::Entities::Node.new(
           type: Analysis::Entities::NodeType::RUBYIST,
           name: 'contributor',
@@ -179,13 +179,13 @@ RSpec.describe Analysis::Ontology::Validator do
 
         result = validator.call(triplet)
 
-        expect(result.errors).to be_empty
-        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::CONTRIBUTE)
+        expect(result.errors).to include('Maintenance relationship requires role=maintainer, got role=contributor')
+        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::MAINTENANCE)
       end
     end
 
     context 'when Maintenance subject has no role (defaults)' do
-      it 'downgrades to Contribute' do
+      it 'returns a role constraint error' do
         no_role = Analysis::Entities::Node.new(
           type: Analysis::Entities::NodeType::RUBYIST,
           name: 'someone'
@@ -198,8 +198,8 @@ RSpec.describe Analysis::Ontology::Validator do
 
         result = validator.call(triplet)
 
-        expect(result.errors).to be_empty
-        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::CONTRIBUTE)
+        expect(result.errors).to include(a_string_matching(/Maintenance relationship requires role=maintainer/))
+        expect(result.triplet.relationship).to eq(Analysis::Entities::RelationshipType::MAINTENANCE)
       end
     end
 

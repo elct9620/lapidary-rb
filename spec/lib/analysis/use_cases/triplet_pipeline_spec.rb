@@ -179,11 +179,44 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
     end
 
     context 'when a non-maintainer Maintenance triplet is extracted' do
-      let(:extractor) do
-        instance_double(Analysis::Extractors::LlmExtractor, call: [contributor_triplet])
+      let(:corrected) do
+        build_triplet(
+          subject: build_node(type: Analysis::Entities::NodeType::RUBYIST, name: 'contributor',
+                              properties: { role: 'contributor' }),
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: build_node(type: Analysis::Entities::NodeType::CORE_MODULE, name: 'String')
+        )
       end
 
-      it 'downgrades to Contribute and logs info' do
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor, call: [contributor_triplet], correct: corrected)
+      end
+
+      it 'triggers correction and writes the corrected triplet' do
+        pipeline.call(arguments, observation)
+
+        edge = Lapidary::Container['database'][:edges].first
+        expect(edge[:relationship]).to eq('Contribute')
+        expect(logger).to have_received(:info).with(pipeline, /Attempting correction/, anything)
+      end
+    end
+
+    context 'when correction returns Maintenance with non-maintainer role' do
+      let(:still_maintenance) do
+        build_triplet(
+          subject: build_node(type: Analysis::Entities::NodeType::RUBYIST, name: 'contributor',
+                              properties: { role: 'submaintainer' }),
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: build_node(type: Analysis::Entities::NodeType::CORE_MODULE, name: 'String')
+        )
+      end
+
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor, call: [contributor_triplet],
+                                                            correct: still_maintenance)
+      end
+
+      it 'applies role fallback to downgrade to Contribute' do
         pipeline.call(arguments, observation)
 
         edge = Lapidary::Container['database'][:edges].first

@@ -8,9 +8,10 @@ module Analysis
       include Lapidary::Dependency['llm', 'logger']
       include SentryLlmSpan
 
-      def initialize(prompt_builder: PromptBuilder.new, **deps)
+      def initialize(prompt_builder: PromptBuilder.new, tools: [], **deps)
         super(**deps)
         @prompt_builder = prompt_builder
+        @tools = tools
       end
 
       def call(job_arguments)
@@ -31,7 +32,8 @@ module Analysis
 
       def chat_with_schema(prompt)
         ::Sentry.with_child_span(op: 'gen_ai.chat', description: "chat #{model_name}") do |span|
-          result = llm.chat.with_instructions(prompt.system).with_schema(TripletSchema).ask(prompt.user)
+          chat = llm.chat.with_instructions(prompt.system).with_tools(*@tools).with_schema(TripletSchema)
+          result = chat.ask(prompt.user)
           record_llm_span(span, prompt, result)
           result
         end

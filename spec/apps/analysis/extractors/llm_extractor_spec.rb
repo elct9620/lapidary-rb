@@ -6,12 +6,13 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
   subject(:extractor) { described_class.new(llm: llm, logger: logger) }
 
   let(:llm) { double('RubyLLM', chat: chat) }
-  let(:chat) { double('RubyLLM::Chat', with_instructions: nil, with_schema: nil, ask: response) }
+  let(:chat) { double('RubyLLM::Chat', with_instructions: nil, with_tools: nil, with_schema: nil, ask: response) }
   let(:response) { double('RubyLLM::Message') }
   let(:logger) { instance_double(Console::Logger, warn: nil, info: nil) }
 
   before do
     allow(chat).to receive(:with_instructions).and_return(chat)
+    allow(chat).to receive(:with_tools).and_return(chat)
     allow(chat).to receive(:with_schema).and_return(chat)
     allow(chat).to receive(:ask).and_return(response)
   end
