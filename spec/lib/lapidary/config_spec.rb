@@ -43,6 +43,12 @@ RSpec.describe Lapidary::Config do
     end
   end
 
+  describe 'proxy' do
+    it 'has a trusted setting defaulting to empty array' do
+      expect(Lapidary.config.proxy.trusted).to eq([])
+    end
+  end
+
   describe 'redmine' do
     it 'has a url defaulting to bugs.ruby-lang.org' do
       expect(Lapidary.config.redmine.url).to eq('https://bugs.ruby-lang.org')

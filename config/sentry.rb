@@ -9,6 +9,7 @@ Sentry.init do |config|
 
     rack_env['PATH_INFO'] == '/' ? 0.0 : 1.0
   }
+  config.trusted_proxies += Lapidary.config.proxy.trusted
   config.environment = Lapidary.config.env
   config.enabled_patches += %i[sequel]
 end

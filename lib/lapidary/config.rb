@@ -24,6 +24,10 @@ module Lapidary
       setting :retention, default: ENV.fetch('GRAPH_RETENTION', nil)
     end
 
+    setting :proxy do
+      setting :trusted, default: ENV.fetch('TRUSTED_PROXIES', '').split(',').map(&:strip).reject(&:empty?)
+    end
+
     setting :redmine do
       setting :url, default: ENV.fetch('REDMINE_URL', 'https://bugs.ruby-lang.org')
       setting :timeout, default: 10

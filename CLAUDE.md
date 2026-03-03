@@ -266,4 +266,5 @@ Mock external boundaries, not internal collaborators. Use real repositories with
 | `JOB_RETENTION` | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
 | `GRAPH_RETENTION` | `180d` | Retention period for graph edges. An edge is archived when its most recent observation exceeds this period. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
 | `CLEANUP_INTERVAL` | `86400` | Interval in seconds between retention cleanup runs (expired jobs + archived edges). Default is 1 day |
+| `TRUSTED_PROXIES` | `nil` | Comma-separated CIDR ranges of trusted reverse proxies (e.g. Cloudflare). When set, both Sentry and `Rack::Request#ip` will resolve the real client IP from `X-Forwarded-For` headers |
 | `SENTRY_DSN` | `nil` | Sentry DSN for error tracking and performance monitoring. When unset, Sentry is a no-op |
