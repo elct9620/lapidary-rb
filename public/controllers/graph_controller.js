@@ -13,12 +13,40 @@ const EDGE_COLORS = {
 }
 
 export default class extends Controller {
-  static targets = ["canvas"]
+  static targets = ["canvas", "overlay"]
 
   connect() {
     this.cy = null
     this.filters = { direction: "both", observedAfter: "", observedBefore: "", includeArchived: false }
     this.loadedNodes = new Set()
+  }
+
+  showLoading() {
+    this.loadingDelay = setTimeout(() => {
+      this.loadingShownAt = Date.now()
+      this.overlayTarget.classList.remove("hidden")
+      this.overlayTarget.setAttribute("aria-busy", "true")
+    }, 200)
+  }
+
+  hideLoading() {
+    clearTimeout(this.loadingDelay)
+
+    if (!this.loadingShownAt) return
+
+    const remaining = Math.max(0, 500 - (Date.now() - this.loadingShownAt))
+    this.loadingShownAt = null
+
+    if (remaining === 0) {
+      this.overlayTarget.classList.add("hidden")
+      this.overlayTarget.setAttribute("aria-busy", "false")
+      return
+    }
+
+    setTimeout(() => {
+      this.overlayTarget.classList.add("hidden")
+      this.overlayTarget.setAttribute("aria-busy", "false")
+    }, remaining)
   }
 
   initCytoscape() {
@@ -104,7 +132,12 @@ export default class extends Controller {
     this.initCytoscape()
     this.loadedNodes.clear()
     this.cy.elements().remove()
-    await this.fetchAndRenderNeighbors(nodeId)
+    this.showLoading()
+    try {
+      await this.fetchAndRenderNeighbors(nodeId)
+    } finally {
+      this.hideLoading()
+    }
   }
 
   async fetchAndRenderNeighbors(nodeId) {
@@ -197,7 +230,12 @@ export default class extends Controller {
         label: node.data("label")
       }
     })
-    await this.fetchAndRenderNeighbors(node.id())
+    this.showLoading()
+    try {
+      await this.fetchAndRenderNeighbors(node.id())
+    } finally {
+      this.hideLoading()
+    }
   }
 
   onEdgeTap(evt) {
@@ -226,6 +264,11 @@ export default class extends Controller {
     const centerNodeId = [...this.loadedNodes][0]
     this.loadedNodes.clear()
     this.cy.elements().remove()
-    await this.fetchAndRenderNeighbors(centerNodeId)
+    this.showLoading()
+    try {
+      await this.fetchAndRenderNeighbors(centerNodeId)
+    } finally {
+      this.hideLoading()
+    }
   }
 }
