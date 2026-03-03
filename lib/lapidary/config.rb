@@ -17,7 +17,7 @@ module Lapidary
     setting :analysis do
       setting :job_retention, default: ENV.fetch('JOB_RETENTION', nil)
       setting :poll_interval, default: 1
-      setting :cleanup_interval, default: 600
+      setting :cleanup_interval, default: Integer(ENV.fetch('CLEANUP_INTERVAL', '86400'))
     end
 
     setting :graph do

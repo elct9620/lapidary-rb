@@ -38,8 +38,8 @@ RSpec.describe Lapidary::Config do
       expect(Lapidary.config.analysis.poll_interval).to eq(1)
     end
 
-    it 'has a cleanup_interval defaulting to 600' do
-      expect(Lapidary.config.analysis.cleanup_interval).to eq(600)
+    it 'has a cleanup_interval defaulting to 86400' do
+      expect(Lapidary.config.analysis.cleanup_interval).to eq(86_400)
     end
   end
 
