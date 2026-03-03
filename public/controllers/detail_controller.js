@@ -1,5 +1,21 @@
 import { Controller } from "@hotwired/stimulus"
 
+const REDMINE_BASE_URL = "https://bugs.ruby-lang.org"
+
+function redmineSourceUrl(sourceType, sourceId, parentEntityId) {
+  if (sourceType === "issue" && sourceId) {
+    return `${REDMINE_BASE_URL}/issues/${sourceId}`
+  }
+  if (sourceType === "journal" && parentEntityId) {
+    return `${REDMINE_BASE_URL}/issues/${parentEntityId}`
+  }
+  return null
+}
+
+function redmineSearchUrl(name) {
+  return `${REDMINE_BASE_URL}/search?q=${encodeURIComponent(name)}`
+}
+
 export default class extends Controller {
   static targets = ["content"]
 
@@ -19,6 +35,10 @@ export default class extends Controller {
       .map(([k, v]) => `<li class="flex justify-between"><span class="text-gray-500">${this.escapeHtml(k)}</span><span class="font-medium">${this.escapeHtml(String(v))}</span></li>`)
       .join("")
 
+    const nodeName = id.includes("://") ? id.split("://")[1] : id
+    const searchUrl = redmineSearchUrl(nodeName)
+    const searchLink = `<a href="${this.escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline text-xs">Search on bugs.ruby-lang.org ↗</a>`
+
     this.contentTarget.innerHTML = `
       <h3 class="font-semibold text-lg mb-2">${this.escapeHtml(label)}</h3>
       <dl class="space-y-1 text-sm mb-3">
@@ -31,6 +51,7 @@ export default class extends Controller {
           <dd class="font-mono text-xs break-all">${this.escapeHtml(id)}</dd>
         </div>
       </dl>
+      <div class="mb-3">${searchLink}</div>
       ${dataEntries ? `<h4 class="font-medium text-sm text-gray-600 mb-1">Data</h4><ul class="space-y-1 text-sm">${dataEntries}</ul>` : ""}
     `
   }
@@ -38,13 +59,21 @@ export default class extends Controller {
   showEdge(event) {
     const { source, target, relationship, observations, archivedAt } = event.detail
 
-    const obsHtml = (observations || []).map(obs => `
-      <li class="border-l-2 border-gray-200 pl-3 py-1">
-        <div class="text-xs text-gray-400">${this.escapeHtml(obs.observed_at || "")}</div>
-        <div class="text-sm">${this.escapeHtml(obs.evidence || "(no evidence)")}</div>
-        <div class="text-xs text-gray-500 mt-0.5">Source: ${this.escapeHtml(obs.source_entity_type || "")} #${obs.source_entity_id || ""}</div>
-      </li>
-    `).join("")
+    const obsHtml = (observations || []).map(obs => {
+      const sourceUrl = redmineSourceUrl(obs.source_entity_type, obs.source_entity_id, obs.parent_entity_id)
+      const sourceLabel = `${this.escapeHtml(obs.source_entity_type || "")} #${obs.source_entity_id || ""}`
+      const sourceContent = sourceUrl
+        ? `<a href="${this.escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">${sourceLabel} ↗</a>`
+        : sourceLabel
+
+      return `
+        <li class="border-l-2 border-gray-200 pl-3 py-1">
+          <div class="text-xs text-gray-400">${this.escapeHtml(obs.observed_at || "")}</div>
+          <div class="text-sm">${this.escapeHtml(obs.evidence || "(no evidence)")}</div>
+          <div class="text-xs text-gray-500 mt-0.5">Source: ${sourceContent}</div>
+        </li>
+      `
+    }).join("")
 
     const archivedBadge = archivedAt
       ? `<div class="flex justify-between">

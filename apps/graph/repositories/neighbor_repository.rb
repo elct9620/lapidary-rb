@@ -97,7 +97,8 @@ module Graph
           observed_at: parse_time(obs[:observed_at]),
           source_entity_type: obs[:source_entity_type],
           source_entity_id: obs[:source_entity_id],
-          evidence: obs[:evidence]
+          evidence: obs[:evidence],
+          parent_entity_id: obs[:parent_entity_id]
         )
       end
 

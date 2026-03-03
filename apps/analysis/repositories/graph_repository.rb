@@ -122,15 +122,19 @@ module Analysis
 
       def insert_observation(edge_row, observation, now)
         observations.insert(
-          edge_source: edge_row[:source],
-          edge_target: edge_row[:target],
-          edge_relationship: edge_row[:relationship],
+          **observation_edge_key(edge_row),
           observed_at: observation.observed_at,
           source_entity_type: observation.source_entity_type,
           source_entity_id: observation.source_entity_id,
+          parent_entity_id: observation.parent_entity_id,
           evidence: observation.evidence,
           created_at: now
         )
+      end
+
+      def observation_edge_key(edge_row)
+        { edge_source: edge_row[:source], edge_target: edge_row[:target],
+          edge_relationship: edge_row[:relationship] }
       end
 
       def unarchive_edge(existing, now)

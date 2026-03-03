@@ -62,7 +62,8 @@ module Analysis
         Entities::Observation.new(
           observed_at: job.arguments.created_on || Time.now.iso8601,
           source_entity_type: job.arguments.entity_type,
-          source_entity_id: job.arguments.entity_id
+          source_entity_id: job.arguments.entity_id,
+          parent_entity_id: job.arguments.issue_id
         )
       end
 
