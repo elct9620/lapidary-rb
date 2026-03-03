@@ -41,7 +41,10 @@ module Analysis
         result = @validator.call(triplet)
         return result unless result.errors.any?
 
-        attempt_correction(triplet, result.errors, arguments)
+        corrected_result = attempt_correction(triplet, result.errors, arguments)
+        return corrected_result if corrected_result
+
+        attempt_deterministic_fallback(triplet)
       end
 
       def attempt_correction(triplet, errors, arguments)
@@ -64,6 +67,16 @@ module Analysis
         @logger.warn(self, "Correction failed: original=#{original_errors.join(', ')}, " \
                            "after=#{correction_errors.join(', ')}")
         nil
+      end
+
+      def attempt_deterministic_fallback(triplet)
+        fallback = apply_role_fallback(triplet)
+        return nil if fallback.equal?(triplet)
+
+        re_result = @validator.call(fallback)
+        return nil if re_result.errors.any?
+
+        re_result
       end
 
       def apply_role_fallback(triplet)

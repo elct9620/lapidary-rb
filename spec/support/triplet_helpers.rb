@@ -26,6 +26,15 @@ module TripletHelpers
     )
   end
 
+  def submaintainer_triplet(name: 'submaintainer', module_name: 'String')
+    build_triplet(
+      subject: build_node(type: Analysis::Entities::NodeType::RUBYIST, name: name,
+                          properties: { role: 'submaintainer' }),
+      relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+      object: build_node(type: Analysis::Entities::NodeType::CORE_MODULE, name: module_name)
+    )
+  end
+
   def invalid_triplet(object_name: 'String')
     build_triplet(
       subject: build_node(type: Analysis::Entities::NodeType::CORE_MODULE, name: object_name),

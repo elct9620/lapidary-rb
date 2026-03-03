@@ -201,6 +201,47 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
       end
     end
 
+    context 'when correction returns nil for a non-maintainer Maintenance triplet' do
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor, call: [submaintainer_triplet], correct: nil)
+      end
+
+      it 'downgrades to Contribute via deterministic fallback' do
+        pipeline.call(arguments, observation)
+
+        edge = Lapidary::Container['database'][:edges].first
+        expect(edge[:relationship]).to eq('Contribute')
+      end
+    end
+
+    context 'when correction raises ExtractionError for a non-maintainer Maintenance triplet' do
+      let(:extractor) do
+        ext = instance_double(Analysis::Extractors::LlmExtractor, call: [submaintainer_triplet])
+        allow(ext).to receive(:correct).and_raise(Analysis::Entities::ExtractionError, 'LLM API failed')
+        ext
+      end
+
+      it 'downgrades to Contribute via deterministic fallback' do
+        pipeline.call(arguments, observation)
+
+        edge = Lapidary::Container['database'][:edges].first
+        expect(edge[:relationship]).to eq('Contribute')
+      end
+    end
+
+    context 'when correction returns nil for role constraint plus other errors' do
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor,
+                        call: [submaintainer_triplet(module_name: 'InvalidModule')], correct: nil)
+      end
+
+      it 'rejects the triplet because role fallback does not fix module error' do
+        pipeline.call(arguments, observation)
+
+        expect(Lapidary::Container['database'][:nodes].count).to eq(0)
+      end
+    end
+
     context 'when correction returns Maintenance with non-maintainer role' do
       let(:still_maintenance) do
         build_triplet(
