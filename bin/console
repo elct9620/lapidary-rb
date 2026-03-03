@@ -39,11 +39,15 @@ module ConsoleHelpers
     end
   end
 
+  def rename_node(old_id, new_id)
+    container['node_renamer'].call(old_id, new_id)
+    puts "Renamed node: #{old_id} -> #{new_id}"
+  end
+
   def archive_edge(source, target, relationship)
-    result = graph_repository.archive_by_key(source: source, target: target, relationship: relationship)
-    analysis_record_repository.delete_by_entities(result.entity_pairs)
+    result = container['edge_archiver'].call(source: source, target: target, relationship: relationship)
     puts "Archived edge: #{source} -> #{target} [#{relationship}]"
-    puts "Cleared #{result.entity_pairs.length} analysis record(s)"
+    puts "Cleared #{result[:analysis_records_cleared]} analysis record(s)"
   end
 
   private
@@ -54,14 +58,6 @@ module ConsoleHelpers
 
   def neighbor_repository
     container['graph.repositories.neighbor_repository']
-  end
-
-  def graph_repository
-    container['analysis.repositories.graph_repository']
-  end
-
-  def analysis_record_repository
-    container['analysis.repositories.analysis_record_repository']
   end
 
   def all_edges(archived)
