@@ -54,11 +54,16 @@ Extracted triplets are validated against a predefined ontology (permitted node t
 
 Researchers query the graph to explore relationships — find which modules a Rubyist works with, which contributors are involved in a module, or how involvement patterns change over time with time-range filtering.
 
+### 5. Knowledge Graph Explorer
+
+A built-in browser interface served at `GET /` provides interactive exploration of the knowledge graph. Built with Stimulus.js and Cytoscape.js, it supports node search, graph visualization, direction filtering, and time-range filtering.
+
 ## API Endpoints
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/` | Health check |
+| `GET` | `/` | Knowledge Graph Explorer (Web UI) |
+| `GET` | `/health` | Health check |
 | `POST` | `/webhook` | Receive issue change notifications |
 | `GET` | `/graph/neighbors` | Query neighbor nodes with direction and time-range filtering |
 | `GET` | `/graph/nodes` | List and search nodes by type, name, with pagination |
@@ -99,6 +104,12 @@ docker build -t lapidary .
 docker run -p 9292:9292 lapidary
 ```
 
+### Console
+
+```bash
+bin/console                 # Interactive console with container access
+```
+
 ### Tests
 
 ```bash
@@ -117,6 +128,10 @@ bundle exec rubocop
 | `OPENAI_MODEL` | `gpt-5-mini` | OpenAI model for triplet extraction |
 | `WEBHOOK_SECRET` | — | Optional token authentication for webhooks |
 | `JOB_RETENTION` | `7d` | TTL for completed/failed jobs (`<number><unit>`: `h`/`d`) |
+| `GRAPH_RETENTION` | `180d` | Retention period for graph edges (`<number><unit>`: `h`/`d`) |
+| `CLEANUP_INTERVAL` | `86400` | Interval in seconds between retention cleanup runs |
+| `TRUSTED_PROXIES` | — | Comma-separated CIDR ranges of trusted reverse proxies |
+| `SENTRY_DSN` | — | Sentry DSN for error tracking and performance monitoring |
 
 ## Documentation
 
