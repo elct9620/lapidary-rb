@@ -25,6 +25,7 @@ module Lapidary
       # Falcon calls prepare! in the child process after forking from the parent.
       def prepare!(instance)
         Lapidary::Container.finalize!
+        Lapidary::Container['migrator'].check
         super
       end
     end

@@ -13,13 +13,18 @@ module Lapidary
       @migrations_path = migrations_path
     end
 
+    def pending?
+      return false unless migrations_available?
+
+      !Sequel::Migrator.is_current?(database, migrations_path)
+    rescue Sequel::Error
+      false
+    end
+
     def check
-      return unless migrations_available?
-      return if Sequel::Migrator.is_current?(database, migrations_path)
+      return unless pending?
 
       logger.warn(self, 'Database migrations are pending. Run: bundle exec rake db:migrate')
-    rescue Sequel::Error => e
-      logger.warn(self, "Unable to check migration status: #{e.message}")
     end
 
     def migrate(target: nil)

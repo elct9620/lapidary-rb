@@ -8,9 +8,9 @@ RSpec.describe Lapidary::Migrator do
   let(:database) { Lapidary::Container['database'] }
   let(:logger) { Lapidary::Container['logger'] }
 
-  describe '#check' do
-    it 'completes without error when migrations are current' do
-      expect { migrator.check }.not_to raise_error
+  describe '#pending?' do
+    it 'returns false when migrations are current' do
+      expect(migrator.pending?).to be false
     end
 
     context 'when migrations are pending' do
@@ -18,8 +18,8 @@ RSpec.describe Lapidary::Migrator do
         database[:schema_migrations].delete
       end
 
-      it 'completes without error' do
-        expect { migrator.check }.not_to raise_error
+      it 'returns true' do
+        expect(migrator.pending?).to be true
       end
     end
 
@@ -28,8 +28,33 @@ RSpec.describe Lapidary::Migrator do
         allow(Sequel::Migrator).to receive(:is_current?).and_raise(Sequel::Error, 'connection lost')
       end
 
-      it 'rescues and does not raise' do
-        expect { migrator.check }.not_to raise_error
+      it 'returns false' do
+        expect(migrator.pending?).to be false
+      end
+    end
+  end
+
+  describe '#check' do
+    it 'does not warn when migrations are current' do
+      allow(logger).to receive(:warn)
+
+      migrator.check
+
+      expect(logger).not_to have_received(:warn)
+    end
+
+    context 'when migrations are pending' do
+      before do
+        database[:schema_migrations].delete
+      end
+
+      it 'logs a warning' do
+        allow(logger).to receive(:warn)
+
+        migrator.check
+
+        expect(logger).to have_received(:warn).with(migrator,
+                                                    'Database migrations are pending. Run: bundle exec rake db:migrate')
       end
     end
   end
