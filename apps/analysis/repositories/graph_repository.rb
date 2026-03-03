@@ -22,14 +22,10 @@ module Analysis
 
       def archive_expired(cutoff:)
         with_error_wrapping do
-          now = Time.now
           expired = find_expired_edges(cutoff)
           return Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []) if expired.empty?
 
-          entity_pairs = collect_entity_pairs(expired)
-          archive_edges(expired, now)
-
-          Entities::ArchiveResult.new(archived_count: expired.size, entity_pairs: entity_pairs)
+          perform_archive(expired)
         end
       end
 
@@ -38,14 +34,18 @@ module Analysis
           edge = edges.where(source: source, target: target, relationship: relationship).first
           raise Entities::GraphError, 'Edge not found' unless edge
 
-          entity_pairs = collect_entity_pairs([edge])
-          archive_edges([edge], Time.now)
-
-          Entities::ArchiveResult.new(archived_count: 1, entity_pairs: entity_pairs)
+          perform_archive([edge])
         end
       end
 
       private
+
+      def perform_archive(target_edges)
+        now = Time.now
+        entity_pairs = collect_entity_pairs(target_edges)
+        archive_edges(target_edges, now)
+        Entities::ArchiveResult.new(archived_count: target_edges.size, entity_pairs: entity_pairs)
+      end
 
       # Unlike other repositories, GraphRepository manages a multi-table aggregate (nodes + edges),
       # so the `table` DSL is not used. `dataset` defaults to nodes; `edges` accesses the edges table.
