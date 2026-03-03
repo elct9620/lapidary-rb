@@ -15,6 +15,7 @@ module Analysis
         # Phase 1: Structural validation
         errors = [
           validate_subject_type(triplet),
+          validate_subject_name(triplet),
           validate_object_type(triplet),
           validate_relationship(triplet)
         ].compact
@@ -31,6 +32,13 @@ module Analysis
         return if VALID_SUBJECT_TYPES.include?(triplet.subject.type)
 
         "subject type must be Rubyist, got #{triplet.subject.type}"
+      end
+
+      def validate_subject_name(triplet)
+        return unless VALID_SUBJECT_TYPES.include?(triplet.subject.type)
+        return unless triplet.subject.name.match?(/\(.*\)/)
+
+        "subject name contains parenthetical annotation: #{triplet.subject.name}"
       end
 
       def validate_object_type(triplet)

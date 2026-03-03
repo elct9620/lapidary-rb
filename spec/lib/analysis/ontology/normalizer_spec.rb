@@ -71,6 +71,35 @@ RSpec.describe Analysis::Ontology::Normalizer do
       end
     end
 
+    context 'when subject name is in "username (display_name)" format' do
+      it 'resolves to author_username' do
+        triplet = build_triplet(subject_name: 'st0012 (Stan Lo)')
+        arguments = build_arguments(author_username: 'st0012', author_display_name: 'Stan Lo')
+
+        result = normalizer.call(triplet, arguments)
+
+        expect(result.subject.name).to eq('st0012')
+      end
+
+      it 'sets display_name property' do
+        triplet = build_triplet(subject_name: 'st0012 (Stan Lo)')
+        arguments = build_arguments(author_username: 'st0012', author_display_name: 'Stan Lo')
+
+        result = normalizer.call(triplet, arguments)
+
+        expect(result.subject.properties[:display_name]).to eq('Stan Lo')
+      end
+
+      it 'matches when base is display_name' do
+        triplet = build_triplet(subject_name: 'Stan Lo (st0012)')
+        arguments = build_arguments(author_username: 'st0012', author_display_name: 'Stan Lo')
+
+        result = normalizer.call(triplet, arguments)
+
+        expect(result.subject.name).to eq('st0012')
+      end
+    end
+
     context 'when subject name does not match any author field' do
       it 'passes through unchanged' do
         triplet = build_triplet(subject_name: 'nobu')

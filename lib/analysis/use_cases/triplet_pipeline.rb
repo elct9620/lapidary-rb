@@ -28,11 +28,12 @@ module Analysis
       private
 
       def process_triplet(triplet, arguments, observation)
-        validated = validate_or_correct(triplet, arguments)
+        normalized = @normalizer.call(triplet, arguments)
+        validated = validate_or_correct(normalized, arguments)
         return :rejected unless validated
 
-        log_role_downgrade(triplet, validated.triplet)
-        write_triplet(validated.triplet, arguments, observation)
+        log_role_downgrade(normalized, validated.triplet)
+        write_triplet(validated.triplet, observation)
       end
 
       def validate_or_correct(triplet, arguments)
@@ -70,10 +71,9 @@ module Analysis
                      subject: original.subject.name, role: original.subject.properties[:role])
       end
 
-      def write_triplet(triplet, arguments, observation)
-        normalized = @normalizer.call(triplet, arguments)
-        triplet_observation = observation.with(evidence: normalized.evidence)
-        write_result = @graph_repository.save_triplet(normalized, triplet_observation)
+      def write_triplet(triplet, observation)
+        triplet_observation = observation.with(evidence: triplet.evidence)
+        write_result = @graph_repository.save_triplet(triplet, triplet_observation)
         write_result == :duplicate ? :duplicated : :written
       end
     end

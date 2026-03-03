@@ -30,7 +30,17 @@ module Analysis
       def matches_author?(name, username, display_name)
         downcased = name.downcase
         (username && downcased == username.downcase) ||
-          (display_name && downcased == display_name.downcase)
+          (display_name && downcased == display_name.downcase) ||
+          matches_with_parenthetical?(downcased, username, display_name)
+      end
+
+      def matches_with_parenthetical?(name, username, display_name)
+        match = name.match(/\A(.+?)\s*\((.+)\)\z/)
+        return false unless match
+
+        base = match[1].strip.downcase
+        (username && base == username.downcase) ||
+          (display_name && base == display_name.downcase)
       end
 
       def merge_display_name(subject, display_name)

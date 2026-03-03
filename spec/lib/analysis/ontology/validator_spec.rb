@@ -60,6 +60,24 @@ RSpec.describe Analysis::Ontology::Validator do
       end
     end
 
+    context 'when subject name contains parenthetical annotation' do
+      it 'returns a subject name error' do
+        annotated_subject = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'st0012 (Stan Lo)'
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: annotated_subject,
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to include('subject name contains parenthetical annotation: st0012 (Stan Lo)')
+      end
+    end
+
     context 'when subject type is invalid' do
       it 'returns a subject type error' do
         invalid_subject = Analysis::Entities::Node.new(
