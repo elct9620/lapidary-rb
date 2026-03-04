@@ -18,13 +18,13 @@ RSpec.describe Lapidary::Analysis::Worker do
   subject(:service) { described_class.new(environment, evaluator) }
 
   shared_context 'with stubbed container' do
-    let(:job_repository) { double('JobRepository', claim_next: nil, delete_expired: 0) }
-    let(:job_handler) { double('AnalysisJob', call: nil) }
+    let(:job_repository) { instance_double(Analysis::Repositories::JobRepository, claim_next: nil, delete_expired: 0) }
+    let(:job_handler) { instance_double(Analysis::Jobs::AnalysisJob, call: nil) }
     let(:edge_archive_writer) do
-      double('EdgeArchiveWriter',
-             archive_expired: Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
+      instance_double(Analysis::Repositories::EdgeArchiveWriter,
+                      archive_expired: Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
     end
-    let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
+    let(:logger) { Lapidary::Container['logger'] }
 
     before do
       @orig_job_repo = Lapidary::Container['analysis.repositories.job_repository']

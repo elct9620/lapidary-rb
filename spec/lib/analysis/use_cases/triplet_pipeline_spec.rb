@@ -17,7 +17,7 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
   let(:extractor) { instance_double(Analysis::Extractors::LlmExtractor, call: []) }
   let(:validator) { Analysis::Ontology::Validator.new }
   let(:normalizer) { Analysis::Ontology::Normalizer.new }
-  let(:logger) { instance_double(Console::Logger, error: nil, warn: nil, info: nil) }
+  let(:logger) { Lapidary::Container['logger'] }
 
   let(:arguments) do
     Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1, author_username: 'matz')

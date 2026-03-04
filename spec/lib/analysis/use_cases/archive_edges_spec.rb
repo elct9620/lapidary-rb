@@ -16,7 +16,7 @@ RSpec.describe Analysis::UseCases::ArchiveEdges do
   let(:analysis_record_repository) { Lapidary::Container['analysis.repositories.analysis_record_repository'] }
   let(:graph_repository) { Lapidary::Container['analysis.repositories.graph_repository'] }
   let(:retention_period) { Analysis::Entities::RetentionPeriod.new(amount: 180, unit: 'd') }
-  let(:logger) { instance_double(Console::Logger, info: nil) }
+  let(:logger) { Lapidary::Container['logger'] }
   let(:db) { Lapidary::Container['database'] }
 
   let(:freeze_time) { Time.new(2026, 1, 15, 12, 0, 0) }

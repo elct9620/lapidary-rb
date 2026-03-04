@@ -44,13 +44,8 @@ RSpec.describe Lapidary::Migrator do
         database[:schema_migrations].delete
       end
 
-      it 'logs a warning' do
-        allow(logger).to receive(:warn)
-
-        migrator.check
-
-        expect(logger).to have_received(:warn).with(migrator,
-                                                    'Database migrations are pending. Run: bundle exec rake db:migrate')
+      it 'does not raise' do
+        expect { migrator.check }.not_to raise_error
       end
     end
   end

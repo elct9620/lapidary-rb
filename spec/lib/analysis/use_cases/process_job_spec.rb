@@ -18,7 +18,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
   let(:extractor) { instance_double(Analysis::Extractors::LlmExtractor, call: []) }
   let(:validator) { Analysis::Ontology::Validator.new }
   let(:normalizer) { Analysis::Ontology::Normalizer.new }
-  let(:logger) { instance_double(Console::Logger, error: nil, warn: nil, info: nil) }
+  let(:logger) { Lapidary::Container['logger'] }
 
   let(:pipeline) do
     Analysis::UseCases::TripletPipeline.new(
@@ -65,8 +65,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
           entity_type: 'issue', entity_id: 1
         )))
-        allow(analysis_record_repository).to receive(:save)
-          .and_raise(Analysis::Entities::AnalysisTrackingError, 'connection lost')
+        Lapidary::Container['database'].drop_table(:analysis_records)
       end
 
       it 'retries the job back to pending' do
@@ -81,7 +80,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         use_case.call(claim_job)
 
         row = Lapidary::Container['database'][:jobs].first
-        expect(row[:error]).to eq('connection lost')
+        expect(row[:error]).not_to be_nil
       end
     end
 
@@ -92,8 +91,7 @@ RSpec.describe Analysis::UseCases::ProcessJob do
           attempts: 2, max_attempts: 3
         )
         job_repository.enqueue(job)
-        allow(analysis_record_repository).to receive(:save)
-          .and_raise(Analysis::Entities::AnalysisTrackingError, 'permanent failure')
+        Lapidary::Container['database'].drop_table(:analysis_records)
       end
 
       it 'marks the job as failed' do

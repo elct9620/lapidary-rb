@@ -8,26 +8,34 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
   let(:llm) { double('RubyLLM', chat: chat) }
   let(:chat) { double('RubyLLM::Chat', with_instructions: nil, with_tools: nil, with_schema: nil, ask: response) }
   let(:response) { double('RubyLLM::Message') }
-  let(:logger) { instance_double(Console::Logger, warn: nil, info: nil) }
-  let(:response_parser) { instance_double(Analysis::Extractors::ResponseParser) }
-  let(:parsed_triplets) { [instance_double(Analysis::Entities::Triplet)] }
+  let(:logger) { Lapidary::Container['logger'] }
+  let(:response_parser) { Analysis::Extractors::ResponseParser.new(logger: logger) }
+  let(:response_content) do
+    { 'triplets' => [{ 'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
+                       'relationship' => 'Maintenance',
+                       'object' => { 'type' => 'CoreModule', 'name' => 'String' },
+                       'evidence' => 'matz committed to String' }] }
+  end
 
   before do
     allow(chat).to receive(:with_instructions).and_return(chat)
     allow(chat).to receive(:with_tools).and_return(chat)
     allow(chat).to receive(:with_schema).and_return(chat)
     allow(chat).to receive(:ask).and_return(response)
-    allow(response).to receive(:content).and_return({ 'triplets' => [] })
-    allow(response_parser).to receive(:call).and_return(parsed_triplets)
+    allow(response).to receive(:content).and_return(response_content)
   end
 
   describe '#call' do
     let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 12_345) }
 
-    it 'returns the result from ResponseParser' do
+    it 'returns parsed triplets from the LLM response' do
       result = extractor.call(job_arguments)
 
-      expect(result).to eq(parsed_triplets)
+      expect(result.size).to eq(1)
+      triplet = result.first
+      expect(triplet.subject.name).to eq('matz')
+      expect(triplet.relationship).to eq(Analysis::Entities::RelationshipType::MAINTENANCE)
+      expect(triplet.object.name).to eq('String')
     end
 
     context 'with prompt building' do
@@ -80,22 +88,26 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       )
     end
     let(:errors) { ['unknown module name: InvalidModule'] }
-    let(:corrected_triplet) { instance_double(Analysis::Entities::Triplet) }
+    let(:corrected_content) do
+      { 'triplets' => [{ 'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
+                         'relationship' => 'Maintenance',
+                         'object' => { 'type' => 'CoreModule', 'name' => 'String' },
+                         'evidence' => 'matz committed to String' }] }
+    end
 
     before do
-      allow(response_parser).to receive(:call).and_return([corrected_triplet])
+      allow(response).to receive(:content).and_return(corrected_content)
     end
 
     it 'returns the corrected triplet' do
       result = extractor.correct(triplet, errors, job_arguments)
 
-      expect(result).to eq(corrected_triplet)
+      expect(result.subject.name).to eq('matz')
+      expect(result.object.name).to eq('String')
     end
 
     context 'when ResponseParser returns empty array' do
-      before do
-        allow(response_parser).to receive(:call).and_return([])
-      end
+      let(:corrected_content) { { 'triplets' => [] } }
 
       it 'returns nil' do
         expect(extractor.correct(triplet, errors, job_arguments)).to be_nil

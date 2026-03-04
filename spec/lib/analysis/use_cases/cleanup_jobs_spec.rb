@@ -13,7 +13,7 @@ RSpec.describe Analysis::UseCases::CleanupJobs do
 
   let(:job_repository) { Lapidary::Container['analysis.repositories.job_repository'] }
   let(:retention_period) { Analysis::Entities::RetentionPeriod.new(amount: 7, unit: 'd') }
-  let(:logger) { instance_double(Console::Logger, info: nil) }
+  let(:logger) { Lapidary::Container['logger'] }
   let(:db) { Lapidary::Container['database'] }
 
   describe '#call' do
