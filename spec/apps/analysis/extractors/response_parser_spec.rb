@@ -5,7 +5,7 @@ require 'spec_helper'
 RSpec.describe Analysis::Extractors::ResponseParser do
   subject(:parser) { described_class.new(logger: logger) }
 
-  let(:logger) { instance_double(Console::Logger, warn: nil) }
+  let(:logger) { Lapidary::Container['logger'] }
 
   describe '#call' do
     context 'with a valid response' do

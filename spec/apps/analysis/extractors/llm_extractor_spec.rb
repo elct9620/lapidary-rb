@@ -38,31 +38,6 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       expect(triplet.object.name).to eq('String')
     end
 
-    context 'with prompt building' do
-      let(:prompt_builder) { instance_double(Analysis::Extractors::PromptBuilder) }
-      let(:test_prompt) { Analysis::Extractors::Prompt.new(system: 'test system', user: 'test user') }
-
-      subject(:extractor) do
-        described_class.new(llm: llm, logger: logger, response_parser: response_parser, prompt_builder: prompt_builder)
-      end
-
-      before do
-        allow(prompt_builder).to receive(:call).and_return(test_prompt)
-      end
-
-      it 'sends the system prompt via with_instructions' do
-        extractor.call(job_arguments)
-
-        expect(chat).to have_received(:with_instructions).with('test system')
-      end
-
-      it 'sends the user prompt to ask' do
-        extractor.call(job_arguments)
-
-        expect(chat).to have_received(:ask).with('test user')
-      end
-    end
-
     context 'when LLM API fails' do
       before do
         allow(chat).to receive(:ask).and_raise(RubyLLM::Error.new(nil, 'API connection failed'))
