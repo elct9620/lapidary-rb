@@ -14,7 +14,7 @@ module Analysis
         'logger'
       ]
 
-      def call(job)
+      def perform(job)
         use_case.call(job)
       end
 

@@ -4,20 +4,33 @@ require 'spec_helper'
 require_relative '../../../../lib/lapidary/sentry/queue_patch'
 
 RSpec.describe Lapidary::Sentry::QueuePatch do
-  let(:host_class) do
-    Class.new(Lapidary::Analysis::BaseJob) do
-      def self.name = 'TestJob'
+  let(:base_class) do
+    Class.new do
+      def self.name = 'TestBaseJob'
 
       def call(job)
+        perform(job)
+      end
+
+      def perform(job)
+        raise NotImplementedError
+      end
+    end
+  end
+
+  let(:host_class) do
+    Class.new(base_class) do
+      def self.name = 'TestJob'
+
+      def perform(job)
         job
       end
     end
   end
 
   let(:patched_class) do
-    klass = host_class
-    klass.prepend(described_class)
-    klass
+    base_class.prepend(described_class)
+    host_class
   end
 
   let(:instance) { patched_class.new }
@@ -78,8 +91,7 @@ RSpec.describe Lapidary::Sentry::QueuePatch do
     end
 
     it 'finishes the transaction even on error' do
-      allow(instance).to receive(:call).and_call_original
-      host_class.define_method(:call) { |_job| raise 'boom' }
+      host_class.define_method(:perform) { |_job| raise 'boom' }
 
       expect { instance.call(job) }.to raise_error(RuntimeError, 'boom')
       expect(transaction).to have_received(:finish)

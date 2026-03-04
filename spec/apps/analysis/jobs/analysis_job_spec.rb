@@ -12,4 +12,8 @@ RSpec.describe Analysis::Jobs::AnalysisJob do
   it 'responds to #call' do
     expect(job).to respond_to(:call)
   end
+
+  it 'defines #perform for the template method pattern' do
+    expect(described_class.instance_methods(false)).to include(:perform)
+  end
 end
