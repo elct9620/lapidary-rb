@@ -48,8 +48,11 @@ module Analysis
       private
 
       def job_attributes(job, now)
+        payload = job.arguments.to_h.compact
+        job.metadata.each { |k, v| payload[:"_#{k}"] = v }
+
         {
-          arguments: generate_json(job.arguments.to_h.compact),
+          arguments: generate_json(payload),
           status: job.status.to_s, attempts: job.attempts,
           max_attempts: job.max_attempts, scheduled_at: job.scheduled_at,
           created_at: now, updated_at: now
@@ -76,9 +79,15 @@ module Analysis
       end
 
       def row_to_entity(row)
+        payload = parse_json(row[:arguments])
+        args_data = payload.reject { |k, _| k.start_with?('_') }
+        meta_data = payload.select { |k, _| k.start_with?('_') }
+                           .transform_keys { |k| k.to_s.delete_prefix('_') }
+
         Entities::Job.new(
           **row.slice(:id, :attempts, :max_attempts, :error, :scheduled_at, :updated_at),
-          arguments: Entities::JobArguments.new(**parse_json(row[:arguments])),
+          arguments: Entities::JobArguments.new(**args_data),
+          metadata: meta_data,
           status: Entities::JobStatus.new(value: row[:status])
         )
       end

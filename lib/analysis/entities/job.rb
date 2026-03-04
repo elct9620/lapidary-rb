@@ -7,11 +7,12 @@ module Analysis
     class Job
       RETRY_BACKOFF_BASE = 2
 
-      attr_reader :id, :arguments, :status, :attempts, :max_attempts,
+      attr_reader :id, :arguments, :metadata, :status, :attempts, :max_attempts,
                   :error, :scheduled_at, :updated_at
 
-      def initialize(arguments:, max_attempts: 3, scheduled_at: nil, **attrs)
+      def initialize(arguments:, metadata: {}, max_attempts: 3, scheduled_at: nil, **attrs)
         @arguments = arguments
+        @metadata = metadata
         @max_attempts = max_attempts
         @scheduled_at = scheduled_at || Time.now
         @id = attrs[:id]

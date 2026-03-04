@@ -48,7 +48,11 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
       use_case.call(42)
 
       db = Lapidary::Container['database']
-      jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+      jobs = db[:jobs].all.map do |r|
+        JSON.parse(r[:arguments], symbolize_names: true).reject do |k, _|
+          k.start_with?('_')
+        end
+      end
       expect(jobs).to include(
         entity_type: 'issue',
         entity_id: 42,
@@ -63,7 +67,11 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
       use_case.call(42)
 
       db = Lapidary::Container['database']
-      jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+      jobs = db[:jobs].all.map do |r|
+        JSON.parse(r[:arguments], symbolize_names: true).reject do |k, _|
+          k.start_with?('_')
+        end
+      end
       expect(jobs).to include(
         entity_type: 'journal',
         entity_id: 101,
@@ -92,7 +100,11 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
 
       use_case.call(42)
 
-      jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+      jobs = db[:jobs].all.map do |r|
+        JSON.parse(r[:arguments], symbolize_names: true).reject do |k, _|
+          k.start_with?('_')
+        end
+      end
       expect(jobs.select { |j| j[:entity_type] == 'issue' }).to be_empty
     end
 

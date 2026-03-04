@@ -12,8 +12,27 @@ RSpec.describe Analysis::Repositories::JobRepository do
       repository.enqueue(job)
 
       row = Lapidary::Container['database'][:jobs].first
-      expect(JSON.parse(row[:arguments], symbolize_names: true)).to eq(entity_type: 'issue', entity_id: 1)
+      payload = JSON.parse(row[:arguments], symbolize_names: true)
+      domain_args = payload.reject { |k, _| k.start_with?('_') }
+      expect(domain_args).to eq(entity_type: 'issue', entity_id: 1)
       expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
+    end
+
+    context 'with metadata' do
+      before { allow(Sentry).to receive(:initialized?).and_return(false) }
+
+      it 'stores metadata as _-prefixed keys in payload' do
+        job_with_meta = Analysis::Entities::Job.new(
+          arguments: Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1),
+          metadata: { 'sentry-trace' => 'abc-123', 'baggage' => 'env=test' }
+        )
+        repository.enqueue(job_with_meta)
+
+        row = Lapidary::Container['database'][:jobs].first
+        payload = JSON.parse(row[:arguments], symbolize_names: true)
+        expect(payload[:'_sentry-trace']).to eq('abc-123')
+        expect(payload[:_baggage]).to eq('env=test')
+      end
     end
 
     it 'sets created_at and updated_at' do
@@ -39,6 +58,23 @@ RSpec.describe Analysis::Repositories::JobRepository do
         claimed = repository.claim_next
         expect(claimed.arguments.entity_type).to eq('issue')
         expect(claimed.arguments.entity_id).to eq(1)
+      end
+
+      context 'with metadata round-trip' do
+        it 'splits metadata from arguments on read' do
+          allow(Sentry).to receive(:initialized?).and_return(false)
+          job_with_meta = Analysis::Entities::Job.new(
+            arguments: Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1),
+            metadata: { 'sentry-trace' => 'abc-123', 'baggage' => 'env=test' }
+          )
+          repository.enqueue(job_with_meta)
+          # Skip the original job enqueued by parent before block
+          repository.claim_next
+
+          claimed = repository.claim_next
+          expect(claimed.metadata).to include('sentry-trace' => 'abc-123', 'baggage' => 'env=test')
+          expect(claimed.arguments.entity_type).to eq('issue')
+        end
       end
 
       it 'marks the job as claimed in the database' do

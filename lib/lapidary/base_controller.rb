@@ -30,17 +30,35 @@ module Lapidary
       halt status_code, { 'Content-Type' => 'application/json' }, JSON.generate(body)
     end
 
-    def dispatch_background
+    def dispatch_background(&)
       if defined?(Async::Task) && Async::Task.current?
-        Async(transient: true) do
-          yield
-        rescue StandardError => e
-          ::Sentry.capture_exception(e)
-          logger.error(self, "Background processing failed: #{e.class}: #{e.message}")
-        end
+        dispatch_async_background(&)
       else
         yield
       end
+    end
+
+    private
+
+    def dispatch_async_background
+      sentry_headers = ::Sentry.initialized? ? ::Sentry.get_trace_propagation_headers : nil
+      Async(transient: true) do
+        transaction = continue_background_trace(sentry_headers)
+        yield
+      rescue StandardError => e
+        ::Sentry.capture_exception(e)
+        logger.error(self, "Background processing failed: #{e.class}: #{e.message}")
+      ensure
+        transaction&.finish
+      end
+    end
+
+    def continue_background_trace(sentry_headers)
+      return unless sentry_headers
+
+      transaction = ::Sentry.continue_trace(sentry_headers, op: 'background.process', name: self.class.name)
+      ::Sentry.get_current_scope&.set_span(transaction) if transaction
+      transaction
     end
 
     def validate_with_contract!(contract_key, input, status: 422)

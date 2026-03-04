@@ -19,7 +19,8 @@ RSpec.describe Analysis::Subscribers::EntityDiscoveredSubscriber do
 
       row = Lapidary::Container['database'][:jobs].first
       expect(row[:status]).to eq(Analysis::Entities::JobStatus::PENDING.to_s)
-      expect(JSON.parse(row[:arguments], symbolize_names: true)).to eq(
+      payload = JSON.parse(row[:arguments], symbolize_names: true).reject { |k, _| k.start_with?('_') }
+      expect(payload).to eq(
         entity_type: 'issue',
         entity_id: 42,
         content: 'Add new feature',
@@ -42,7 +43,8 @@ RSpec.describe Analysis::Subscribers::EntityDiscoveredSubscriber do
       subscriber.on_webhooks_entity_discovered(event)
 
       row = Lapidary::Container['database'][:jobs].first
-      expect(JSON.parse(row[:arguments], symbolize_names: true)).to eq(
+      payload = JSON.parse(row[:arguments], symbolize_names: true).reject { |k, _| k.start_with?('_') }
+      expect(payload).to eq(
         entity_type: 'journal',
         entity_id: 101,
         content: 'Review comment',

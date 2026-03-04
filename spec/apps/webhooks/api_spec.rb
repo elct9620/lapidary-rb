@@ -132,7 +132,11 @@ RSpec.describe Webhooks::API do
 
       it 'enqueues a job for the issue with rich arguments' do
         db = Lapidary::Container['database']
-        jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+        jobs = db[:jobs].all.map do |r|
+          JSON.parse(r[:arguments], symbolize_names: true).reject do |k, _|
+            k.start_with?('_')
+          end
+        end
         expect(jobs).to include(
           entity_type: 'issue',
           entity_id: 1,
@@ -144,7 +148,11 @@ RSpec.describe Webhooks::API do
 
       it 'enqueues jobs for journals with rich arguments' do
         db = Lapidary::Container['database']
-        jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+        jobs = db[:jobs].all.map do |r|
+          JSON.parse(r[:arguments], symbolize_names: true).reject do |k, _|
+            k.start_with?('_')
+          end
+        end
         expect(jobs).to include(
           entity_type: 'journal',
           entity_id: 101,
@@ -212,7 +220,11 @@ RSpec.describe Webhooks::API do
 
       it 'does not enqueue duplicate journal jobs after processing' do
         db = Lapidary::Container['database']
-        jobs = db[:jobs].all.map { |r| JSON.parse(r[:arguments], symbolize_names: true) }
+        jobs = db[:jobs].all.map do |r|
+          JSON.parse(r[:arguments], symbolize_names: true).reject do |k, _|
+            k.start_with?('_')
+          end
+        end
         journal_count = jobs.count { |j| j[:entity_type] == 'journal' }
         expect(journal_count).to eq(2)
       end

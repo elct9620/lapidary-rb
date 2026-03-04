@@ -38,6 +38,64 @@ RSpec.describe Lapidary::BaseController do
     end
   end
 
+  describe '#dispatch_background' do
+    let(:controller) { described_class.allocate }
+
+    context 'when not inside Async' do
+      it 'yields directly without Sentry interaction' do
+        allow(Sentry).to receive(:initialized?)
+        executed = false
+
+        controller.dispatch_background { executed = true }
+
+        expect(executed).to be true
+        expect(Sentry).not_to have_received(:initialized?)
+      end
+    end
+
+    context 'when inside Async' do
+      let(:async_task_stub) do
+        Class.new do
+          def self.current? = true
+        end
+      end
+
+      before do
+        stub_const('Async::Task', async_task_stub)
+      end
+
+      it 'yields the block when Sentry is not initialized' do
+        allow(Sentry).to receive(:initialized?).and_return(false)
+        executed = false
+
+        allow(controller).to receive(:Async) { |**_opts, &block| block.call }
+
+        controller.dispatch_background { executed = true }
+
+        expect(executed).to be true
+      end
+
+      it 'wraps in a continuation transaction when Sentry is initialized' do
+        trace_headers = { 'sentry-trace' => 'abc-123', 'baggage' => 'env=test' }
+        transaction = double('Transaction', finish: nil)
+        scope = double('Scope', set_span: nil)
+
+        allow(Sentry).to receive(:initialized?).and_return(true)
+        allow(Sentry).to receive(:get_trace_propagation_headers).and_return(trace_headers)
+        allow(Sentry).to receive(:continue_trace).and_return(transaction)
+        allow(Sentry).to receive(:get_current_scope).and_return(scope)
+        allow(controller).to receive(:Async) { |**_opts, &block| block.call }
+
+        controller.dispatch_background { nil }
+
+        expect(Sentry).to have_received(:continue_trace).with(
+          trace_headers, op: 'background.process', name: described_class.name
+        )
+        expect(transaction).to have_received(:finish)
+      end
+    end
+  end
+
   describe 'global error handler' do
     before do
       get '/explode'
