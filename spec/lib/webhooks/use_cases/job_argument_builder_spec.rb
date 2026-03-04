@@ -16,6 +16,7 @@ RSpec.describe Webhooks::UseCases::JobArgumentBuilder do
   let(:issue) do
     Webhooks::Entities::Issue.new(
       id: 42, subject: 'Add new feature',
+      description: 'Detailed description of the new feature',
       author: author,
       created_on: '2024-01-15T10:30:00Z',
       journals: journals
@@ -39,7 +40,8 @@ RSpec.describe Webhooks::UseCases::JobArgumentBuilder do
         expect(result).to eq(
           entity_type: 'issue',
           entity_id: 42,
-          content: 'Add new feature',
+          title: 'Add new feature',
+          content: 'Detailed description of the new feature',
           created_on: '2024-01-15T10:30:00Z',
           author_username: 'matz',
           author_display_name: 'Yukihiro Matsumoto'
@@ -63,7 +65,10 @@ RSpec.describe Webhooks::UseCases::JobArgumentBuilder do
           entity_id: 101,
           content: 'First comment',
           issue_id: 42,
-          issue_content: 'Add new feature',
+          issue_title: 'Add new feature',
+          issue_content: 'Detailed description of the new feature',
+          issue_author_username: 'matz',
+          issue_author_display_name: 'Yukihiro Matsumoto',
           created_on: '2024-01-16T08:00:00Z',
           author_username: 'nobu',
           author_display_name: 'Nobuyoshi Nakada'

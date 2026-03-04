@@ -23,6 +23,7 @@ module Webhooks
         Entities::Issue.new(
           id: issue_data['id'],
           subject: issue_data['subject'],
+          description: issue_data['description'],
           author: author,
           created_on: issue_data['created_on'],
           journals: journals

@@ -1,5 +1,24 @@
-<%= entity_type_label %> #<%= entity_id %>
-Author: <%= author_username %> (<%= author_display_name %>)
-
+<% if entity_type == 'issue' -%>
+<issue id="<%= entity_id %>">
+  <title><%= title %></title>
+  <author username="<%= author_username %>" display_name="<%= author_display_name %>"/>
+  <description>
 <%= content %>
-<%= journal_context -%>
+  </description>
+</issue>
+<% else -%>
+<issue id="<%= issue_id %>">
+  <title><%= issue_title %></title>
+  <author username="<%= issue_author_username %>" display_name="<%= issue_author_display_name %>"/>
+  <description>
+<%= issue_content %>
+  </description>
+</issue>
+
+<journal id="<%= entity_id %>" issue_id="<%= issue_id %>">
+  <author username="<%= author_username %>" display_name="<%= author_display_name %>"/>
+  <content>
+<%= content %>
+  </content>
+</journal>
+<% end -%>

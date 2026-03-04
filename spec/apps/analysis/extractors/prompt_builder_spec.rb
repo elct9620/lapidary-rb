@@ -12,7 +12,8 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       let(:job_arguments) do
         Analysis::Entities::JobArguments.new(
           entity_type: 'issue', entity_id: 12_345,
-          content: 'Bug in String#encode', author_username: 'matz', author_display_name: 'Yukihiro Matsumoto'
+          title: 'Bug in String#encode', content: 'Detailed description of the encoding bug',
+          author_username: 'matz', author_display_name: 'Yukihiro Matsumoto'
         )
       end
 
@@ -20,20 +21,25 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
         expect(result).to be_a(Analysis::Extractors::Prompt)
       end
 
-      it 'includes issue content in the user prompt' do
-        expect(result.user).to match(/Issue #12345/)
+      it 'wraps issue in XML tag with id' do
+        expect(result.user).to include('<issue id="12345">')
       end
 
-      it 'includes author information in the user prompt' do
-        expect(result.user).to match(/Author: matz \(Yukihiro Matsumoto\)/)
+      it 'includes title in XML tag' do
+        expect(result.user).to include('<title>Bug in String#encode</title>')
       end
 
-      it 'includes the content text in the user prompt' do
-        expect(result.user).to include('Bug in String#encode')
+      it 'includes author in XML tag' do
+        expect(result.user).to include('username="matz"')
+          .and include('display_name="Yukihiro Matsumoto"')
       end
 
-      it 'does not include journal context in the user prompt' do
-        expect(result.user).not_to include('## Parent Issue')
+      it 'includes description content' do
+        expect(result.user).to include('Detailed description of the encoding bug')
+      end
+
+      it 'does not include journal XML tag' do
+        expect(result.user).not_to include('<journal')
       end
 
       it 'includes system instructions in the system prompt' do
@@ -46,22 +52,29 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
         Analysis::Entities::JobArguments.new(
           entity_type: 'journal', entity_id: 67_890,
           content: 'Patch submitted for review', author_username: 'nobu', author_display_name: 'Nobuyoshi Nakada',
-          issue_id: 12_345, issue_content: 'Bug in String#encode'
+          issue_id: 12_345, issue_title: 'Bug in String#encode',
+          issue_content: 'Detailed description of the encoding bug',
+          issue_author_username: 'matz',
+          issue_author_display_name: 'Yukihiro Matsumoto'
         )
       end
 
-      it 'includes journal content in the user prompt' do
-        expect(result.user).to match(/Journal #67890/)
+      it 'includes journal XML tag with id and issue_id' do
+        expect(result.user).to include('<journal id="67890" issue_id="12345">')
       end
 
-      it 'includes the content text in the user prompt' do
+      it 'includes journal content' do
         expect(result.user).to include('Patch submitted for review')
       end
 
-      it 'includes journal context with parent issue section in the user prompt' do
-        expect(result.user).to include('## Parent Issue')
-          .and include('Issue #12345')
-          .and include('Bug in String#encode')
+      it 'includes parent issue XML with title and author' do
+        expect(result.user).to include('<issue id="12345">')
+          .and include('<title>Bug in String#encode</title>')
+          .and include('username="matz"')
+      end
+
+      it 'includes parent issue description' do
+        expect(result.user).to include('Detailed description of the encoding bug')
       end
     end
 
@@ -134,7 +147,10 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
     let(:job_arguments) do
       Analysis::Entities::JobArguments.new(
         entity_type: 'issue', entity_id: 12_345,
-        content: 'Bug in String#encode', author_username: 'matz', author_display_name: 'Yukihiro Matsumoto'
+        title: 'Bug in String#encode',
+        content: 'Detailed description of the encoding bug',
+        author_username: 'matz',
+        author_display_name: 'Yukihiro Matsumoto'
       )
     end
 
@@ -179,18 +195,19 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       expect(result.system).to include('Extraction Rubric')
     end
 
-    it 'includes the failed triplet in the user prompt' do
-      expect(result.user).to include('matz')
-        .and include('InvalidModule')
+    it 'includes the failed triplet in XML format' do
+      expect(result.user).to include('<failed-triplet>')
+        .and include('name="matz"')
+        .and include('name="InvalidModule"')
     end
 
     it 'includes validation errors in the user prompt' do
       expect(result.user).to include('unknown module name: InvalidModule')
     end
 
-    it 'includes original extraction context in the user prompt' do
-      expect(result.user).to include('Issue #12345')
-        .and include('Bug in String#encode')
+    it 'includes original context in XML wrapper' do
+      expect(result.user).to include('<original-context>')
+        .and include('<issue id="12345">')
     end
   end
 end

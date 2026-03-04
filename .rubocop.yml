@@ -17,6 +17,15 @@ Metrics/ClassLength:
   Exclude:
     - 'lib/lapidary/analysis/service.rb'
 
+Metrics/ParameterLists:
+  Exclude:
+    - 'lib/webhooks/entities/issue.rb'
+
+Metrics/MethodLength:
+  Exclude:
+    - 'apps/webhooks/repositories/issue_repository.rb'
+    - 'apps/analysis/extractors/prompt_builder.rb'
+
 Metrics/BlockLength:
   Exclude:
     - 'spec/**/*_spec.rb'

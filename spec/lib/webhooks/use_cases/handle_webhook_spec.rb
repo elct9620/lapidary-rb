@@ -21,6 +21,7 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
       issue: {
         id: 42,
         subject: 'Add new feature',
+        description: 'Detailed description of the new feature',
         author: { id: 1, name: 'matz (Yukihiro Matsumoto)' },
         created_on: '2024-01-15T10:30:00Z',
         journals: [
@@ -52,7 +53,8 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
       expect(jobs).to include(
         entity_type: 'issue',
         entity_id: 42,
-        content: 'Add new feature',
+        title: 'Add new feature',
+        content: 'Detailed description of the new feature',
         author_username: 'matz',
         author_display_name: 'Yukihiro Matsumoto',
         created_on: '2024-01-15T10:30:00Z'
@@ -75,7 +77,10 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
         author_username: 'nobu',
         author_display_name: 'Nobuyoshi Nakada',
         issue_id: 42,
-        issue_content: 'Add new feature',
+        issue_title: 'Add new feature',
+        issue_content: 'Detailed description of the new feature',
+        issue_author_username: 'matz',
+        issue_author_display_name: 'Yukihiro Matsumoto',
         created_on: '2024-01-16T08:00:00Z'
       )
       expect(jobs).to include(
@@ -85,7 +90,10 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
         author_username: 'ko1',
         author_display_name: 'Koichi Sasada',
         issue_id: 42,
-        issue_content: 'Add new feature',
+        issue_title: 'Add new feature',
+        issue_content: 'Detailed description of the new feature',
+        issue_author_username: 'matz',
+        issue_author_display_name: 'Yukihiro Matsumoto',
         created_on: '2024-01-17T09:00:00Z'
       )
     end

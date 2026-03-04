@@ -18,6 +18,7 @@ RSpec.describe Webhooks::API do
       issue: {
         id: 1,
         subject: 'Test issue',
+        description: 'Detailed test issue description',
         author: { id: 1, name: 'matz (Yukihiro Matsumoto)' },
         journals: [
           { id: 101, user: { id: 2, name: 'nobu (Nobuyoshi Nakada)' }, notes: 'First comment' },
@@ -140,7 +141,8 @@ RSpec.describe Webhooks::API do
         expect(jobs).to include(
           entity_type: 'issue',
           entity_id: 1,
-          content: 'Test issue',
+          title: 'Test issue',
+          content: 'Detailed test issue description',
           author_username: 'matz',
           author_display_name: 'Yukihiro Matsumoto'
         )
@@ -160,7 +162,10 @@ RSpec.describe Webhooks::API do
           author_username: 'nobu',
           author_display_name: 'Nobuyoshi Nakada',
           issue_id: 1,
-          issue_content: 'Test issue'
+          issue_title: 'Test issue',
+          issue_content: 'Detailed test issue description',
+          issue_author_username: 'matz',
+          issue_author_display_name: 'Yukihiro Matsumoto'
         )
         expect(jobs).to include(
           entity_type: 'journal',
@@ -168,7 +173,10 @@ RSpec.describe Webhooks::API do
           content: 'Second comment',
           author_username: 'ko1',
           issue_id: 1,
-          issue_content: 'Test issue'
+          issue_title: 'Test issue',
+          issue_content: 'Detailed test issue description',
+          issue_author_username: 'matz',
+          issue_author_display_name: 'Yukihiro Matsumoto'
         )
       end
     end

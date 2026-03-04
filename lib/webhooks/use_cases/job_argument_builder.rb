@@ -27,7 +27,8 @@ module Webhooks
         {
           entity_type: Entities::EntityType::ISSUE.to_s,
           entity_id: @issue.id,
-          content: @issue.subject,
+          title: @issue.subject,
+          content: @issue.description,
           created_on: @issue.created_on,
           **author_fields(@issue.author)
         }
@@ -39,9 +40,19 @@ module Webhooks
           entity_type: Entities::EntityType::JOURNAL.to_s,
           entity_id: journal.id,
           content: journal.notes,
-          issue_id: @issue.id, issue_content: @issue.subject,
           created_on: journal.created_on,
-          **author_fields(journal.author)
+          **author_fields(journal.author),
+          **issue_context_fields
+        }
+      end
+
+      def issue_context_fields
+        {
+          issue_id: @issue.id,
+          issue_title: @issue.subject,
+          issue_content: @issue.description,
+          issue_author_username: @issue.author&.username,
+          issue_author_display_name: @issue.author&.display_name
         }
       end
 

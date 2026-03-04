@@ -44,14 +44,7 @@ module Analysis
       end
 
       def extraction_user_prompt(job_arguments)
-        EXTRACTION_USER_TEMPLATE.result_with_hash(
-          entity_type_label: job_arguments.entity_type.capitalize,
-          entity_id: job_arguments.entity_id,
-          author_username: job_arguments.author_username,
-          author_display_name: job_arguments.author_display_name,
-          content: job_arguments.content,
-          journal_context: journal_context(job_arguments)
-        )
+        EXTRACTION_USER_TEMPLATE.result_with_hash(extraction_user_vars(job_arguments))
       end
 
       def correction_system_prompt
@@ -92,10 +85,20 @@ module Analysis
         descriptions.map { |type, desc| "- #{type}: #{desc}" }.join("\n")
       end
 
-      def journal_context(job_arguments)
-        return '' unless job_arguments.entity_type == Entities::EntityType::JOURNAL.to_s
-
-        "\n\n## Parent Issue\nIssue ##{job_arguments.issue_id}\n#{job_arguments.issue_content}"
+      def extraction_user_vars(job_arguments)
+        {
+          entity_type: job_arguments.entity_type,
+          entity_id: job_arguments.entity_id,
+          title: job_arguments.title,
+          content: job_arguments.content,
+          author_username: job_arguments.author_username,
+          author_display_name: job_arguments.author_display_name,
+          issue_id: job_arguments.issue_id,
+          issue_title: job_arguments.issue_title,
+          issue_content: job_arguments.issue_content,
+          issue_author_username: job_arguments.issue_author_username,
+          issue_author_display_name: job_arguments.issue_author_display_name
+        }
       end
     end
   end

@@ -1,11 +1,18 @@
 ## Original Context
+
+<original-context>
 <%= original_context %>
+</original-context>
 
 ## Failed Triplet
-- Subject: <%= subject_name %> (<%= subject_type %>, role: <%= subject_role %>)
-- Relationship: <%= relationship %>
-- Object: <%= object_name %> (<%= object_type %>)
-- Evidence: <%= evidence %>
+
+<failed-triplet>
+  <subject name="<%= subject_name %>" type="<%= subject_type %>" role="<%= subject_role %>"/>
+  <relationship><%= relationship %></relationship>
+  <object name="<%= object_name %>" type="<%= object_type %>"/>
+  <evidence><%= evidence %></evidence>
+</failed-triplet>
 
 ## Validation Errors
+
 <%= validation_errors %>
