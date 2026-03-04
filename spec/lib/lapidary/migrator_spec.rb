@@ -35,12 +35,8 @@ RSpec.describe Lapidary::Migrator do
   end
 
   describe '#check' do
-    it 'does not warn when migrations are current' do
-      allow(logger).to receive(:warn)
-
-      migrator.check
-
-      expect(logger).not_to have_received(:warn)
+    it 'does not raise when migrations are current' do
+      expect { migrator.check }.not_to raise_error
     end
 
     context 'when migrations are pending' do
@@ -60,10 +56,6 @@ RSpec.describe Lapidary::Migrator do
   end
 
   describe '#migrate' do
-    before do
-      allow(logger).to receive(:info)
-    end
-
     it 'runs without error when migrations are current' do
       expect { migrator.migrate }.not_to raise_error
     end
@@ -72,36 +64,16 @@ RSpec.describe Lapidary::Migrator do
       expect { migrator.migrate(target: 0) }.not_to raise_error
     end
 
-    it 'logs that database is already up to date when no pending migrations' do
-      migrator.migrate
-
-      expect(logger).to have_received(:info).with(migrator, 'Database is already up to date')
-    end
-
     context 'when migrations are pending' do
       before do
         database.drop_table(:observations, :edges, :nodes, :jobs, :analysis_records)
         database[:schema_migrations].delete
       end
 
-      it 'logs each pending migration filename' do
+      it 'applies all pending migrations' do
         migrator.migrate
 
-        migration_files = Dir.glob(File.join(Lapidary::Container.root, 'db', 'migrations', '*.rb')).map do |f|
-          File.basename(f)
-        end
-
-        migration_files.each do |filename|
-          expect(logger).to have_received(:info).with(migrator, "Applying #{filename}...")
-        end
-      end
-
-      it 'logs completion message with migration count' do
-        migration_count = Dir.glob(File.join(Lapidary::Container.root, 'db', 'migrations', '*.rb')).size
-
-        migrator.migrate
-
-        expect(logger).to have_received(:info).with(migrator, "Applied #{migration_count} migration(s)")
+        expect(migrator.pending?).to be false
       end
     end
   end

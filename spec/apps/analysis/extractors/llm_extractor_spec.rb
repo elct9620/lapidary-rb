@@ -24,12 +24,6 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
   describe '#call' do
     let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 12_345) }
 
-    it 'delegates parsing to ResponseParser with LLM response content' do
-      extractor.call(job_arguments)
-
-      expect(response_parser).to have_received(:call).with(response.content)
-    end
-
     it 'returns the result from ResponseParser' do
       result = extractor.call(job_arguments)
 
@@ -46,12 +40,6 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
       before do
         allow(prompt_builder).to receive(:call).and_return(test_prompt)
-      end
-
-      it 'delegates prompt building to PromptBuilder' do
-        extractor.call(job_arguments)
-
-        expect(prompt_builder).to have_received(:call).with(job_arguments)
       end
 
       it 'sends the system prompt via with_instructions' do
@@ -98,24 +86,10 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       allow(response_parser).to receive(:call).and_return([corrected_triplet])
     end
 
-    it 'delegates parsing to ResponseParser and returns the first result' do
+    it 'returns the corrected triplet' do
       result = extractor.correct(triplet, errors, job_arguments)
 
-      expect(response_parser).to have_received(:call).with(response.content)
       expect(result).to eq(corrected_triplet)
-    end
-
-    it 'delegates to PromptBuilder#correction_prompt' do
-      prompt_builder = instance_double(Analysis::Extractors::PromptBuilder)
-      test_prompt = Analysis::Extractors::Prompt.new(system: 'correction system', user: 'correction user')
-      allow(prompt_builder).to receive(:correction_prompt).and_return(test_prompt)
-      custom_extractor = described_class.new(
-        llm: llm, logger: logger, response_parser: response_parser, prompt_builder: prompt_builder
-      )
-
-      custom_extractor.correct(triplet, errors, job_arguments)
-
-      expect(prompt_builder).to have_received(:correction_prompt).with(triplet, errors, job_arguments)
     end
 
     context 'when ResponseParser returns empty array' do

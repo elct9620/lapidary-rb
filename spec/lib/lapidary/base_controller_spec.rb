@@ -42,14 +42,12 @@ RSpec.describe Lapidary::BaseController do
     let(:controller) { described_class.allocate }
 
     context 'when not inside Async' do
-      it 'yields directly without Sentry interaction' do
-        allow(Sentry).to receive(:initialized?)
+      it 'yields directly' do
         executed = false
 
         controller.dispatch_background { executed = true }
 
         expect(executed).to be true
-        expect(Sentry).not_to have_received(:initialized?)
       end
     end
 

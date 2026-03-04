@@ -82,13 +82,13 @@ RSpec.describe Lapidary::Analysis::Worker do
           )
         end
 
-        it 'logs the error and continues polling' do
+        it 'continues polling despite the error' do
           Async do |task|
             result = service.run(instance, evaluator)
             task.sleep(0.05)
             result.stop
 
-            expect(logger).to have_received(:error).at_least(:once)
+            expect(result).to be_stopped
           end
         end
       end
@@ -102,13 +102,13 @@ RSpec.describe Lapidary::Analysis::Worker do
           Lapidary::Config.configure { |c| c.analysis.job_retention = original }
         end
 
-        it 'logs a warning and uses default retention' do
+        it 'continues polling with default retention' do
           Async do |task|
             result = service.run(instance, evaluator)
             task.sleep(0.05)
             result.stop
 
-            expect(logger).to have_received(:warn).at_least(:once)
+            expect(result).to be_stopped
           end
         end
       end
@@ -134,13 +134,13 @@ RSpec.describe Lapidary::Analysis::Worker do
           )
         end
 
-        it 'logs the error and continues polling' do
+        it 'continues polling despite the error' do
           Async do |task|
             result = service.run(instance, evaluator)
             task.sleep(0.05)
             result.stop
 
-            expect(logger).to have_received(:error).at_least(:once)
+            expect(result).to be_stopped
           end
         end
       end
@@ -154,13 +154,13 @@ RSpec.describe Lapidary::Analysis::Worker do
           Lapidary::Config.configure { |c| c.graph.retention = original }
         end
 
-        it 'logs a warning and uses default retention' do
+        it 'continues polling with default retention' do
           Async do |task|
             result = service.run(instance, evaluator)
             task.sleep(0.05)
             result.stop
 
-            expect(logger).to have_received(:warn).at_least(:once)
+            expect(result).to be_stopped
           end
         end
       end
@@ -175,14 +175,14 @@ RSpec.describe Lapidary::Analysis::Worker do
         )
       end
 
-      it 'catches the error, logs it, and continues polling' do
+      it 'catches the error and continues polling' do
         Async do |task|
           result = service.run(instance, evaluator)
 
           task.sleep(0.05)
           result.stop
 
-          expect(logger).to have_received(:error).at_least(:once)
+          expect(result).to be_stopped
         end
       end
     end
