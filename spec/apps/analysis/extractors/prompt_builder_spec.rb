@@ -105,11 +105,11 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       end
     end
 
-    context 'with evaluation steps' do
+    context 'with extraction workflow' do
       let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1) }
 
-      it 'includes evaluation steps section in the system prompt' do
-        expect(result.system).to include('Evaluation Steps')
+      it 'includes XML workflow in the system prompt' do
+        expect(result.system).to include('<workflow')
       end
 
       it 'includes Y/N question format' do
@@ -119,25 +119,16 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       it 'includes reasoning field guidance' do
         expect(result.system).to include('reasoning')
       end
-    end
 
-    context 'with extraction rubric' do
-      let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 1) }
-
-      it 'includes the rubric table in the system prompt' do
-        expect(result.system).to include('Extraction Rubric')
-      end
-
-      it 'includes Y/N decision table format' do
-        expect(result.system).to match(/Y → Action/)
-          .and match(/N → Action/)
+      it 'includes extraction constraints section' do
+        expect(result.system).to include('Extraction Constraints')
       end
 
       it 'includes do-not-extract guidance' do
         expect(result.system).to include('Do NOT extract when')
       end
 
-      it 'includes role guidance in extraction rules' do
+      it 'includes role guidance in extraction workflow' do
         expect(result.system).to include('role')
       end
     end
@@ -183,16 +174,16 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
       expect(result.system).to include('correct')
     end
 
-    it 'includes extraction rules in the system prompt' do
-      expect(result.system).to include('Extraction Rules')
+    it 'includes extraction constraints in the system prompt' do
+      expect(result.system).to include('Extraction Constraints')
     end
 
-    it 'includes evaluation steps in the system prompt' do
-      expect(result.system).to include('Evaluation Steps')
+    it 'includes extraction workflow in the system prompt' do
+      expect(result.system).to include('<workflow')
     end
 
-    it 'includes extraction rubric in the system prompt' do
-      expect(result.system).to include('Extraction Rubric')
+    it 'includes correction workflow in the system prompt' do
+      expect(result.system).to include('correct-triplet')
     end
 
     it 'includes the failed triplet in XML format' do

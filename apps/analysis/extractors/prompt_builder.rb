@@ -19,9 +19,10 @@ module Analysis
       CORRECTION_SYSTEM_TEMPLATE = load_template('correction_system')
       CORRECTION_USER_TEMPLATE = load_template('correction_user')
       EXTRACTION_RULES = File.read(File.join(TEMPLATES_DIR, '_extraction_rules.erb')).freeze
+      TOOLS = File.read(File.join(TEMPLATES_DIR, '_tools.erb')).freeze
       private_constant :EXTRACTION_SYSTEM_TEMPLATE, :EXTRACTION_USER_TEMPLATE,
                        :CORRECTION_SYSTEM_TEMPLATE, :CORRECTION_USER_TEMPLATE,
-                       :EXTRACTION_RULES
+                       :EXTRACTION_RULES, :TOOLS
 
       def call(job_arguments)
         Prompt.new(
@@ -77,7 +78,8 @@ module Analysis
           relationship_type_descriptions: format_descriptions(Entities::RelationshipType::DESCRIPTIONS),
           core_module_names: Ontology::ModuleRegistry.core_module_names.join("\n"),
           stdlib_names: Ontology::ModuleRegistry.stdlib_names.join("\n"),
-          extraction_rules: EXTRACTION_RULES
+          extraction_rules: EXTRACTION_RULES,
+          tools: TOOLS
         }
       end
 
