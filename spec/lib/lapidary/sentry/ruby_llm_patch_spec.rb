@@ -208,7 +208,7 @@ RSpec.describe Lapidary::Sentry::RubyLlmPatch do
       instance.execute_tool(tool_call)
 
       expect(Sentry).to have_received(:with_child_span).with(
-        op: 'gen_ai.tool',
+        op: 'gen_ai.execute_tool',
         description: 'execute_tool search',
         origin: 'auto.ai.ruby_llm'
       )
@@ -217,9 +217,22 @@ RSpec.describe Lapidary::Sentry::RubyLlmPatch do
     it 'records tool attributes' do
       instance.execute_tool(tool_call)
 
+      expect(span).to have_received(:set_data).with('gen_ai.operation.name', 'execute_tool')
       expect(span).to have_received(:set_data).with('gen_ai.tool.name', 'search')
       expect(span).to have_received(:set_data).with('gen_ai.tool.call.id', 'call_123')
+    end
+
+    it 'records tool input in both Sentry and OTel conventions' do
+      instance.execute_tool(tool_call)
+
+      expect(span).to have_received(:set_data).with('gen_ai.tool.input', '{"query":"ruby"}')
       expect(span).to have_received(:set_data).with('gen_ai.tool.call.arguments', '{"query":"ruby"}')
+    end
+
+    it 'records tool output in both Sentry and OTel conventions' do
+      instance.execute_tool(tool_call)
+
+      expect(span).to have_received(:set_data).with('gen_ai.tool.output', 'tool result')
       expect(span).to have_received(:set_data).with('gen_ai.tool.call.result', 'tool result')
     end
 

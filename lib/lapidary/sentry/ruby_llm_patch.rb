@@ -22,7 +22,7 @@ module Lapidary
       def execute_tool(tool_call)
         return super unless ::Sentry.initialized?
 
-        ::Sentry.with_child_span(op: 'gen_ai.tool', description: "execute_tool #{tool_call.name}",
+        ::Sentry.with_child_span(op: 'gen_ai.execute_tool', description: "execute_tool #{tool_call.name}",
                                  origin: 'auto.ai.ruby_llm') do |span|
           result = super
           record_tool_span(span, tool_call, result) if span
@@ -68,11 +68,18 @@ module Lapidary
       end
 
       def record_tool_span(span, tool_call, result)
+        span.set_data('gen_ai.operation.name', 'execute_tool')
         span.set_data('gen_ai.tool.name', tool_call.name)
         span.set_data('gen_ai.tool.call.id', tool_call.id)
-        span.set_data('gen_ai.tool.call.arguments', JSON.generate(tool_call.arguments))
+
+        arguments_json = JSON.generate(tool_call.arguments)
+        span.set_data('gen_ai.tool.input', arguments_json)
+        span.set_data('gen_ai.tool.call.arguments', arguments_json)
+
         result_str = result.is_a?(::RubyLLM::Tool::Halt) ? result.content.to_s : result.to_s
-        span.set_data('gen_ai.tool.call.result', result_str[0..500])
+        truncated_result = result_str[0..500]
+        span.set_data('gen_ai.tool.output', truncated_result)
+        span.set_data('gen_ai.tool.call.result', truncated_result)
       end
 
       def format_messages(messages)
