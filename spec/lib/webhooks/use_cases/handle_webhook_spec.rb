@@ -11,39 +11,35 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
     )
   end
 
+  let(:issue_repository) { Lapidary::Container['webhooks.repositories.issue_repository'] }
   let(:analysis_record_repository) { Lapidary::Container['webhooks.repositories.analysis_record_repository'] }
   let(:analysis_scheduler) { Lapidary::Container['webhooks.adapters.analysis_scheduler'] }
 
-  let(:journals) do
-    [
-      Webhooks::Entities::Journal.new(
-        id: 101, notes: 'First comment',
-        author: Webhooks::Entities::Author.new(username: 'nobu', display_name: 'Nobuyoshi Nakada'),
-        created_on: '2024-01-16T08:00:00Z'
-      ),
-      Webhooks::Entities::Journal.new(
-        id: 102, notes: 'Second comment',
-        author: Webhooks::Entities::Author.new(username: 'ko1', display_name: 'Koichi Sasada'),
-        created_on: '2024-01-17T09:00:00Z'
-      )
-    ]
+  let(:redmine_api_url) { 'https://bugs.ruby-lang.org/issues/42.json?include=journals' }
+  let(:redmine_response) do
+    {
+      issue: {
+        id: 42,
+        subject: 'Add new feature',
+        author: { id: 1, name: 'matz (Yukihiro Matsumoto)' },
+        created_on: '2024-01-15T10:30:00Z',
+        journals: [
+          { id: 101, user: { id: 2, name: 'nobu (Nobuyoshi Nakada)' },
+            notes: 'First comment', created_on: '2024-01-16T08:00:00Z' },
+          { id: 102, user: { id: 3, name: 'ko1 (Koichi Sasada)' },
+            notes: 'Second comment', created_on: '2024-01-17T09:00:00Z' }
+        ]
+      }
+    }
   end
-  let(:issue) do
-    Webhooks::Entities::Issue.new(
-      id: 42, subject: 'Add new feature',
-      author: Webhooks::Entities::Author.new(username: 'matz', display_name: 'Yukihiro Matsumoto'),
-      created_on: '2024-01-15T10:30:00Z',
-      journals: journals
-    )
+
+  before do
+    stub_request(:get, redmine_api_url)
+      .to_return(status: 200, body: JSON.generate(redmine_response),
+                 headers: { 'Content-Type' => 'application/json' })
   end
-  let(:issue_repository) { instance_double(Webhooks::Repositories::IssueRepository, find: issue) }
 
   describe '#call' do
-    it 'fetches the issue from the repository' do
-      use_case.call(42)
-      expect(issue_repository).to have_received(:find).with(42)
-    end
-
     it 'schedules untracked issue records with rich arguments' do
       use_case.call(42)
 

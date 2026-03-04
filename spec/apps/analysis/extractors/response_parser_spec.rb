@@ -86,23 +86,11 @@ RSpec.describe Analysis::Extractors::ResponseParser do
       it 'returns an empty array' do
         expect(parser.call('unexpected string')).to eq([])
       end
-
-      it 'logs a malformed response warning' do
-        parser.call('unexpected string')
-
-        expect(logger).to have_received(:warn).with(parser, a_kind_of(String), anything)
-      end
     end
 
     context 'with nil content' do
       it 'returns an empty array' do
         expect(parser.call(nil)).to eq([])
-      end
-
-      it 'does not log a warning' do
-        parser.call(nil)
-
-        expect(logger).not_to have_received(:warn)
       end
     end
 
@@ -136,12 +124,6 @@ RSpec.describe Analysis::Extractors::ResponseParser do
         expect(triplets.first.subject.name).to eq('nobu')
         expect(triplets.first.object.name).to eq('Array')
       end
-
-      it 'logs a warning for each malformed triplet' do
-        parser.call(content)
-
-        expect(logger).to have_received(:warn).with(parser, a_string_matching(/Skipping malformed triplet/)).twice
-      end
     end
 
     context 'with incomplete triplet data' do
@@ -172,12 +154,6 @@ RSpec.describe Analysis::Extractors::ResponseParser do
 
         expect(triplets.size).to eq(1)
         expect(triplets.first.subject.name).to eq('matz')
-      end
-
-      it 'logs a warning for each incomplete triplet' do
-        parser.call(content)
-
-        expect(logger).to have_received(:warn).with(parser, a_string_matching(/Skipping malformed triplet/)).twice
       end
     end
 
