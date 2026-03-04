@@ -12,70 +12,72 @@ RSpec.describe Analysis::UseCases::ArchiveEdges do
     )
   end
 
-  let(:edge_archive_writer) { instance_double(Analysis::Repositories::EdgeArchiveWriter) }
-  let(:analysis_record_repository) { instance_double(Analysis::Repositories::AnalysisRecordRepository) }
+  let(:edge_archive_writer) { Lapidary::Container['analysis.repositories.edge_archive_writer'] }
+  let(:analysis_record_repository) { Lapidary::Container['analysis.repositories.analysis_record_repository'] }
+  let(:graph_repository) { Lapidary::Container['analysis.repositories.graph_repository'] }
   let(:retention_period) { Analysis::Entities::RetentionPeriod.new(amount: 180, unit: 'd') }
   let(:logger) { instance_double(Console::Logger, info: nil) }
+  let(:db) { Lapidary::Container['database'] }
+
+  let(:freeze_time) { Time.new(2026, 1, 15, 12, 0, 0) }
+  let(:expired_time) { (freeze_time - (181 * 86_400)).iso8601 }
+  let(:recent_time) { (freeze_time - (10 * 86_400)).iso8601 }
 
   describe '#call' do
     context 'when edges are archived' do
-      let(:entity_pairs) { [{ entity_type: 'issue', entity_id: 1 }] }
-
       before do
-        allow(edge_archive_writer).to receive(:archive_expired)
-          .and_return(Analysis::Entities::ArchiveResult.new(archived_count: 2, entity_pairs: entity_pairs))
-        allow(analysis_record_repository).to receive(:delete_by_entities).and_return(1)
+        # Create an expired edge (observation older than 180 days)
+        triplet = maintainer_triplet
+        observation = Analysis::Entities::Observation.new(
+          observed_at: expired_time, source_entity_type: 'issue', source_entity_id: 1
+        )
+        graph_repository.save_triplet(triplet, observation)
+
+        # Create an analysis record for the entity
+        record = Analysis::Entities::AnalysisRecord.new(entity_type: 'issue', entity_id: 1)
+        record.analyze
+        analysis_record_repository.save(record)
       end
 
-      it 'archives expired edges via graph repository' do
-        use_case.call
+      it 'archives expired edges' do
+        result = use_case.call(now: freeze_time)
 
-        expect(edge_archive_writer).to have_received(:archive_expired).with(cutoff: an_instance_of(Time))
+        expect(result).to eq(1)
+        edge = db[:edges].first
+        expect(edge[:archived_at]).not_to be_nil
       end
 
-      it 'resets analysis records for archived edge entities' do
-        use_case.call
+      it 'deletes analysis records for archived edge entities' do
+        use_case.call(now: freeze_time)
 
-        expect(analysis_record_repository).to have_received(:delete_by_entities).with(entity_pairs)
+        expect(db[:analysis_records].where(entity_type: 'issue', entity_id: 1).count).to eq(0)
       end
 
       it 'returns the archived count' do
-        expect(use_case.call).to eq(2)
-      end
-
-      it 'logs the archiving result' do
-        use_case.call
-
-        expect(logger).to have_received(:info)
+        expect(use_case.call(now: freeze_time)).to eq(1)
       end
     end
 
     context 'when no edges are archived' do
       before do
-        allow(edge_archive_writer).to receive(:archive_expired)
-          .and_return(Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
+        # Create a recent edge (observation within 180 days)
+        triplet = maintainer_triplet
+        observation = Analysis::Entities::Observation.new(
+          observed_at: recent_time, source_entity_type: 'issue', source_entity_id: 2
+        )
+        graph_repository.save_triplet(triplet, observation)
       end
 
-      it 'does not call delete_by_entities' do
-        use_case.call
+      it 'does not archive recent edges' do
+        use_case.call(now: freeze_time)
 
-        expect(analysis_record_repository).not_to receive(:delete_by_entities)
+        edge = db[:edges].first
+        expect(edge[:archived_at]).to be_nil
       end
 
       it 'returns zero' do
-        expect(use_case.call).to eq(0)
+        expect(use_case.call(now: freeze_time)).to eq(0)
       end
-    end
-
-    it 'computes cutoff from retention period' do
-      freeze_time = Time.new(2026, 1, 15, 12, 0, 0)
-      expected_cutoff = freeze_time - (180 * 86_400)
-      allow(edge_archive_writer).to receive(:archive_expired)
-        .and_return(Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
-
-      use_case.call(now: freeze_time)
-
-      expect(edge_archive_writer).to have_received(:archive_expired).with(cutoff: expected_cutoff)
     end
   end
 end

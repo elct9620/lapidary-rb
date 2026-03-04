@@ -5,50 +5,36 @@ require 'spec_helper'
 RSpec.describe Graph::UseCases::QueryNeighbors do
   subject(:use_case) { described_class.new(neighbor_repository: repository) }
 
-  let(:repository) { instance_double(Graph::Repositories::NeighborRepository) }
-
-  let(:matz_node) { Graph::Entities::Node.new(id: 'rubyist://matz', type: 'Rubyist') }
-  let(:string_node) { Graph::Entities::Node.new(id: 'core_module://String', type: 'CoreModule') }
-  let(:array_node) { Graph::Entities::Node.new(id: 'core_module://Array', type: 'CoreModule') }
-
-  let(:outbound_edge) do
-    Graph::Entities::Edge.new(
-      source: 'rubyist://matz', target: 'core_module://String', relationship: 'Contribute',
-      observations: [
-        Graph::Entities::Observation.new(
-          observed_at: Time.iso8601('2024-01-15T10:30:00Z'), source_entity_type: 'issue', source_entity_id: 1
-        )
-      ]
-    )
-  end
-
-  let(:inbound_edge) do
-    Graph::Entities::Edge.new(
-      source: 'core_module://Array', target: 'rubyist://matz', relationship: 'MaintainedBy',
-      observations: [
-        Graph::Entities::Observation.new(
-          observed_at: Time.iso8601('2024-06-01T00:00:00Z'), source_entity_type: 'issue', source_entity_id: 2
-        )
-      ]
-    )
-  end
+  let(:repository) { Lapidary::Container['graph.repositories.neighbor_repository'] }
+  let(:db) { Lapidary::Container['database'] }
 
   describe '#call' do
-    context 'when node exists' do
-      before do
-        allow(repository).to receive(:find_node).with('rubyist://matz').and_return(matz_node)
-        allow(repository).to receive(:find_edges)
-          .with('rubyist://matz', direction: Graph::Entities::Direction::BOTH, include_archived: false)
-          .and_return([outbound_edge, inbound_edge])
-        allow(repository).to receive(:find_nodes_by_ids)
-          .with(match_array(%w[core_module://String core_module://Array]))
-          .and_return({ 'core_module://String' => string_node, 'core_module://Array' => array_node })
-      end
+    before do
+      now = Time.now
+      db[:nodes].insert(id: 'rubyist://matz', type: 'Rubyist', created_at: now, updated_at: now)
+      db[:nodes].insert(id: 'core_module://String', type: 'CoreModule', created_at: now, updated_at: now)
+      db[:nodes].insert(id: 'core_module://Array', type: 'CoreModule', created_at: now, updated_at: now)
 
+      db[:edges].insert(source: 'rubyist://matz', target: 'core_module://String',
+                        relationship: 'Contribute', created_at: now, updated_at: now)
+      db[:observations].insert(edge_source: 'rubyist://matz', edge_target: 'core_module://String',
+                               edge_relationship: 'Contribute',
+                               observed_at: Time.iso8601('2024-01-15T10:30:00Z'),
+                               source_entity_type: 'issue', source_entity_id: 1, created_at: now)
+
+      db[:edges].insert(source: 'core_module://Array', target: 'rubyist://matz',
+                        relationship: 'MaintainedBy', created_at: now, updated_at: now)
+      db[:observations].insert(edge_source: 'core_module://Array', edge_target: 'rubyist://matz',
+                               edge_relationship: 'MaintainedBy',
+                               observed_at: Time.iso8601('2024-06-01T00:00:00Z'),
+                               source_entity_type: 'issue', source_entity_id: 2, created_at: now)
+    end
+
+    context 'when node exists' do
       it 'returns the node and its neighbors' do
         result = use_case.call(node_id: 'rubyist://matz')
 
-        expect(result[:node]).to eq(matz_node)
+        expect(result[:node].id).to eq('rubyist://matz')
         expect(result[:neighbors].size).to eq(2)
         expect(result[:neighbors].map { |n| n.node.id }).to contain_exactly('core_module://String',
                                                                             'core_module://Array')
@@ -56,10 +42,6 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
     end
 
     context 'when node does not exist' do
-      before do
-        allow(repository).to receive(:find_node).with('rubyist://unknown').and_return(nil)
-      end
-
       it 'returns nil' do
         result = use_case.call(node_id: 'rubyist://unknown')
         expect(result).to be_nil
@@ -67,17 +49,7 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
     end
 
     context 'with direction filtering' do
-      before do
-        allow(repository).to receive(:find_node).with('rubyist://matz').and_return(matz_node)
-        allow(repository).to receive(:find_edges)
-          .with('rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND, include_archived: false)
-          .and_return([outbound_edge])
-        allow(repository).to receive(:find_nodes_by_ids)
-          .with(%w[core_module://String])
-          .and_return({ 'core_module://String' => string_node })
-      end
-
-      it 'passes direction to repository' do
+      it 'returns only outbound neighbors' do
         result = use_case.call(node_id: 'rubyist://matz', direction: Graph::Entities::Direction::OUTBOUND)
 
         expect(result[:neighbors].size).to eq(1)
@@ -86,27 +58,11 @@ RSpec.describe Graph::UseCases::QueryNeighbors do
     end
 
     context 'with observation time-range filtering' do
-      let(:multi_obs_edge) do
-        Graph::Entities::Edge.new(
-          source: 'rubyist://matz', target: 'core_module://String', relationship: 'Contribute',
-          observations: [
-            Graph::Entities::Observation.new(observed_at: Time.iso8601('2024-01-15T10:30:00Z'),
-                                             source_entity_type: 'issue', source_entity_id: 1),
-            Graph::Entities::Observation.new(observed_at: Time.iso8601('2024-07-01T00:00:00Z'),
-                                             source_entity_type: 'journal', source_entity_id: 10)
-          ]
-        )
-      end
-
       before do
-        allow(repository).to receive(:find_node).with('rubyist://matz').and_return(matz_node)
-        allow(repository).to receive(:find_edges)
-          .with('rubyist://matz', direction: Graph::Entities::Direction::BOTH, include_archived: false)
-          .and_return([multi_obs_edge, inbound_edge])
-        allow(repository).to receive(:find_nodes_by_ids).and_return({
-                                                                      'core_module://String' => string_node,
-                                                                      'core_module://Array' => array_node
-                                                                    })
+        db[:observations].insert(edge_source: 'rubyist://matz', edge_target: 'core_module://String',
+                                 edge_relationship: 'Contribute',
+                                 observed_at: Time.iso8601('2024-07-01T00:00:00Z'),
+                                 source_entity_type: 'journal', source_entity_id: 10, created_at: Time.now)
       end
 
       it 'filters observations by observed_after' do

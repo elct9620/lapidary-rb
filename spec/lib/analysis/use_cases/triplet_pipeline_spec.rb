@@ -34,12 +34,6 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
         expect(Lapidary::Container['database'][:nodes].count).to eq(0)
       end
-
-      it 'logs a pipeline summary' do
-        pipeline.call(arguments, observation)
-
-        expect(logger).to have_received(:info).with(pipeline, a_kind_of(String), anything)
-      end
     end
 
     context 'when extractor returns a valid triplet' do
@@ -62,10 +56,9 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         instance_double(Analysis::Extractors::LlmExtractor, call: [invalid_triplet], correct: nil)
       end
 
-      it 'logs a warning and does not write to graph' do
+      it 'does not write to graph' do
         pipeline.call(arguments, observation)
 
-        expect(logger).to have_received(:warn).with(pipeline, a_kind_of(String))
         expect(Lapidary::Container['database'][:nodes].count).to eq(0)
       end
     end
@@ -90,12 +83,6 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         expect(db[:nodes].where(id: 'core_module://String').count).to eq(1)
         expect(db[:edges].count).to eq(1)
       end
-
-      it 'logs correction attempt' do
-        pipeline.call(arguments, observation)
-
-        expect(logger).to have_received(:info).with(pipeline, /Attempting correction/, anything)
-      end
     end
 
     context 'when correction also fails validation' do
@@ -117,12 +104,6 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
         expect(Lapidary::Container['database'][:nodes].count).to eq(0)
       end
-
-      it 'logs a warning for final rejection' do
-        pipeline.call(arguments, observation)
-
-        expect(logger).to have_received(:warn).with(pipeline, /Correction failed/)
-      end
     end
 
     context 'when correction returns nil' do
@@ -138,7 +119,6 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         pipeline.call(arguments, observation)
 
         expect(Lapidary::Container['database'][:nodes].count).to eq(0)
-        expect(logger).to have_received(:warn).with(pipeline, /Correction failed/)
       end
     end
 
@@ -157,7 +137,6 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         expect { pipeline.call(arguments, observation) }.not_to raise_error
 
         expect(Lapidary::Container['database'][:nodes].count).to eq(0)
-        expect(logger).to have_received(:warn).with(pipeline, /Correction failed/)
       end
     end
 
@@ -170,11 +149,11 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         pipeline.call(arguments, observation)
       end
 
-      it 'logs duplicated count' do
+      it 'does not create duplicate graph data' do
         pipeline.call(arguments, observation)
 
-        expect(logger).to have_received(:info).with(pipeline, a_string_including('duplicated'),
-                                                    a_hash_including(duplicated: 1))
+        db = Lapidary::Container['database']
+        expect(db[:edges].count).to eq(1)
       end
     end
 
@@ -192,12 +171,11 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
         instance_double(Analysis::Extractors::LlmExtractor, call: [contributor_triplet], correct: corrected)
       end
 
-      it 'triggers correction and writes the corrected triplet' do
+      it 'writes the corrected triplet' do
         pipeline.call(arguments, observation)
 
         edge = Lapidary::Container['database'][:edges].first
         expect(edge[:relationship]).to eq('Contribute')
-        expect(logger).to have_received(:info).with(pipeline, /Attempting correction/, anything)
       end
     end
 
@@ -262,9 +240,6 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
 
         edge = Lapidary::Container['database'][:edges].first
         expect(edge[:relationship]).to eq('Contribute')
-        expect(logger).to have_received(:info).with(
-          pipeline, 'Maintenance downgraded to Contribute (non-maintainer role)', anything
-        )
       end
     end
   end

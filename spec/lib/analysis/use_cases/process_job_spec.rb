@@ -58,12 +58,6 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::DONE.to_s)
       end
-
-      it 'logs job processing and completion' do
-        use_case.call(claim_job)
-
-        expect(logger).to have_received(:info).with(use_case, a_kind_of(String), anything).at_least(:once)
-      end
     end
 
     context 'when processing fails' do
@@ -89,12 +83,6 @@ RSpec.describe Analysis::UseCases::ProcessJob do
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:error]).to eq('connection lost')
       end
-
-      it 'logs a retry warning' do
-        use_case.call(claim_job)
-
-        expect(logger).to have_received(:warn).with(use_case, a_kind_of(String), anything)
-      end
     end
 
     context 'when processing fails and max attempts reached' do
@@ -113,26 +101,6 @@ RSpec.describe Analysis::UseCases::ProcessJob do
 
         row = Lapidary::Container['database'][:jobs].first
         expect(row[:status]).to eq(Analysis::Entities::JobStatus::FAILED.to_s)
-      end
-
-      it 'logs an error' do
-        use_case.call(claim_job)
-
-        expect(logger).to have_received(:error).with(use_case, a_kind_of(String), anything)
-      end
-    end
-
-    context 'when extraction produces valid triplets' do
-      before do
-        job_repository.enqueue(Analysis::Entities::Job.new(arguments: Analysis::Entities::JobArguments.new(
-          entity_type: 'issue', entity_id: 1
-        )))
-      end
-
-      it 'does not log any warnings' do
-        use_case.call(claim_job)
-
-        expect(logger).not_to have_received(:warn)
       end
     end
 

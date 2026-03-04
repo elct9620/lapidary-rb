@@ -5,47 +5,55 @@ require 'spec_helper'
 RSpec.describe Graph::UseCases::QueryNodes do
   subject(:use_case) { described_class.new(node_repository: node_repository) }
 
-  let(:node_repository) { instance_double(Graph::Repositories::NodeRepository) }
-  let(:sample_nodes) do
-    [
-      Graph::Entities::Node.new(id: 'rubyist://matz', type: 'Rubyist', data: { display_name: 'Yukihiro Matsumoto' }),
-      Graph::Entities::Node.new(id: 'core_module://String', type: 'CoreModule')
-    ]
-  end
+  let(:node_repository) { Lapidary::Container['graph.repositories.node_repository'] }
+  let(:db) { Lapidary::Container['database'] }
 
   describe '#call' do
     before do
-      allow(node_repository).to receive(:search).and_return(sample_nodes)
-      allow(node_repository).to receive(:count).and_return(2)
+      db[:nodes].insert(id: 'rubyist://matz', type: 'Rubyist',
+                        data: '{"display_name":"Yukihiro Matsumoto"}',
+                        created_at: Time.now, updated_at: Time.now)
+      db[:nodes].insert(id: 'core_module://String', type: 'CoreModule',
+                        created_at: Time.now, updated_at: Time.now)
+      db[:edges].insert(source: 'rubyist://matz', target: 'core_module://String',
+                        relationship: 'Contribute',
+                        created_at: Time.now, updated_at: Time.now)
+      db[:observations].insert(edge_source: 'rubyist://matz', edge_target: 'core_module://String',
+                               edge_relationship: 'Contribute',
+                               observed_at: Time.now, source_entity_type: 'issue', source_entity_id: 1,
+                               created_at: Time.now)
     end
 
     it 'returns nodes, total, limit, and offset' do
       result = use_case.call
 
-      expect(result[:nodes]).to eq(sample_nodes)
+      expect(result[:nodes].size).to eq(2)
       expect(result[:total]).to eq(2)
       expect(result[:limit]).to eq(20)
       expect(result[:offset]).to eq(0)
     end
 
-    it 'passes parameters to repository search' do
-      use_case.call(type: 'Rubyist', query: 'matz', limit: 10, offset: 5)
+    it 'filters by type' do
+      result = use_case.call(type: 'Rubyist')
 
-      expect(node_repository).to have_received(:search)
-        .with(type: 'Rubyist', query: 'matz', limit: 10, offset: 5, include_orphans: false)
+      expect(result[:nodes].size).to eq(1)
+      expect(result[:nodes].first.id).to eq('rubyist://matz')
+      expect(result[:total]).to eq(1)
     end
 
-    it 'passes parameters to repository count' do
-      use_case.call(type: 'Rubyist', query: 'matz', limit: 10, offset: 5)
+    it 'applies limit and offset' do
+      result = use_case.call(limit: 1, offset: 0)
 
-      expect(node_repository).to have_received(:count).with(type: 'Rubyist', query: 'matz', include_orphans: false)
+      expect(result[:nodes].size).to eq(1)
+      expect(result[:limit]).to eq(1)
+      expect(result[:offset]).to eq(0)
     end
 
     it 'uses default limit and offset' do
-      use_case.call
+      result = use_case.call
 
-      expect(node_repository).to have_received(:search)
-        .with(type: nil, query: nil, limit: 20, offset: 0, include_orphans: false)
+      expect(result[:limit]).to eq(20)
+      expect(result[:offset]).to eq(0)
     end
   end
 end
