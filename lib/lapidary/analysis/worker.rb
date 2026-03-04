@@ -6,7 +6,7 @@ require 'async/service/managed/service'
 module Lapidary
   module Analysis
     # Background worker that polls and processes analysis jobs.
-    class Service < Async::Service::Managed::Service
+    class Worker < Async::Service::Managed::Service
       def run(_instance, _evaluator)
         Async do
           logger.info(self, 'Analysis worker started')
@@ -34,12 +34,12 @@ module Lapidary
 
       def poll_loop
         job_repository = container['analysis.repositories.job_repository']
-        use_case = build_use_case(job_repository)
+        job_handler = container['analysis.jobs.analysis_job']
         periodic_tasks = build_periodic_tasks(job_repository)
 
         loop do
           periodic_tasks.each { |t| t[:last_at] = maybe_run(t[:action], t[:last_at]) }
-          poll_once(use_case, job_repository)
+          poll_once(job_handler, job_repository)
         end
       end
 
@@ -62,22 +62,18 @@ module Lapidary
         Time.now
       end
 
-      def poll_once(use_case, job_repository)
+      def poll_once(job_handler, job_repository)
         job = job_repository.claim_next
         unless job
           sleep poll_interval
           return
         end
 
-        process_job(use_case, job)
+        job_handler.call(job)
       rescue ::Analysis::Entities::JobError => e
         ::Sentry.capture_exception(e)
         logger.error(self, "Job processing error: #{e.class}: #{e.message}")
         sleep poll_interval
-      end
-
-      def process_job(use_case, job)
-        use_case.call(job)
       end
 
       def parse_retention_period
@@ -115,43 +111,6 @@ module Lapidary
           retention_period: parse_retention_period,
           logger: logger
         )
-      end
-
-      def build_use_case(job_repository)
-        ::Analysis::UseCases::ProcessJob.new(
-          job_repository: job_repository,
-          analysis_record_repository: container['analysis.repositories.analysis_record_repository'],
-          pipeline: build_pipeline,
-          logger: logger
-        )
-      end
-
-      def build_pipeline
-        ::Analysis::UseCases::TripletPipeline.new(
-          extractor: build_extractor,
-          # Validator and Normalizer are inner-layer domain objects, not container-managed
-          validator: ::Analysis::Ontology::Validator.new,
-          normalizer: ::Analysis::Ontology::Normalizer.new,
-          graph_repository: container['analysis.repositories.graph_repository'],
-          logger: logger
-        )
-      end
-
-      def build_extractor
-        ::Analysis::Extractors::LlmExtractor.new(
-          llm: container['llm'],
-          logger: logger,
-          tools: build_tools
-        )
-      end
-
-      def build_tools
-        database = container['database']
-        [
-          ::Analysis::Extractors::Tools::SearchNodeTool.new(database),
-          ::Analysis::Extractors::Tools::ValidateModuleTool.new,
-          ::Analysis::Extractors::Tools::SearchEdgeTool.new(database)
-        ]
       end
     end
   end

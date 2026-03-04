@@ -14,7 +14,7 @@ Lapidary::Container.register_provider(:sentry) do
       require_relative '../../lib/lapidary/sentry/ruby_llm_patch'
       require_relative '../../lib/lapidary/sentry/queue_patch'
       RubyLLM::Chat.prepend(Lapidary::Sentry::RubyLlmPatch)
-      Lapidary::Analysis::Service.prepend(Lapidary::Sentry::QueuePatch)
+      Lapidary::Analysis::BaseJob.prepend(Lapidary::Sentry::QueuePatch)
     end
   end
 end

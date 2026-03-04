@@ -2,9 +2,9 @@
 
 require 'spec_helper'
 require 'async'
-require_relative '../../../../lib/lapidary/analysis/service'
+require_relative '../../../../lib/lapidary/analysis/worker'
 
-RSpec.describe Lapidary::Analysis::Service do
+RSpec.describe Lapidary::Analysis::Worker do
   let(:environment) do
     double('Environment', evaluator: evaluator)
   end
@@ -19,35 +19,28 @@ RSpec.describe Lapidary::Analysis::Service do
 
   shared_context 'with stubbed container' do
     let(:job_repository) { double('JobRepository', claim_next: nil, delete_expired: 0) }
-    let(:analysis_record_repository) { double('AnalysisRecordRepository') }
+    let(:job_handler) { double('AnalysisJob', call: nil) }
     let(:edge_archive_writer) do
       double('EdgeArchiveWriter',
              archive_expired: Analysis::Entities::ArchiveResult.new(archived_count: 0, entity_pairs: []))
     end
-    let(:extractor) { double('Extractor') }
     let(:logger) { double('Logger', info: nil, warn: nil, error: nil) }
 
     before do
       @orig_job_repo = Lapidary::Container['analysis.repositories.job_repository']
-      @orig_analysis_repo = Lapidary::Container['analysis.repositories.analysis_record_repository']
       @orig_edge_archive_repo = Lapidary::Container['analysis.repositories.edge_archive_writer']
-      @orig_graph_repo = Lapidary::Container['analysis.repositories.graph_repository']
-      @orig_extractor = Lapidary::Container['analysis.extractors.llm_extractor']
+      @orig_job_handler = Lapidary::Container['analysis.jobs.analysis_job']
 
       Lapidary::Container.stub('analysis.repositories.job_repository', job_repository)
-      Lapidary::Container.stub('analysis.repositories.analysis_record_repository', analysis_record_repository)
       Lapidary::Container.stub('analysis.repositories.edge_archive_writer', edge_archive_writer)
-      Lapidary::Container.stub('analysis.repositories.graph_repository', @orig_graph_repo)
-      Lapidary::Container.stub('analysis.extractors.llm_extractor', extractor)
+      Lapidary::Container.stub('analysis.jobs.analysis_job', job_handler)
       Lapidary::Container.stub('logger', logger)
     end
 
     after do
       Lapidary::Container.stub('analysis.repositories.job_repository', @orig_job_repo)
-      Lapidary::Container.stub('analysis.repositories.analysis_record_repository', @orig_analysis_repo)
       Lapidary::Container.stub('analysis.repositories.edge_archive_writer', @orig_edge_archive_repo)
-      Lapidary::Container.stub('analysis.repositories.graph_repository', @orig_graph_repo)
-      Lapidary::Container.stub('analysis.extractors.llm_extractor', @orig_extractor)
+      Lapidary::Container.stub('analysis.jobs.analysis_job', @orig_job_handler)
       Lapidary::Container.stub('logger', Console::Logger.new(Console::Output::Null.new))
     end
   end

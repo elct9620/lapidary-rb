@@ -30,8 +30,8 @@ RSpec.describe Lapidary::Analysis::Environment do
   end
 
   describe '#service_class' do
-    it 'returns Analysis::Service' do
-      expect(environment.service_class).to eq(Lapidary::Analysis::Service)
+    it 'returns Analysis::Worker' do
+      expect(environment.service_class).to eq(Lapidary::Analysis::Worker)
     end
   end
 

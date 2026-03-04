@@ -6,7 +6,7 @@ require 'async/http/endpoint'
 require 'async/http/protocol'
 
 require_relative 'lib/lapidary/analysis/environment'
-require_relative 'lib/lapidary/analysis/service'
+require_relative 'lib/lapidary/analysis/worker'
 
 hostname = File.basename(__dir__)
 

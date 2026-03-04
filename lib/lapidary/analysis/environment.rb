@@ -10,7 +10,7 @@ module Lapidary
       include Async::Service::Managed::Environment
 
       def service_class
-        Lapidary::Analysis::Service
+        Lapidary::Analysis::Worker
       end
 
       def count
