@@ -30,13 +30,27 @@ module Lapidary
     def migrate(target: nil)
       return unless migrations_available?
 
-      Sequel::Migrator.run(database, migrations_path, target: target)
+      migrator = Sequel::TimestampMigrator.new(database, migrations_path, target: target)
+      pending = pending_ups(migrator)
+
+      if pending.empty?
+        logger.info(self, 'Database is already up to date')
+        return
+      end
+
+      pending.each { |_, filename, _| logger.info(self, "Applying #{File.basename(filename)}...") }
+      migrator.run
+      logger.info(self, "Applied #{pending.size} migration(s)")
     end
 
     private
 
     def migrations_path
       @migrations_path ||= Container.root.join('db', 'migrations').to_s
+    end
+
+    def pending_ups(migrator)
+      migrator.migration_tuples.select { |_, _, direction| direction == :up }
     end
 
     def migrations_available?
