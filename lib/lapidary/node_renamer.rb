@@ -84,12 +84,12 @@ module Lapidary
     end
 
     def merge_edge_observations(old_key, new_key)
-      identities = obs_by_edge(old_key).select_map(%i[source_entity_type source_entity_id])
+      existing = obs_by_edge(new_key).select_map(%i[source_entity_type source_entity_id])
+      return repoint_observations(old_key, new_key) if existing.empty?
 
-      identities.each do |entity_type, entity_id|
-        identity = { source_entity_type: entity_type, source_entity_id: entity_id }
-        obs_by_edge(old_key).where(identity).delete if obs_by_edge(new_key).where(identity).any?
-      end
+      obs_by_edge(old_key)
+        .where(%i[source_entity_type source_entity_id] => existing)
+        .delete
 
       repoint_observations(old_key, new_key)
     end
