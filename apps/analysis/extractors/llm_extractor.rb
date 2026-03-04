@@ -6,7 +6,6 @@ module Analysis
     # Duck typing contract: #call(job_arguments) -> [Triplet]
     class LlmExtractor
       include Lapidary::Dependency['llm', 'logger']
-      include SentryLlmSpan
 
       def initialize(prompt_builder: PromptBuilder.new, response_parser: nil, tools: [], **deps)
         super(**deps)
@@ -36,16 +35,8 @@ module Analysis
       end
 
       def chat_with_schema(prompt)
-        ::Sentry.with_child_span(op: 'gen_ai.chat', description: "chat #{model_name}") do |span|
-          chat = llm.chat.with_instructions(prompt.system).with_tools(*@tools).with_schema(TripletSchema)
-          result = chat.ask(prompt.user)
-          record_llm_span(span, prompt, result)
-          result
-        end
-      end
-
-      def model_name
-        Lapidary.config.openai.model
+        chat = llm.chat.with_instructions(prompt.system).with_tools(*@tools).with_schema(TripletSchema)
+        chat.ask(prompt.user)
       end
     end
   end

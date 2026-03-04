@@ -121,28 +121,6 @@ RSpec.describe Lapidary::Analysis::Service do
       end
     end
 
-    context 'with Sentry queue transaction' do
-      include_context 'with stubbed container'
-
-      let(:transaction) { double('Transaction', finish: nil) }
-
-      before do
-        allow(Sentry).to receive(:start_transaction).and_return(transaction)
-        allow(Sentry).to receive(:get_current_scope).and_return(double('Scope', set_span: nil))
-        allow(transaction).to receive(:set_data)
-      end
-
-      it 'does not start transaction on idle poll' do
-        Async do |task|
-          result = service.run(instance, evaluator)
-          task.sleep(0.05)
-          result.stop
-
-          expect(Sentry).not_to have_received(:start_transaction)
-        end
-      end
-    end
-
     context 'with graph archiving' do
       include_context 'with stubbed container'
 

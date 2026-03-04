@@ -2,14 +2,11 @@
 # frozen_string_literal: true
 
 require 'async/service/managed/service'
-require_relative 'sentry_queue_span'
 
 module Lapidary
   module Analysis
     # Background worker that polls and processes analysis jobs.
     class Service < Async::Service::Managed::Service
-      include SentryQueueSpan
-
       def run(_instance, _evaluator)
         Async do
           logger.info(self, 'Analysis worker started')
@@ -72,11 +69,15 @@ module Lapidary
           return
         end
 
-        with_queue_transaction { use_case.call(job) }
+        process_job(use_case, job)
       rescue ::Analysis::Entities::JobError => e
         ::Sentry.capture_exception(e)
         logger.error(self, "Job processing error: #{e.class}: #{e.message}")
         sleep poll_interval
+      end
+
+      def process_job(use_case, job)
+        use_case.call(job)
       end
 
       def parse_retention_period

@@ -7,6 +7,14 @@ Lapidary::Container.register_provider(:sentry) do
 
   start do
     require Lapidary.root.join('config/sentry').to_s
-    target['database'].extension(:sentry) if Sentry.initialized?
+
+    if Sentry.initialized?
+      target['database'].extension(:sentry)
+
+      require_relative '../../lib/lapidary/sentry/ruby_llm_patch'
+      require_relative '../../lib/lapidary/sentry/queue_patch'
+      RubyLLM::Chat.prepend(Lapidary::Sentry::RubyLlmPatch)
+      Lapidary::Analysis::Service.prepend(Lapidary::Sentry::QueuePatch)
+    end
   end
 end
