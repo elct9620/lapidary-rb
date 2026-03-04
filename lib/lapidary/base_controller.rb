@@ -57,6 +57,7 @@ module Lapidary
       return unless sentry_headers
 
       transaction = ::Sentry.continue_trace(sentry_headers, op: 'background.process', name: self.class.name)
+      transaction = ::Sentry.start_transaction(transaction: transaction) if transaction
       ::Sentry.get_current_scope&.set_span(transaction) if transaction
       transaction
     end

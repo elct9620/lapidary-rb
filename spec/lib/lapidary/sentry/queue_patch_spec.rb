@@ -58,7 +58,6 @@ RSpec.describe Lapidary::Sentry::QueuePatch do
     before do
       allow(Sentry).to receive(:initialized?).and_return(true)
       allow(Sentry).to receive(:start_transaction).and_return(transaction)
-      allow(Sentry).to receive(:continue_trace).and_return(transaction)
       allow(Sentry).to receive(:get_current_scope).and_return(scope)
       allow(transaction).to receive(:set_data)
     end
@@ -89,6 +88,12 @@ RSpec.describe Lapidary::Sentry::QueuePatch do
         )
       end
 
+      it 'does not set source trace data' do
+        instance.call(job)
+
+        expect(transaction).not_to have_received(:set_data).with('messaging.source.trace_id', anything)
+      end
+
       it 'finishes the transaction' do
         instance.call(job)
 
@@ -107,13 +112,20 @@ RSpec.describe Lapidary::Sentry::QueuePatch do
       let(:trace_headers) { { 'sentry-trace' => 'abc-123-def', 'baggage' => 'sentry-environment=test' } }
       let(:job) { double('Job', metadata: trace_headers) }
 
-      it 'continues the trace from metadata' do
+      it 'starts an independent transaction' do
         instance.call(job)
 
-        expect(Sentry).to have_received(:continue_trace).with(
-          trace_headers, op: 'queue.process', name: 'TestJob'
+        expect(Sentry).to have_received(:start_transaction).with(
+          op: 'queue.process', name: 'TestJob'
         )
-        expect(Sentry).not_to have_received(:start_transaction)
+      end
+
+      it 'records the source trace as data' do
+        instance.call(job)
+
+        expect(transaction).to have_received(:set_data).with(
+          'messaging.source.trace_id', 'abc-123-def'
+        )
       end
 
       it 'finishes the transaction' do

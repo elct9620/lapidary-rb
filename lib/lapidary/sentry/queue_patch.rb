@@ -9,9 +9,10 @@ module Lapidary
       def call(job)
         return super unless ::Sentry.initialized?
 
-        transaction = start_queue_transaction(job)
+        transaction = ::Sentry.start_transaction(op: 'queue.process', name: self.class.name)
         ::Sentry.get_current_scope&.set_span(transaction) if transaction
         transaction&.set_data(::Sentry::Span::DataConventions::MESSAGING_DESTINATION_NAME, 'analysis.jobs')
+        set_source_trace(transaction, job.metadata)
         super
       ensure
         transaction&.finish
@@ -19,13 +20,11 @@ module Lapidary
 
       private
 
-      def start_queue_transaction(job)
-        trace_headers = job.metadata
-        if trace_headers.key?('sentry-trace')
-          ::Sentry.continue_trace(trace_headers, op: 'queue.process', name: self.class.name)
-        else
-          ::Sentry.start_transaction(op: 'queue.process', name: self.class.name)
-        end
+      def set_source_trace(transaction, metadata)
+        return unless transaction
+        return unless metadata.key?('sentry-trace')
+
+        transaction.set_data('messaging.source.trace_id', metadata['sentry-trace'])
       end
     end
   end

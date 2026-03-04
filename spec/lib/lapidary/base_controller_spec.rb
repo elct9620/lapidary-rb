@@ -77,12 +77,14 @@ RSpec.describe Lapidary::BaseController do
 
       it 'wraps in a continuation transaction when Sentry is initialized' do
         trace_headers = { 'sentry-trace' => 'abc-123', 'baggage' => 'env=test' }
+        continued_transaction = double('ContinuedTransaction')
         transaction = double('Transaction', finish: nil)
         scope = double('Scope', set_span: nil)
 
         allow(Sentry).to receive(:initialized?).and_return(true)
         allow(Sentry).to receive(:get_trace_propagation_headers).and_return(trace_headers)
-        allow(Sentry).to receive(:continue_trace).and_return(transaction)
+        allow(Sentry).to receive(:continue_trace).and_return(continued_transaction)
+        allow(Sentry).to receive(:start_transaction).and_return(transaction)
         allow(Sentry).to receive(:get_current_scope).and_return(scope)
         allow(controller).to receive(:Async) { |**_opts, &block| block.call }
 
@@ -91,6 +93,7 @@ RSpec.describe Lapidary::BaseController do
         expect(Sentry).to have_received(:continue_trace).with(
           trace_headers, op: 'background.process', name: described_class.name
         )
+        expect(Sentry).to have_received(:start_transaction).with(transaction: continued_transaction)
         expect(transaction).to have_received(:finish)
       end
     end
