@@ -14,6 +14,8 @@ module Analysis
         param :source_name, desc: 'Source node name or partial name (Rubyist) to search for'
         param :target_name, desc: 'Target node name or partial name (Module) to search for'
 
+        include LikeEscape
+
         def initialize(database)
           super()
           @database = database
@@ -56,10 +58,6 @@ module Analysis
 
         def format_row(row)
           row.slice(:source, :target, :relationship, :source_entity_type, :source_entity_id, :evidence)
-        end
-
-        def escape_like(value)
-          value.to_s.gsub(/[%_\\]/) { |c| "\\#{c}" }
         end
       end
     end

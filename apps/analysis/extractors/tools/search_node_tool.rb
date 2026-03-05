@@ -13,6 +13,8 @@ module Analysis
         param :query, desc: 'Name or partial name to search for'
         param :type, desc: 'Node type filter: Rubyist, CoreModule, or Stdlib', required: false
 
+        include LikeEscape
+
         def initialize(database)
           super()
           @database = database
@@ -26,12 +28,6 @@ module Analysis
             Sequel.ilike(:id, pattern) | Sequel.ilike(:data, pattern)
           ).limit(10).select(:id, :type, :data).all
           results.map { |row| { id: row[:id], type: row[:type], data: row[:data] } }.to_json
-        end
-
-        private
-
-        def escape_like(value)
-          value.to_s.gsub(/[%_\\]/) { |c| "\\#{c}" }
         end
       end
     end

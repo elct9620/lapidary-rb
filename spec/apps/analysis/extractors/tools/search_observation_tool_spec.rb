@@ -27,6 +27,12 @@ RSpec.describe Analysis::Extractors::Tools::SearchObservationTool do
       evidence: 'matz committed a fix to String', created_at: Time.now
     )
     database[:observations].insert(
+      edge_source: 'rubyist://matz', edge_target: 'core_module://String',
+      edge_relationship: 'Maintenance',
+      observed_at: Time.now, source_entity_type: 'issue', source_entity_id: 789,
+      evidence: 'matz improved String encoding', created_at: Time.now
+    )
+    database[:observations].insert(
       edge_source: 'rubyist://matz', edge_target: 'core_module://Array',
       edge_relationship: 'Contribute',
       observed_at: Time.now, source_entity_type: 'issue', source_entity_id: 456,
@@ -38,7 +44,7 @@ RSpec.describe Analysis::Extractors::Tools::SearchObservationTool do
     it 'returns observations for matching edges' do
       results = JSON.parse(tool.execute(source_name: 'matz', target_name: 'String'))
 
-      expect(results).to contain_exactly(
+      expect(results).to include(
         a_hash_including(
           'source' => 'rubyist://matz',
           'target' => 'core_module://String',
@@ -48,6 +54,12 @@ RSpec.describe Analysis::Extractors::Tools::SearchObservationTool do
           'evidence' => 'matz committed a fix to String'
         )
       )
+    end
+
+    it 'returns multiple observations for the same edge' do
+      results = JSON.parse(tool.execute(source_name: 'matz', target_name: 'String'))
+
+      expect(results.size).to eq(2)
     end
 
     it 'returns an empty array when no observations match' do

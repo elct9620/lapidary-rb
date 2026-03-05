@@ -13,6 +13,8 @@ module Analysis
         param :source_name, desc: 'Source node name or partial name to search for'
         param :target_name, desc: 'Target node name or partial name to search for'
 
+        include LikeEscape
+
         def initialize(database)
           super()
           @database = database
@@ -29,12 +31,6 @@ module Analysis
                     .select(:source, :target, :relationship)
                     .all
           results.map { |row| { source: row[:source], target: row[:target], relationship: row[:relationship] } }.to_json
-        end
-
-        private
-
-        def escape_like(value)
-          value.to_s.gsub(/[%_\\]/) { |c| "\\#{c}" }
         end
       end
     end
