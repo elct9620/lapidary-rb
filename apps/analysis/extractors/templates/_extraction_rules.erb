@@ -49,3 +49,5 @@
 - Person only reports a bug or describes unexpected behavior
 - Person only discusses, proposes, or asks questions without implementation
 - Person only confirms or reproduces a bug
+- When processing a `<journal>`, only extract relationships from the journal `<content>`. The `<issue>` block is provided as background context only — do not extract triplets from it.
+- Use the `search_observation` tool to verify that the relationship was not already observed from the parent issue before extracting.

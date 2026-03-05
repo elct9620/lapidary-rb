@@ -51,7 +51,8 @@ module Analysis
         [
           ::Analysis::Extractors::Tools::SearchNodeTool.new(database),
           ::Analysis::Extractors::Tools::ValidateModuleTool.new,
-          ::Analysis::Extractors::Tools::SearchEdgeTool.new(database)
+          ::Analysis::Extractors::Tools::SearchEdgeTool.new(database),
+          ::Analysis::Extractors::Tools::SearchObservationTool.new(database)
         ]
       end
     end
