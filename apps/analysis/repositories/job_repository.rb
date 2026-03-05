@@ -47,6 +47,8 @@ module Analysis
 
       private
 
+      # Metadata keys are stored with underscore prefix (_key) to distinguish
+      # them from job argument fields in the serialized JSON payload.
       def job_attributes(job, now)
         payload = job.arguments.to_h.compact
         job.metadata.each { |k, v| payload[:"_#{k}"] = v }
@@ -78,6 +80,8 @@ module Analysis
                .order(:scheduled_at).limit(1)
       end
 
+      # Unpack serialized payload: underscore-prefixed keys (_key) are metadata,
+      # the rest are job arguments.
       def row_to_entity(row)
         payload = parse_json(row[:arguments])
         args_data = payload.reject { |k, _| k.start_with?('_') }

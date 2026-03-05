@@ -88,19 +88,7 @@ module Analysis
       end
 
       def extraction_user_vars(job_arguments)
-        {
-          entity_type: job_arguments.entity_type,
-          entity_id: job_arguments.entity_id,
-          title: job_arguments.title,
-          content: job_arguments.content,
-          author_username: job_arguments.author_username,
-          author_display_name: job_arguments.author_display_name,
-          issue_id: job_arguments.issue_id,
-          issue_title: job_arguments.issue_title,
-          issue_content: job_arguments.issue_content,
-          issue_author_username: job_arguments.issue_author_username,
-          issue_author_display_name: job_arguments.issue_author_display_name
-        }
+        job_arguments.to_h.except(:created_on)
       end
     end
   end

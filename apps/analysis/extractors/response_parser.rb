@@ -13,10 +13,14 @@ module Analysis
         raw_triplets = extract_raw_triplets(content)
         return [] unless raw_triplets
 
-        raw_triplets.filter_map { |raw| build_triplet(raw) }
+        raw_triplets.filter_map { |raw| build_triplet(raw) if valid_triplet_shape?(raw) }
       end
 
       private
+
+      def valid_triplet_shape?(raw)
+        raw.is_a?(Hash) && raw['subject'].is_a?(Hash) && raw['object'].is_a?(Hash)
+      end
 
       def extract_raw_triplets(content)
         return if content.nil?
@@ -36,14 +40,18 @@ module Analysis
       def build_triplet(raw)
         Entities::Triplet.new(
           subject: build_subject(raw['subject']),
-          relationship: TripletSchema::RELATIONSHIP_MAP.fetch(raw['relationship']) do
-            raise Entities::ExtractionError, "unknown relationship: #{raw['relationship']}"
-          end,
+          relationship: resolve_relationship(raw['relationship']),
           object: build_object(raw['object']),
           evidence: raw['evidence']
         )
       rescue TypeError, NoMethodError => e
         warn_malformed_triplet(e)
+      end
+
+      def resolve_relationship(value)
+        TripletSchema::RELATIONSHIP_MAP.fetch(value) do
+          raise Entities::ExtractionError, "unknown relationship: #{value}"
+        end
       end
 
       def warn_malformed_triplet(error)
