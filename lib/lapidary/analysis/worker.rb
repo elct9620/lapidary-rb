@@ -57,8 +57,7 @@ module Lapidary
         action.call
         Time.now
       rescue ::Analysis::Entities::JobError, ::Analysis::Entities::GraphError => e
-        ::Sentry.capture_exception(e)
-        logger.error(self, "Periodic task error: #{e.class}: #{e.message}")
+        report_error(e, 'Periodic task error')
         Time.now
       end
 
@@ -71,9 +70,13 @@ module Lapidary
 
         job_handler.call(job)
       rescue ::Analysis::Entities::JobError => e
-        ::Sentry.capture_exception(e)
-        logger.error(self, "Job processing error: #{e.class}: #{e.message}")
+        report_error(e, 'Job processing error')
         sleep poll_interval
+      end
+
+      def report_error(error, context_message)
+        ::Sentry.capture_exception(error)
+        logger.error(self, "#{context_message}: #{error.class}: #{error.message}")
       end
 
       def parse_retention_period

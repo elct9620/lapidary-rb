@@ -82,24 +82,7 @@ module Lapidary
         span.set_data('gen_ai.tool.call.result', truncated_result)
       end
 
-      def format_messages(messages)
-        JSON.generate(messages.map { |m| format_message(m) })
-      end
-
-      def format_message(message)
-        msg = { role: message.role.to_s, parts: message_parts(message) }
-        msg[:tool_call_id] = message.tool_call_id if message.tool_call_id
-        msg
-      end
-
-      def message_parts(message)
-        parts = []
-        parts << { type: 'text', content: message.content.to_s } if message.content
-        message.tool_calls&.each_value do |tc|
-          parts << { type: 'tool_call', id: tc.id, name: tc.name, arguments: tc.arguments }
-        end
-        parts
-      end
+      include MessageFormatter
 
       def capture_ai_content?
         ::Sentry.configuration.send_default_pii

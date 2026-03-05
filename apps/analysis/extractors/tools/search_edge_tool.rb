@@ -6,23 +6,16 @@ module Analysis
     module Tools
       # Searches for existing edges (relationships) in the knowledge graph.
       # Lets the LLM check if a relationship between a Rubyist and a module already exists.
-      class SearchEdgeTool < RubyLLM::Tool
+      class SearchEdgeTool < BaseSearchTool
         description 'Search for existing edges (relationships) in the knowledge graph. ' \
                     'Use this to check if a relationship between a Rubyist and a module already exists.'
 
         param :source_name, desc: 'Source node name or partial name to search for'
         param :target_name, desc: 'Target node name or partial name to search for'
 
-        include Lapidary::LikeEscape
-
-        def initialize(database)
-          super()
-          @database = database
-        end
-
         def execute(source_name:, target_name:)
-          source_pattern = "%#{escape_like(source_name)}%"
-          target_pattern = "%#{escape_like(target_name)}%"
+          source_pattern = like_pattern(source_name)
+          target_pattern = like_pattern(target_name)
           results = @database[:edges]
                     .where(Sequel.ilike(:source, source_pattern))
                     .where(Sequel.ilike(:target, target_pattern))

@@ -6,6 +6,7 @@ module Lapidary
   # insert-transfer-delete, then remove old node.
   class NodeRenamer
     include Dependency['database']
+    include RepositorySupport
 
     class NodeNotFoundError < StandardError; end
 
@@ -32,7 +33,7 @@ module Lapidary
 
     def insert_cloned_node(old_id, new_id, data)
       old_node = database[:nodes].where(id: old_id).first
-      database[:nodes].insert(id: new_id, type: old_node[:type], data: JSON.generate(data),
+      database[:nodes].insert(id: new_id, type: old_node[:type], data: generate_json(data),
                               created_at: old_node[:created_at], updated_at: Time.now)
     end
 
@@ -96,16 +97,16 @@ module Lapidary
 
     def build_node_data(old_id)
       old_node = database[:nodes].where(id: old_id).first
-      data = old_node[:data] ? JSON.parse(old_node[:data], symbolize_names: true) : {}
+      data = parse_json(old_node[:data])
       inferred = infer_display_name(old_id)
       inferred ? data.merge(inferred) { |_key, existing, _new| existing } : data
     end
 
     def merge_node_data(target_id, source_data)
       target_node = database[:nodes].where(id: target_id).first
-      target_data = target_node[:data] ? JSON.parse(target_node[:data], symbolize_names: true) : {}
+      target_data = parse_json(target_node[:data])
       merged = source_data.merge(target_data) { |_key, old_val, new_val| new_val.nil? ? old_val : new_val }
-      database[:nodes].where(id: target_id).update(data: JSON.generate(merged), updated_at: Time.now)
+      database[:nodes].where(id: target_id).update(data: generate_json(merged), updated_at: Time.now)
     end
 
     def infer_display_name(old_id)

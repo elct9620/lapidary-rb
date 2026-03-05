@@ -6,24 +6,17 @@ module Analysis
     module Tools
       # Searches for existing nodes in the knowledge graph by name.
       # Lets the LLM verify Rubyist usernames or module names.
-      class SearchNodeTool < RubyLLM::Tool
+      class SearchNodeTool < BaseSearchTool
         description 'Search for existing nodes in the knowledge graph by name or display name. ' \
                     'Use this to verify if a Rubyist username, display name, or module name already exists.'
 
         param :query, desc: 'Name or partial name to search for'
         param :type, desc: 'Node type filter: Rubyist, CoreModule, or Stdlib', required: false
 
-        include Lapidary::LikeEscape
-
-        def initialize(database)
-          super()
-          @database = database
-        end
-
         def execute(query:, type: nil)
           dataset = @database[:nodes]
           dataset = dataset.where(type: type.to_s) if type
-          pattern = "%#{escape_like(query)}%"
+          pattern = like_pattern(query)
           results = dataset.where(
             Sequel.ilike(:id, pattern) | Sequel.ilike(:data, pattern)
           ).limit(10).select(:id, :type, :data).all
