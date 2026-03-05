@@ -33,12 +33,12 @@ export default class extends Controller {
   showNode(event) {
     const { id, type, data, label } = event.detail
     const dataEntries = Object.entries(data || {})
-      .map(([k, v]) => `<li class="flex justify-between"><span class="text-gray-500">${escapeHtml(k)}</span><span class="font-medium">${escapeHtml(String(v))}</span></li>`)
+      .map(([k, v]) => `<li class="flex justify-between min-w-0"><span class="text-gray-500 shrink-0">${escapeHtml(k)}</span><span class="font-medium break-all">${escapeHtml(String(v))}</span></li>`)
       .join("")
 
     const nodeName = id.includes("://") ? id.split("://")[1] : id
     const searchUrl = redmineSearchUrl(nodeName)
-    const searchLink = `<a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline text-xs">Search on bugs.ruby-lang.org ↗</a>`
+    const searchLink = `<a href="${escapeHtml(searchUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline text-xs break-all">Search on bugs.ruby-lang.org ↗</a>`
 
     this.contentTarget.innerHTML = `
       <h3 class="font-semibold text-lg mb-2">${escapeHtml(label)}</h3>
@@ -64,7 +64,7 @@ export default class extends Controller {
       const sourceUrl = redmineSourceUrl(obs.source_entity_type, obs.source_entity_id, obs.parent_entity_id)
       const sourceLabel = `${escapeHtml(obs.source_entity_type || "")} #${obs.source_entity_id || ""}`
       const sourceContent = sourceUrl
-        ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">${sourceLabel} ↗</a>`
+        ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline break-all">${sourceLabel} ↗</a>`
         : sourceLabel
 
       return `
