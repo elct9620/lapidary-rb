@@ -13,7 +13,7 @@ module Analysis
         param :query, desc: 'Name or partial name to search for'
         param :type, desc: 'Node type filter: Rubyist, CoreModule, or Stdlib', required: false
 
-        include LikeEscape
+        include Lapidary::LikeEscape
 
         def initialize(database)
           super()

@@ -7,6 +7,7 @@ module Graph
       include Lapidary::Dependency['database']
       include Lapidary::RepositorySupport
       include NodeBuilder
+      include Lapidary::LikeEscape
 
       table :nodes
       wraps_errors Entities::GraphQueryError
@@ -46,10 +47,10 @@ module Graph
       end
 
       def apply_search(dataset, query)
-        pattern = "%#{query.downcase}%"
-        name_expr = Sequel.lit("lower(substr(id, instr(id, '://') + 3)) LIKE ?", pattern)
-        display_name_expr = Sequel.lit("lower(json_extract(data, '$.display_name')) LIKE ?", pattern)
-        dataset.where(Sequel.|(name_expr, display_name_expr))
+        pattern = "%#{escape_like(query.downcase)}%"
+        name_expr = Sequel.lit("substr(id, instr(id, '://') + 3)")
+        display_name_expr = Sequel.lit("json_extract(data, '$.display_name')")
+        dataset.where(Sequel.ilike(name_expr, pattern) | Sequel.ilike(display_name_expr, pattern))
       end
     end
   end

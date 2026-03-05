@@ -70,6 +70,16 @@ RSpec.describe Graph::Repositories::NodeRepository do
       expect(offset_nodes.first.id).to eq(all_nodes[2].id)
     end
 
+    it 'does not treat % as a wildcard' do
+      nodes = repository.search(query: '%', include_orphans: true)
+      expect(nodes).to be_empty
+    end
+
+    it 'does not treat _ as a wildcard' do
+      nodes = repository.search(query: 'mat_', include_orphans: true)
+      expect(nodes).to be_empty
+    end
+
     it 'returns Node entities' do
       nodes = repository.search(limit: 1, include_orphans: true)
       expect(nodes.first).to be_a(Graph::Entities::Node)

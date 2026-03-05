@@ -14,7 +14,7 @@ module Analysis
         param :source_name, desc: 'Source node name or partial name (Rubyist) to search for'
         param :target_name, desc: 'Target node name or partial name (Module) to search for'
 
-        include LikeEscape
+        include Lapidary::LikeEscape
 
         def initialize(database)
           super()
