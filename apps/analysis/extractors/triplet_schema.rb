@@ -29,7 +29,8 @@ module Analysis
             string :type, enum: NODE_TYPE_MAP.keys
             string :name, description: 'Canonical module name'
           end
-          string :evidence, description: 'Direct quote or reference from the source text that supports this triplet'
+          string :evidence, description: 'Plain-text quote from the source that supports this triplet. ' \
+                                         'Do NOT use XML tags, Markdown formatting, or any markup — plain text only.'
         end
       end
     end
