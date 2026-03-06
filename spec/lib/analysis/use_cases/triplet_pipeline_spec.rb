@@ -220,6 +220,26 @@ RSpec.describe Analysis::UseCases::TripletPipeline do
       end
     end
 
+    context 'when extractor returns a triplet with Anonymous subject' do
+      let(:anonymous_triplet) do
+        build_triplet(
+          subject: build_node(type: Analysis::Entities::NodeType::RUBYIST, name: 'Anonymous'),
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: build_node(type: Analysis::Entities::NodeType::CORE_MODULE, name: 'String')
+        )
+      end
+
+      let(:extractor) do
+        instance_double(Analysis::Extractors::LlmExtractor, call: [anonymous_triplet])
+      end
+
+      it 'rejects immediately without attempting correction' do
+        pipeline.call(arguments, observation)
+
+        expect(Lapidary::Container['database'][:nodes].count).to eq(0)
+      end
+    end
+
     context 'when correction returns Maintenance with non-maintainer role' do
       let(:still_maintenance) do
         build_triplet(

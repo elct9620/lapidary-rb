@@ -37,9 +37,17 @@ module Analysis
         write_triplet(final_triplet, observation)
       end
 
+      ANONYMOUS_ERROR_PREFIX = 'subject name is a reserved anonymous identifier'
+      private_constant :ANONYMOUS_ERROR_PREFIX
+
       def validate_or_correct(triplet, arguments)
         result = @validator.call(triplet)
         return result unless result.errors.any?
+
+        if result.errors.any? { |e| e.start_with?(ANONYMOUS_ERROR_PREFIX) }
+          @logger.warn(self, 'Reserved anonymous subject rejected', subject: triplet.subject.name)
+          return nil
+        end
 
         corrected_result = attempt_correction(triplet, result.errors, arguments)
         return corrected_result if corrected_result

@@ -78,6 +78,24 @@ RSpec.describe Analysis::Ontology::Validator do
       end
     end
 
+    context 'when subject name is Anonymous' do
+      it 'returns an anonymous identifier error' do
+        anonymous_subject = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'Anonymous'
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: anonymous_subject,
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to include('subject name is a reserved anonymous identifier: Anonymous')
+      end
+    end
+
     context 'when subject type is invalid' do
       it 'returns a subject type error' do
         invalid_subject = Analysis::Entities::Node.new(

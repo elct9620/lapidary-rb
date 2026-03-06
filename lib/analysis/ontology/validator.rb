@@ -10,10 +10,12 @@ module Analysis
       VALID_SUBJECT_TYPES = Entities::NodeType::SUBJECT_TYPES
       VALID_OBJECT_TYPES = Entities::NodeType::OBJECT_TYPES
       VALID_RELATIONSHIPS = Entities::RelationshipType::ALL
+      ANONYMOUS_NAMES = %w[Anonymous].freeze
 
       def call(triplet)
         errors = [
           validate_subject_type(triplet),
+          validate_anonymous_subject(triplet),
           validate_subject_name(triplet),
           validate_object_type(triplet),
           validate_relationship(triplet),
@@ -30,6 +32,13 @@ module Analysis
         return if VALID_SUBJECT_TYPES.include?(triplet.subject.type)
 
         "subject type must be Rubyist, got #{triplet.subject.type}"
+      end
+
+      def validate_anonymous_subject(triplet)
+        return unless VALID_SUBJECT_TYPES.include?(triplet.subject.type)
+        return unless ANONYMOUS_NAMES.include?(triplet.subject.name)
+
+        "subject name is a reserved anonymous identifier: #{triplet.subject.name}"
       end
 
       def validate_subject_name(triplet)
