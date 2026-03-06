@@ -157,6 +157,12 @@ The complete system encompasses four capabilities:
 - **Action**: The operator runs `bin/console` to load the application container and manually archives specific edges by setting their `archived_at` timestamp
 - **Outcome**: Targeted edges are archived and excluded from default queries; corresponding analysis records are cleared to allow re-analysis on the next webhook notification
 
+### Manual Node Deletion
+
+- **Context**: An operator has archived all edges (active and archived) for a node, and the node has no remaining edges of any kind
+- **Action**: The operator runs `bin/console` and calls `delete_node(node_id)` to remove the node
+- **Outcome**: The node is physically deleted from the database
+
 ### Manual Graph Maintenance
 
 - **Context**: An operator discovers incorrect data in the knowledge graph
@@ -790,6 +796,14 @@ Content-Type: `application/json`
 | Empty `q` parameter | Respond 400, do not query |
 | Database query failure | Respond 500, log error |
 
+**Maintenance Console Errors**:
+
+| Scenario | Behavior |
+|----------|----------|
+| `delete_node` called on node with existing edges (active or archived) | Raise error, do not delete — operator must remove all edges first |
+| `delete_node` called on non-existent node | Raise error |
+| `rename_node` called on non-existent source node | Raise error |
+
 **Knowledge Graph Explorer Errors**:
 
 | Scenario | Behavior |
@@ -929,6 +943,8 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `neighbors(node_id)` | Returns edges connected to the node, each with its observations |
 | `edges(node_id = nil, archived: false)` | Returns edges with their observations; filters by node when given; excludes archived edges by default |
 | `archive_edge(source, target, relationship)` | Sets `archived_at` on the edge and deletes corresponding analysis records derived from the edge's observations |
+| `rename_node(old_id, new_id)` | Renames a node by migrating all edges and observations to the new ID; if the target node already exists, merges node data (field-level merge per Node upsert behavior) and deduplicates edge observations (per Edge upsert deduplication); deletes the old node after migration |
+| `delete_node(node_id)` | Deletes a node that has no edges (active or archived); raises an error if the node still has any edges |
 
 ---
 
