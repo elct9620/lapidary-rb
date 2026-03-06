@@ -163,6 +163,12 @@ The complete system encompasses four capabilities:
 - **Action**: The operator runs `bin/console` and calls `delete_node(node_id)` to remove the node
 - **Outcome**: Any archived edges and their observations are automatically purged, then the node is physically deleted from the database
 
+### Manual Node Renaming
+
+- **Context**: An operator discovers a node with an incorrect or outdated ID in the knowledge graph
+- **Action**: The operator runs `bin/console` and calls `rename_node(old_id, new_id)` to rename the node
+- **Outcome**: All edges and observations are migrated to the new node ID; if the target node already exists, node data is merged and edge observations are deduplicated; the old node is deleted
+
 ### Manual Graph Maintenance
 
 - **Context**: An operator discovers incorrect data in the knowledge graph
@@ -803,6 +809,7 @@ Content-Type: `application/json`
 | `delete_node` called on node with active (non-archived) edges | Raise error, do not delete — operator must archive or remove active edges first |
 | `delete_node` called on non-existent node | Raise error |
 | `rename_node` called on non-existent source node | Raise error |
+| `archive_edge` called on non-existent edge | Raise error |
 
 **Knowledge Graph Explorer Errors**:
 
