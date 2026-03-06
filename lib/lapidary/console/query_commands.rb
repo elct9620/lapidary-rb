@@ -2,11 +2,14 @@
 # frozen_string_literal: true
 
 require 'irb/command'
+require_relative 'table_formatter'
 
 module Lapidary
   module Console
     # IRB command to list nodes in the knowledge graph
     class NodesCommand < IRB::Command::Base
+      include TableFormatter
+
       category 'Query'
       description 'List nodes in the knowledge graph'
       help_message <<~HELP
@@ -23,8 +26,7 @@ module Lapidary
       def execute(arg)
         type = arg.strip.empty? ? nil : arg.strip
         results = node_repository.search(type: type, include_orphans: true, limit: 10_000)
-        puts "Found #{results.size} node(s)"
-        results
+        print_table(%w[ID Type], results.map { |n| [n.id, n.type] })
       end
 
       private
@@ -36,6 +38,8 @@ module Lapidary
 
     # IRB command to find a single node by ID
     class NodeCommand < IRB::Command::Base
+      include TableFormatter
+
       category 'Query'
       description 'Find a single node by ID'
       help_message <<~HELP
@@ -55,7 +59,10 @@ module Lapidary
           return
         end
 
-        neighbor_repository.find_node(id)
+        result = neighbor_repository.find_node(id)
+        return puts "Node not found: #{id}" unless result
+
+        print_detail([['ID:', result.id], ['Type:', result.type], ['Data:', result.data]])
       end
 
       private
@@ -67,6 +74,8 @@ module Lapidary
 
     # IRB command to find edges connected to a node
     class NeighborsCommand < IRB::Command::Base
+      include TableFormatter
+
       category 'Query'
       description 'Find edges connected to a node'
       help_message <<~HELP
@@ -86,7 +95,8 @@ module Lapidary
           return
         end
 
-        neighbor_repository.find_edges(node_id, include_archived: true)
+        results = neighbor_repository.find_edges(node_id, include_archived: true)
+        print_edges(results)
       end
 
       private
@@ -94,10 +104,19 @@ module Lapidary
       def neighbor_repository
         Lapidary::Container['graph.repositories.neighbor_repository']
       end
+
+      def print_edges(edges)
+        print_table(
+          %w[Source Target Relationship Archived],
+          edges.map { |e| [e.source, e.target, e.relationship, e.archived_at || ''] }
+        )
+      end
     end
 
     # IRB command to list edges in the knowledge graph
     class EdgesCommand < IRB::Command::Base
+      include TableFormatter
+
       category 'Query'
       description 'List edges, optionally filtered by node'
       help_message <<~HELP
@@ -121,15 +140,31 @@ module Lapidary
         node_id = parts.first
 
         if node_id
-          neighbor_repository.find_edges(node_id, include_archived: !!archived)
+          print_entity_edges(node_id, archived)
         else
-          dataset = database[:edges]
-          dataset = dataset.where(archived_at: nil) unless archived
-          dataset.all
+          print_raw_edges(archived)
         end
       end
 
       private
+
+      def print_entity_edges(node_id, archived)
+        results = neighbor_repository.find_edges(node_id, include_archived: !archived.nil?)
+        print_table(
+          %w[Source Target Relationship Archived],
+          results.map { |e| [e.source, e.target, e.relationship, e.archived_at || ''] }
+        )
+      end
+
+      def print_raw_edges(archived)
+        dataset = database[:edges]
+        dataset = dataset.where(archived_at: nil) unless archived
+        rows = dataset.all
+        print_table(
+          %w[Source Target Relationship Archived],
+          rows.map { |r| [r[:source], r[:target], r[:relationship], r[:archived_at] || ''] }
+        )
+      end
 
       def neighbor_repository
         Lapidary::Container['graph.repositories.neighbor_repository']
