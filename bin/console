@@ -9,70 +9,16 @@ Dotenv.load if defined?(Dotenv)
 require_relative '../lib/lapidary/container'
 Lapidary::Container.finalize!
 
-# Convenience methods available at the top level in IRB
-module ConsoleHelpers
-  def container
-    Lapidary::Container
-  end
+require_relative '../lib/lapidary/console/query_commands'
+require_relative '../lib/lapidary/console/maintenance_commands'
 
-  def db
-    container['database']
-  end
-
-  def nodes(type = nil)
-    node_repository.search(type: type, include_orphans: true, limit: 10_000)
-  end
-
-  def node(id)
-    neighbor_repository.find_node(id)
-  end
-
-  def neighbors(node_id)
-    neighbor_repository.find_edges(node_id, include_archived: true)
-  end
-
-  def edges(node_id = nil, archived: false)
-    if node_id
-      neighbor_repository.find_edges(node_id, include_archived: archived)
-    else
-      all_edges(archived)
-    end
-  end
-
-  def rename_node(old_id, new_id)
-    container['maintenance.node_renamer'].call(old_id, new_id)
-    puts "Renamed node: #{old_id} -> #{new_id}"
-  end
-
-  def delete_node(node_id)
-    container['maintenance.node_deleter'].call(node_id)
-    puts "Deleted node: #{node_id}"
-  end
-
-  def archive_edge(source, target, relationship)
-    result = container['maintenance.edge_archiver'].call(source: source, target: target, relationship: relationship)
-    puts "Archived edge: #{source} -> #{target} [#{relationship}]"
-    puts "Cleared #{result[:analysis_records_cleared]} analysis record(s)"
-  end
-
-  private
-
-  def node_repository
-    container['graph.repositories.node_repository']
-  end
-
-  def neighbor_repository
-    container['graph.repositories.neighbor_repository']
-  end
-
-  def all_edges(archived)
-    dataset = db[:edges]
-    dataset = dataset.where(archived_at: nil) unless archived
-    dataset.all
-  end
+def container
+  Lapidary::Container
 end
 
-include ConsoleHelpers # rubocop:disable Style/MixinUsage
+def db
+  container['database']
+end
 
 require 'irb'
 IRB.start(__FILE__)
