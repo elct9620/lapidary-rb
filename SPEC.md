@@ -159,9 +159,9 @@ The complete system encompasses four capabilities:
 
 ### Manual Node Deletion
 
-- **Context**: An operator has archived all edges (active and archived) for a node, and the node has no remaining edges of any kind
+- **Context**: An operator wants to remove a node that has no active edges (it may still have archived edges)
 - **Action**: The operator runs `bin/console` and calls `delete_node(node_id)` to remove the node
-- **Outcome**: The node is physically deleted from the database
+- **Outcome**: Any archived edges and their observations are automatically purged, then the node is physically deleted from the database
 
 ### Manual Graph Maintenance
 
@@ -800,7 +800,7 @@ Content-Type: `application/json`
 
 | Scenario | Behavior |
 |----------|----------|
-| `delete_node` called on node with existing edges (active or archived) | Raise error, do not delete — operator must remove all edges first |
+| `delete_node` called on node with active (non-archived) edges | Raise error, do not delete — operator must archive or remove active edges first |
 | `delete_node` called on non-existent node | Raise error |
 | `rename_node` called on non-existent source node | Raise error |
 
@@ -944,7 +944,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `edges(node_id = nil, archived: false)` | Returns edges with their observations; filters by node when given; excludes archived edges by default |
 | `archive_edge(source, target, relationship)` | Sets `archived_at` on the edge and deletes corresponding analysis records derived from the edge's observations |
 | `rename_node(old_id, new_id)` | Renames a node by migrating all edges and observations to the new ID; if the target node already exists, merges node data (field-level merge per Node upsert behavior) and deduplicates edge observations (per Edge upsert deduplication); deletes the old node after migration |
-| `delete_node(node_id)` | Deletes a node that has no edges (active or archived); raises an error if the node still has any edges |
+| `delete_node(node_id)` | Deletes a node; automatically purges any archived edges and their observations; raises an error if the node has active (non-archived) edges |
 
 ---
 
