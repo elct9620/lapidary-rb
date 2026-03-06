@@ -469,6 +469,7 @@ The pipeline processes each job through four stages:
 - The relationship's domain-range constraint must be satisfied (see [Ontology](docs/ontology.md))
 - `Maintenance` requires the subject to have `role = maintainer`
 - Object name must exist in the curated module list
+- Subject name must not be a reserved anonymous identifier (e.g., `Anonymous`); such names represent unidentifiable users and are rejected
 
 *Validation feedback correction:*
 
@@ -480,6 +481,7 @@ The pipeline processes each job through four stages:
 - Triplets that pass initial validation proceed directly without correction
 - Correction attempts are logged at `info` level with the original error and correction result
 - Final rejections (after failed correction) are logged at `warn` level
+- Triplets rejected for reserved anonymous subject names are not eligible for correction — the identity is inherently unresolvable
 
 **4. Graph Writing** — Normalized triplets are written to the knowledge graph.
 
@@ -759,6 +761,7 @@ Content-Type: `application/json`
 | LLM output fails ontology validation | Attempt correction via LLM feedback (one attempt); if correction also fails, reject the triplet and log warning; valid triplets from the same response are still written |
 | Module name not in curated list | Attempt correction via LLM feedback; if corrected name is still not in curated list, reject the triplet and log warning |
 | LLM outputs `Maintenance` with non-maintainer role | Attempt correction via LLM feedback; if corrected triplet still has non-maintainer role with Maintenance, downgrade to `Contribute` and log info |
+| LLM outputs reserved anonymous subject name | Reject triplet immediately (no correction attempt); log warning |
 | LLM correction attempt fails (timeout, API error) | Skip correction, apply original validation result (reject or downgrade); log warning |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 | Job cleanup database error | Log error, continue processing — cleanup failure must not block job processing |
@@ -828,6 +831,7 @@ Content-Type: `application/json`
 | Invalid request (422/415) | `warn` | Request origin information, validation errors |
 | Validation correction attempted | `info` | Original triplet, validation errors, corrected triplet, correction result (success/failure), job identity |
 | Validation correction failed (still invalid) | `warn` | Original triplet, corrected triplet, remaining validation errors, job identity |
+| Reserved anonymous subject rejected | `warn` | Rejected triplet, subject name, job identity |
 | Ontology validation rejection (after failed correction) | `warn` | Rejected triplet, validation rule violated, job identity |
 | Maintenance downgraded to Contribute (after correction attempted) | `info` | Original triplet, subject role, job identity |
 | Duplicate edge observation skipped | `info` | Edge identity, source entity, job identity |

@@ -33,6 +33,8 @@ A person who participates in Ruby development discussions on bugs.ruby-lang.org.
 
 **Identity**: Two Rubyist nodes are the same entity if they share the same `username`.
 
+**Reserved Names**: The username `Anonymous` is reserved by Redmine for unidentifiable users. Nodes with this username must not be created.
+
 ### CoreModule
 
 A core module of the Ruby language (built into the interpreter, always available without `require`).
@@ -97,6 +99,7 @@ The following table summarizes valid (source type, relationship, target type) co
 3. The relationship must be `Maintenance` or `Contribute`
 4. For `Maintenance`, the subject's `role` must be `maintainer`
 5. The object's `name` must exist in the curated module lists below
+6. The subject's `username` must not be a reserved anonymous identifier (e.g., `Anonymous`)
 
 ## Curated Module Lists
 
@@ -238,5 +241,6 @@ A triplet `(subject, relationship, object)` is **entailed** by the ontology if a
 4. The `(subject.type, relationship, object.type)` combination exists in the Domain-Range Constraints table
 5. Any additional conditions on the source node are satisfied (e.g., `role = maintainer` for `Maintenance`)
 6. The object's `name` exists in the corresponding curated module list
+7. The subject's `username` is not a reserved anonymous identifier (e.g., `Anonymous`)
 
-Triplets that fail any of these checks are subject to validation feedback correction before final rejection (see [SPEC.md](../SPEC.md) § Ontology Validation for the correction mechanism). The system logs the final rejection reason at `warn` level for debugging and ontology refinement.
+Triplets that fail any of these checks are subject to validation feedback correction before final rejection (see [SPEC.md](../SPEC.md) § Ontology Validation for the correction mechanism), except for reserved anonymous subject violations (rule 7), which are rejected immediately without correction. The system logs the final rejection reason at `warn` level for debugging and ontology refinement.
