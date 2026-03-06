@@ -2,8 +2,8 @@
 
 require 'spec_helper'
 
-RSpec.describe Lapidary::NodeDeleter do
-  subject(:deleter) { Lapidary::Container['node_deleter'] }
+RSpec.describe Lapidary::Maintenance::NodeDeleter do
+  subject(:deleter) { Lapidary::Container['maintenance.node_deleter'] }
 
   let(:db) { Lapidary::Container['database'] }
   let(:graph_repository) { Lapidary::Container['analysis.repositories.graph_repository'] }
@@ -36,21 +36,24 @@ RSpec.describe Lapidary::NodeDeleter do
 
     it 'raises NodeNotFoundError for non-existent node' do
       expect { deleter.call('rubyist://nonexistent') }
-        .to raise_error(Lapidary::NodeDeleter::NodeNotFoundError, 'node not found: rubyist://nonexistent')
+        .to raise_error(Lapidary::Maintenance::NodeDeleter::NodeNotFoundError,
+                        'node not found: rubyist://nonexistent')
     end
 
     it 'raises NodeHasEdgesError when active edges exist' do
       graph_repository.save_triplet(make_triplet(subject_name: 'user1', object_name: 'Array'), observation)
 
       expect { deleter.call('rubyist://user1') }
-        .to raise_error(Lapidary::NodeDeleter::NodeHasEdgesError, 'node still has edges: rubyist://user1')
+        .to raise_error(Lapidary::Maintenance::NodeDeleter::NodeHasEdgesError,
+                        'node still has edges: rubyist://user1')
     end
 
     it 'raises NodeHasEdgesError when node is only a target of edges' do
       graph_repository.save_triplet(make_triplet(subject_name: 'user1', object_name: 'Array'), observation)
 
       expect { deleter.call('core_module://Array') }
-        .to raise_error(Lapidary::NodeDeleter::NodeHasEdgesError, 'node still has edges: core_module://Array')
+        .to raise_error(Lapidary::Maintenance::NodeDeleter::NodeHasEdgesError,
+                        'node still has edges: core_module://Array')
     end
 
     it 'raises NodeHasEdgesError when only archived edges exist' do
@@ -60,7 +63,8 @@ RSpec.describe Lapidary::NodeDeleter do
       db[:edges].where(source: 'rubyist://user1').update(archived_at: Time.now)
 
       expect { deleter.call('rubyist://user1') }
-        .to raise_error(Lapidary::NodeDeleter::NodeHasEdgesError, 'node still has edges: rubyist://user1')
+        .to raise_error(Lapidary::Maintenance::NodeDeleter::NodeHasEdgesError,
+                        'node still has edges: rubyist://user1')
     end
   end
 end

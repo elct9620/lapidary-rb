@@ -2,8 +2,8 @@
 
 require 'spec_helper'
 
-RSpec.describe Lapidary::EdgeArchiver do
-  subject(:archiver) { Lapidary::Container['edge_archiver'] }
+RSpec.describe Lapidary::Maintenance::EdgeArchiver do
+  subject(:archiver) { Lapidary::Container['maintenance.edge_archiver'] }
 
   let(:db) { Lapidary::Container['database'] }
   let(:graph_repository) { Lapidary::Container['analysis.repositories.graph_repository'] }

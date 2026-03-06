@@ -40,17 +40,17 @@ module ConsoleHelpers
   end
 
   def rename_node(old_id, new_id)
-    container['node_renamer'].call(old_id, new_id)
+    container['maintenance.node_renamer'].call(old_id, new_id)
     puts "Renamed node: #{old_id} -> #{new_id}"
   end
 
   def delete_node(node_id)
-    container['node_deleter'].call(node_id)
+    container['maintenance.node_deleter'].call(node_id)
     puts "Deleted node: #{node_id}"
   end
 
   def archive_edge(source, target, relationship)
-    result = container['edge_archiver'].call(source: source, target: target, relationship: relationship)
+    result = container['maintenance.edge_archiver'].call(source: source, target: target, relationship: relationship)
     puts "Archived edge: #{source} -> #{target} [#{relationship}]"
     puts "Cleared #{result[:analysis_records_cleared]} analysis record(s)"
   end

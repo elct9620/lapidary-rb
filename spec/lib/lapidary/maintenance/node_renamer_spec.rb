@@ -2,8 +2,8 @@
 
 require 'spec_helper'
 
-RSpec.describe Lapidary::NodeRenamer do
-  subject(:renamer) { Lapidary::Container['node_renamer'] }
+RSpec.describe Lapidary::Maintenance::NodeRenamer do
+  subject(:renamer) { Lapidary::Container['maintenance.node_renamer'] }
 
   let(:db) { Lapidary::Container['database'] }
   let(:graph_repository) { Lapidary::Container['analysis.repositories.graph_repository'] }
@@ -134,7 +134,8 @@ RSpec.describe Lapidary::NodeRenamer do
 
     it 'raises NodeNotFoundError when old node does not exist' do
       expect { renamer.call('rubyist://nonexistent', 'rubyist://target') }
-        .to raise_error(Lapidary::NodeRenamer::NodeNotFoundError, 'node not found: rubyist://nonexistent')
+        .to raise_error(Lapidary::Maintenance::NodeRenamer::NodeNotFoundError,
+                        'node not found: rubyist://nonexistent')
     end
 
     it 'leaves foreign keys valid after rename' do
