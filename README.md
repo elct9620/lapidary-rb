@@ -110,6 +110,25 @@ docker run -p 9292:9292 lapidary
 bin/console                 # Interactive console with container access
 ```
 
+The console provides `container` and `db` helpers, plus built-in IRB commands:
+
+**Query commands:**
+
+| Command | Description |
+|---|---|
+| `nodes [type]` | List nodes, optionally filtered by type (e.g. `nodes rubyist`) |
+| `node <id>` | Find a single node by ID (e.g. `node rubyist://matz`) |
+| `neighbors <node_id>` | Find all edges connected to a node, including archived |
+| `edges [node_id] [--archived]` | List edges, optionally filtered by node or including archived |
+
+**Maintenance commands:**
+
+| Command | Description |
+|---|---|
+| `rename_node <old_id> <new_id>` | Rename a node ID and update all connected edges |
+| `delete_node <node_id>` | Delete a node (purges archived edges first) |
+| `archive_edge <source> <target> <relationship>` | Archive an edge and clear associated analysis records |
+
 ### Tests
 
 ```bash
