@@ -159,6 +159,9 @@ RSpec.describe Graph::API do
     context 'with orphan filtering' do
       before do
         seed_graph
+        now = Time.now
+        db[:nodes].insert(id: 'stdlib://csv', type: 'Stdlib', data: '{}',
+                          created_at: now, updated_at: now)
       end
 
       it 'excludes orphan nodes by default' do
@@ -166,12 +169,15 @@ RSpec.describe Graph::API do
         body = JSON.parse(last_response.body)
         ids = body['nodes'].map { |n| n['id'] }
         expect(ids).to contain_exactly('rubyist://matz', 'core_module://String', 'core_module://Array')
+        expect(ids).not_to include('stdlib://csv')
       end
 
       it 'includes orphan nodes when include_orphans=true' do
         get '/graph/nodes', include_orphans: 'true'
         body = JSON.parse(last_response.body)
-        expect(body['total']).to eq(3)
+        expect(body['total']).to eq(4)
+        ids = body['nodes'].map { |n| n['id'] }
+        expect(ids).to include('stdlib://csv')
       end
     end
 

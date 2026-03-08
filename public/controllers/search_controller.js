@@ -59,7 +59,7 @@ export default class extends Controller {
     if (q) params.set("q", q)
     params.set("limit", String(this.pageSize))
     params.set("offset", String(this.currentOffset))
-    params.set("include_orphans", "true")
+    params.set("include_orphans", "false")
 
     try {
       const response = await fetch(`/graph/nodes?${params}`)
