@@ -37,6 +37,7 @@ The application uses dry-system as an IoC container. Components are auto-registe
 - `apps/<domain>/` — Domain outer-layer components (controllers, contracts, repositories, adapters, subscribers) organized by bounded context
 
 **Bounded Contexts**: `webhooks` (webhook reception + Redmine API fetching), `analysis` (job processing + LLM extraction pipeline), `graph` (knowledge graph query API), `health` (liveness probe)
+**Cross-cutting modules**: `maintenance` (edge archiving, node renaming/deletion — used by both worker periodic tasks and console commands), `console` (IRB command extensions for interactive graph querying and maintenance)
 - `system/providers/` — dry-system provider directory (for registering external services like databases, caches)
 - `falcon.rb` — Defines two Falcon services: HTTP server (Rack app) and `analysis` background worker (async polling service)
 - `docs/architecture.md` — Detailed architecture documentation
@@ -104,7 +105,7 @@ end
 
 ### Analysis Pipeline
 
-The `Analysis::Service` (background worker via Falcon) polls the job queue and runs `ProcessJob`, which orchestrates a four-stage pipeline:
+The `Analysis::Worker` (background worker via Falcon, extends `Async::Service::Managed::Service`) polls the job queue and runs `ProcessJob`, which orchestrates a four-stage pipeline. The worker implements graceful shutdown: on `Async::Stop`, it releases in-progress jobs back to the queue. It also runs periodic maintenance tasks (job cleanup, edge archiving) based on `CLEANUP_INTERVAL`.
 
 1. **Extraction** — `LlmExtractor` sends job content to OpenAI via `ruby_llm` gem with structured output schema → candidate `Triplet` objects
 2. **Normalization** — `Analysis::Ontology::Normalizer` resolves extracted Rubyist names to canonical usernames using job's author context
@@ -187,6 +188,15 @@ end
 
 Inject dependencies into other outer-layer classes (e.g., repositories) with `include Lapidary::Dependency['webhooks.contract']`. Controllers resolve from the container directly via `container['key']` instead.
 
+### Console Commands
+
+`bin/console` starts IRB with registered commands (via `IRB::Command.register`):
+
+- **Query**: `nodes [type]`, `node <id>`, `neighbors <node_id> [--archived]`
+- **Maintenance**: `rename_node <old_id> <new_id>`, `delete_node <id>`, `archive_edge <key>`
+
+Console commands live in `lib/lapidary/console/` and use `TableFormatter` for output. Maintenance commands delegate to `lib/lapidary/maintenance/` (EdgeArchiver, NodeRenamer, NodeDeleter).
+
 ### Repository DSL
 
 Repositories use `Lapidary::RepositorySupport` for declarative boilerplate:
@@ -215,7 +225,7 @@ Errors propagate naturally through the layers and are caught at the boundary:
 
 ## Database
 
-- **Providers**: `database.rb` → `Container['database']` (Sequel), `logger.rb` → `Container['logger']` (Console), `redmine.rb` → `Container['redmine_api']` (Redmine::API), `event_bus.rb` → `Container['event_bus']` (dry-events publisher), `llm.rb` → `Container['llm']` (RubyLLM/OpenAI)
+- **Providers**: `database.rb` → `Container['database']` (Sequel), `logger.rb` → `Container['logger']` (Console), `redmine.rb` → `Container['redmine_api']` (Redmine::API), `event_bus.rb` → `Container['event_bus']` (dry-events publisher), `llm.rb` → `Container['llm']` (RubyLLM/OpenAI), `sentry.rb` → Sentry error tracking (conditional on `SENTRY_DSN`; includes instrumentation patches for RubyLLM and job queue)
 - **Test**: in-memory SQLite (`sqlite:/`) — no file on disk, fast and isolated
 - **Development/Production**: file-based SQLite (`data/<env>.sqlite3`) with WAL journal mode
 - **Migrations**: Sequel migrations in `db/migrations/`, named `YYYYMMDDHHMMSS_description.rb`
