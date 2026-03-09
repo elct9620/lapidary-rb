@@ -72,106 +72,63 @@ module Lapidary
       end
     end
 
-    # IRB command to find edges connected to a node
+    # IRB command to query neighbors of a node (Node → Edge → Node triplets)
     class NeighborsCommand < IRB::Command::Base
       include TableFormatter
 
       category 'Query'
-      description 'Find edges connected to a node'
+      description 'Query neighbors of a node'
       help_message <<~HELP
-        Usage: neighbors <node_id>
+        Usage: neighbors <node_id> [--archived]
 
-        Find all edges connected to the given node, including archived edges.
+        Show neighbors of the given node as Source → Relationship → Target triplets.
+        By default, only active edges are shown.
+        With --archived, includes archived edges.
 
         Examples:
           neighbors rubyist://matz
+          neighbors rubyist://matz --archived
           neighbors core_module://Array
       HELP
 
       def execute(arg)
-        node_id = arg.strip
-        if node_id.empty?
-          warn 'Usage: neighbors <node_id>'
+        parts = arg.strip.split
+        include_archived = !parts.delete('--archived').nil?
+        node_id = parts.first
+
+        if node_id.nil? || node_id.empty?
+          warn 'Usage: neighbors <node_id> [--archived]'
           return
         end
 
-        results = neighbor_repository.find_edges(node_id, include_archived: true)
-        print_edges(results)
+        result = query_neighbors(node_id, include_archived: include_archived)
+        return puts "Node not found: #{node_id}" unless result
+
+        print_neighbor_result(result)
       end
 
       private
 
-      def neighbor_repository
-        Lapidary::Container['graph.repositories.neighbor_repository']
-      end
-
-      def print_edges(edges)
-        print_table(
-          %w[Source Target Relationship Archived],
-          edges.map { |e| [e.source, e.target, e.relationship, e.archived_at || ''] }
+      def query_neighbors(node_id, include_archived:)
+        use_case = Graph::UseCases::QueryNeighbors.new(
+          neighbor_repository: Lapidary::Container['graph.repositories.neighbor_repository']
         )
+        use_case.call(node_id: node_id, include_archived: include_archived)
       end
-    end
 
-    # IRB command to list edges in the knowledge graph
-    class EdgesCommand < IRB::Command::Base
-      include TableFormatter
+      def print_neighbor_result(result)
+        node = result[:node]
+        puts "Node: #{node.id} (#{node.type})"
+        puts
 
-      category 'Query'
-      description 'List edges, optionally filtered by node'
-      help_message <<~HELP
-        Usage: edges [node_id] [--archived]
+        rows = result[:neighbors].flat_map { |neighbor| neighbor_rows(neighbor) }
+        print_table(%w[Source Relationship Target], rows)
+      end
 
-        List edges in the knowledge graph.
-        Without arguments, lists all active edges.
-        With a node_id, lists edges connected to that node.
-        With --archived, includes archived edges.
-
-        Examples:
-          edges                              # all active edges
-          edges --archived                   # all edges including archived
-          edges rubyist://matz               # edges for a specific node
-          edges rubyist://matz --archived    # including archived edges
-      HELP
-
-      def execute(arg)
-        parts = arg.strip.split
-        archived = parts.delete('--archived')
-        node_id = parts.first
-
-        if node_id
-          print_entity_edges(node_id, archived)
-        else
-          print_raw_edges(archived)
+      def neighbor_rows(neighbor)
+        neighbor.edges.map do |edge|
+          [edge.source, edge.relationship, edge.target]
         end
-      end
-
-      private
-
-      def print_entity_edges(node_id, archived)
-        results = neighbor_repository.find_edges(node_id, include_archived: !archived.nil?)
-        print_table(
-          %w[Source Target Relationship Archived],
-          results.map { |e| [e.source, e.target, e.relationship, e.archived_at || ''] }
-        )
-      end
-
-      def print_raw_edges(archived)
-        dataset = database[:edges]
-        dataset = dataset.where(archived_at: nil) unless archived
-        rows = dataset.all
-        print_table(
-          %w[Source Target Relationship Archived],
-          rows.map { |r| [r[:source], r[:target], r[:relationship], r[:archived_at] || ''] }
-        )
-      end
-
-      def neighbor_repository
-        Lapidary::Container['graph.repositories.neighbor_repository']
-      end
-
-      def database
-        Lapidary::Container['database']
       end
     end
   end
@@ -180,4 +137,3 @@ end
 IRB::Command.register(:nodes, Lapidary::Console::NodesCommand)
 IRB::Command.register(:node, Lapidary::Console::NodeCommand)
 IRB::Command.register(:neighbors, Lapidary::Console::NeighborsCommand)
-IRB::Command.register(:edges, Lapidary::Console::EdgesCommand)

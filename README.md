@@ -118,8 +118,7 @@ The console provides `container` and `db` helpers, plus built-in IRB commands:
 |---|---|
 | `nodes [type]` | List nodes, optionally filtered by type (e.g. `nodes rubyist`) |
 | `node <id>` | Find a single node by ID (e.g. `node rubyist://matz`) |
-| `neighbors <node_id>` | Find all edges connected to a node, including archived |
-| `edges [node_id] [--archived]` | List edges, optionally filtered by node or including archived |
+| `neighbors <node_id> [--archived]` | Query neighbors of a node as Source → Relationship → Target triplets |
 
 **Maintenance commands:**
 
