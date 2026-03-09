@@ -125,7 +125,7 @@ Analysis Service (background worker)
 Dequeue job
   │
   ▼
-Triplet extraction (LLM) → Validation → Normalization
+Triplet extraction (LLM) → Normalization → Validation
   │
   ▼
 Write validated triplets to knowledge graph
@@ -148,30 +148,62 @@ lib/
     migrator.rb
     analysis/
       environment.rb     # Framework & Driver (Falcon)
-      service.rb         # Framework & Driver (background worker)
+      worker.rb          # Framework & Driver (background worker)
+    console/
+      query_commands.rb        # IRB commands: nodes, node, neighbors
+      maintenance_commands.rb  # IRB commands: rename_node, delete_node, archive_edge
+    maintenance/
+      node_deleter.rb
+      node_renamer.rb
+      edge_archiver.rb
   analysis/              # Analysis BC inner layer (Analysis:: namespace)
     entities/
       analysis_record.rb
-      analysis_tracking_error.rb
       job.rb
-      job_error.rb
+      triplet.rb
+      node.rb
+      observation.rb
+    ontology/
+      normalizer.rb
+      validator.rb
+      module_registry.rb
     use_cases/
       process_job.rb
+      triplet_pipeline.rb
+      archive_edges.rb
+      cleanup_jobs.rb
   webhooks/              # Webhooks BC inner layer (Webhooks:: namespace)
     entities/
       analysis_record.rb
-      analysis_tracking_error.rb
       issue.rb
       journal.rb
     use_cases/
       handle_webhook.rb
+      job_argument_builder.rb
+  graph/                 # Graph BC inner layer (Graph:: namespace)
+    entities/
+      node.rb
+      edge.rb
+      neighbor.rb
+      direction.rb
+      observation.rb
+    use_cases/
+      query_nodes.rb
+      query_neighbors.rb
   redmine/
     api.rb               # External API integration
 apps/                    # Outer layer only (adapters, controllers, contracts, subscribers)
   analysis/
+    extractors/
+      llm_extractor.rb
+      prompt_builder.rb
+      response_parser.rb
+      triplet_schema.rb
     repositories/
       analysis_record_repository.rb
       job_repository.rb
+      graph_repository.rb
+      edge_archive_writer.rb
     subscribers/
       entity_discovered_subscriber.rb  # Subscribes to webhooks.entity_discovered events
   webhooks/
@@ -185,8 +217,14 @@ apps/                    # Outer layer only (adapters, controllers, contracts, s
   graph/
     api.rb               # Controller
     contract.rb          # Contract
+    node_query_contract.rb
+    serializers/
+      node_serializer.rb
+      node_list_serializer.rb
+      neighbor_serializer.rb
     repositories/
       node_repository.rb
+      neighbor_repository.rb
   health/
     api.rb               # Controller
 config/

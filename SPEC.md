@@ -1080,7 +1080,7 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph archiving strategy | TTL-based soft archive at edge level in Analysis Service | Mirrors job cleanup pattern; no additional process required; edge-level archiving ensures that when the most recent observation exceeds the retention period, the entire edge is archived and analysis records are cleared for re-analysis; if the LLM no longer produces the same triplet, the edge stays archived (self-correcting erroneous extractions) |
 | Edge archiving triggers re-analysis | Clear corresponding analysis records | Simplest approach — lets webhooks naturally trigger re-analysis without a dedicated re-analysis scheduler |
 | Observation storage strategy | Dedicated `observations` table (no `archived_at`) with archiving at edge level | Observations are append-only evidence records; archiving is determined by edge staleness (`edges.archived_at`), not per-observation; avoids complexity of observation-level archive management |
-| Maintenance console | `bin/console` + IRB + container | Standard Ruby convention; no predefined commands, operators use the container API directly |
+| Maintenance console | `bin/console` + IRB commands + container | Standard Ruby convention; convenience methods registered as IRB commands for discoverability |
 | Graph retention env var name | `GRAPH_RETENTION` | Follows `JOB_RETENTION` naming convention |
 
 ### To Be Decided
