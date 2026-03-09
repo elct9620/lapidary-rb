@@ -947,8 +947,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `db` | Returns the Sequel database connection |
 | `nodes(type = nil)` | Lists all nodes; when type is given, filters by node type |
 | `node(id)` | Looks up a single node by ID |
-| `neighbors(node_id)` | Returns edges connected to the node, each with its observations |
-| `edges(node_id = nil, archived: false)` | Returns edges with their observations; filters by node when given; excludes archived edges by default |
+| `neighbors(node_id)` | Returns edges connected to the node as Node-Edge-Node triplets, each with its observations; supports `--archived` flag to include archived edges |
 | `archive_edge(source, target, relationship)` | Sets `archived_at` on the edge and deletes corresponding analysis records derived from the edge's observations |
 | `rename_node(old_id, new_id)` | Renames a node by migrating all edges and observations to the new ID; if the target node already exists, merges node data (field-level merge per Node upsert behavior) and deduplicates edge observations (per Edge upsert deduplication); deletes the old node after migration |
 | `delete_node(node_id)` | Deletes a node; automatically purges any archived edges and their observations; raises an error if the node has active (non-archived) edges |
