@@ -177,6 +177,49 @@ RSpec.describe Analysis::Entities::Job do
     end
   end
 
+  describe '#release' do
+    context 'when claimed' do
+      before { job.claim }
+
+      it 'transitions back to pending status' do
+        job.release(now: fixed_time)
+        expect(job).to be_pending
+      end
+
+      it 'sets scheduled_at to now without backoff' do
+        job.release(now: fixed_time)
+        expect(job.scheduled_at).to eq(fixed_time)
+      end
+
+      it 'does not increment attempts' do
+        job.release(now: fixed_time)
+        expect(job.attempts).to eq(0)
+      end
+
+      it 'updates updated_at' do
+        job.release(now: fixed_time)
+        expect(job.updated_at).to eq(fixed_time)
+      end
+    end
+
+    context 'when pending' do
+      it 'raises JobError' do
+        expect { job.release }.to raise_error(Analysis::Entities::JobError, /cannot release/)
+      end
+    end
+
+    context 'when done' do
+      before do
+        job.claim
+        job.complete
+      end
+
+      it 'raises JobError' do
+        expect { job.release }.to raise_error(Analysis::Entities::JobError, /cannot release/)
+      end
+    end
+  end
+
   describe '#retryable?' do
     it 'returns true when attempts have not reached max' do
       job.claim

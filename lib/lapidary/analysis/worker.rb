@@ -41,6 +41,8 @@ module Lapidary
           periodic_tasks.each { |t| t[:last_at] = maybe_run(t[:action], t[:last_at]) }
           poll_once(job_handler, job_repository)
         end
+      rescue Async::Stop
+        logger.info(self, 'Analysis worker shutting down gracefully')
       end
 
       def build_periodic_tasks(job_repository)
@@ -63,15 +65,23 @@ module Lapidary
 
       def poll_once(job_handler, job_repository)
         job = job_repository.claim_next
-        unless job
-          sleep poll_interval
-          return
-        end
+        return sleep(poll_interval) unless job
 
         job_handler.call(job)
+      rescue Async::Stop
+        release_job(job, job_repository) if job
+        raise
       rescue ::Analysis::Entities::JobError => e
         report_error(e, 'Job processing error')
         sleep poll_interval
+      end
+
+      def release_job(job, job_repository)
+        job.release
+        job_repository.save(job)
+        logger.info(self, 'Released in-progress job back to queue', job_id: job.id)
+      rescue StandardError => e
+        logger.warn(self, "Failed to release job: #{e.message}", job_id: job.id)
       end
 
       def report_error(error, context_message)

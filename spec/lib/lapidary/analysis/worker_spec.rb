@@ -56,9 +56,9 @@ RSpec.describe Lapidary::Analysis::Worker do
         # Give the loop a moment to execute
         task.sleep(0.01)
 
-        # Stop the task to verify graceful shutdown
+        # Stop the task to verify graceful completion
         result.stop
-        expect(result).to be_stopped
+        expect(result).to be_complete
       end
     end
 
@@ -88,7 +88,7 @@ RSpec.describe Lapidary::Analysis::Worker do
             task.sleep(0.05)
             result.stop
 
-            expect(result).to be_stopped
+            expect(result).to be_complete
           end
         end
       end
@@ -108,7 +108,7 @@ RSpec.describe Lapidary::Analysis::Worker do
             task.sleep(0.05)
             result.stop
 
-            expect(result).to be_stopped
+            expect(result).to be_complete
           end
         end
       end
@@ -140,7 +140,7 @@ RSpec.describe Lapidary::Analysis::Worker do
             task.sleep(0.05)
             result.stop
 
-            expect(result).to be_stopped
+            expect(result).to be_complete
           end
         end
       end
@@ -160,7 +160,48 @@ RSpec.describe Lapidary::Analysis::Worker do
             task.sleep(0.05)
             result.stop
 
-            expect(result).to be_stopped
+            expect(result).to be_complete
+          end
+        end
+      end
+    end
+
+    context 'when shutdown with in-progress job' do
+      include_context 'with stubbed container'
+
+      let(:job) { Analysis::Entities::Job.new(arguments: { entity_type: 'issue', entity_id: 1 }) }
+
+      before do
+        job.claim
+        allow(job_repository).to receive(:claim_next).and_return(job)
+        allow(job_handler).to receive(:call) { sleep 60 }
+        allow(job_repository).to receive(:save)
+      end
+
+      it 'releases the job back to pending' do
+        Async do |task|
+          result = service.run(instance, evaluator)
+          task.sleep(0.05)
+          result.stop
+
+          expect(job).to be_pending
+          expect(job_repository).to have_received(:save).with(job)
+          expect(result).to be_complete
+        end
+      end
+
+      context 'when release fails' do
+        before do
+          allow(job_repository).to receive(:save).and_raise(StandardError, 'connection lost')
+        end
+
+        it 'still completes shutdown gracefully' do
+          Async do |task|
+            result = service.run(instance, evaluator)
+            task.sleep(0.05)
+            result.stop
+
+            expect(result).to be_complete
           end
         end
       end
@@ -182,7 +223,7 @@ RSpec.describe Lapidary::Analysis::Worker do
           task.sleep(0.05)
           result.stop
 
-          expect(result).to be_stopped
+          expect(result).to be_complete
         end
       end
     end

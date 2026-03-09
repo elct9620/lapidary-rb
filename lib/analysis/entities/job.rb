@@ -65,6 +65,14 @@ module Analysis
         @error = error
         @updated_at = now
       end
+
+      def release(now: Time.now)
+        raise JobError, "cannot release job in #{@status} status" unless claimed?
+
+        @status = JobStatus::PENDING
+        @scheduled_at = now
+        @updated_at = now
+      end
     end
   end
 end
