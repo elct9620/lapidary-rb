@@ -200,6 +200,7 @@ Content-Type: `application/json`
 **Response 200**: HTML page with:
 - Cytoscape.js loaded via CDN
 - JavaScript that consumes the existing Graph API endpoints (`GET /graph/nodes`, `GET /graph/neighbors`)
+- Open Graph and Twitter Card meta tags for social sharing previews
 
 **UI Capabilities** (constrain design, open implementation):
 
@@ -915,6 +916,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `GRAPH_RETENTION` | No | `180d` | Retention period for graph edges. An edge is archived when its most recent observation exceeds this period. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `30d`, `180d`, `365d` |
 | `CLEANUP_INTERVAL` | No | `86400` | Interval in seconds between retention cleanup runs (expired jobs + archived edges). Default is 1 day |
 | `SENTRY_DSN` | No | — | Sentry DSN for error tracking and performance monitoring. When unset, Sentry is a no-op |
+| `TRUSTED_PROXIES` | No | — | Comma-separated CIDR ranges of trusted reverse proxies. When set, Sentry and Rack resolve the real client IP from `X-Forwarded-For` headers |
 
 #### Port
 
