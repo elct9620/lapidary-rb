@@ -11,17 +11,26 @@ module Analysis
       VALID_OBJECT_TYPES = Entities::NodeType::OBJECT_TYPES
       VALID_RELATIONSHIPS = Entities::RelationshipType::ALL
       ANONYMOUS_NAMES = %w[Anonymous].freeze
+      NON_HUMAN_PATTERNS = [
+        /\bclaude\s+(opus|sonnet|haiku)\b/i,
+        /\bgpt[-\s]*\d/i,
+        /\bcopilot\b/i
+      ].freeze
+
+      VALIDATIONS = %i[
+        validate_subject_type
+        validate_anonymous_subject
+        validate_non_human_subject
+        validate_subject_name_whitespace
+        validate_subject_name
+        validate_object_type
+        validate_relationship
+        validate_role_constraint
+        validate_module_name
+      ].freeze
 
       def call(triplet)
-        errors = [
-          validate_subject_type(triplet),
-          validate_anonymous_subject(triplet),
-          validate_subject_name(triplet),
-          validate_object_type(triplet),
-          validate_relationship(triplet),
-          validate_role_constraint(triplet),
-          validate_module_name(triplet)
-        ].compact
+        errors = VALIDATIONS.filter_map { |validation| send(validation, triplet) }
 
         ValidationResult.new(triplet: triplet, errors: errors)
       end
@@ -65,6 +74,20 @@ module Analysis
         return if triplet.subject.properties[:role] == 'maintainer'
 
         "Maintenance relationship requires role=maintainer, got role=#{triplet.subject.properties[:role]}"
+      end
+
+      def validate_non_human_subject(triplet)
+        return unless VALID_SUBJECT_TYPES.include?(triplet.subject.type)
+        return unless NON_HUMAN_PATTERNS.any? { |pattern| triplet.subject.name.match?(pattern) }
+
+        "subject name matches a known non-human agent: #{triplet.subject.name}"
+      end
+
+      def validate_subject_name_whitespace(triplet)
+        return unless VALID_SUBJECT_TYPES.include?(triplet.subject.type)
+        return unless triplet.subject.name.match?(/\s/)
+
+        "subject name contains whitespace: #{triplet.subject.name}"
       end
 
       def validate_module_name(triplet)

@@ -96,6 +96,58 @@ RSpec.describe Analysis::Ontology::Validator do
       end
     end
 
+    context 'when subject name matches a known non-human agent' do
+      it 'returns a non-human agent error' do
+        ai_subject = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'Claude Opus 4.6'
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: ai_subject,
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to include('subject name matches a known non-human agent: Claude Opus 4.6')
+      end
+
+      it 'rejects GPT model names' do
+        ai_subject = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'GPT-4o'
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: ai_subject,
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to include('subject name matches a known non-human agent: GPT-4o')
+      end
+    end
+
+    context 'when subject name contains whitespace' do
+      it 'returns a whitespace error' do
+        spaced_subject = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'Some Name'
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: spaced_subject,
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to include('subject name contains whitespace: Some Name')
+      end
+    end
+
     context 'when subject type is invalid' do
       it 'returns a subject type error' do
         invalid_subject = Analysis::Entities::Node.new(
