@@ -491,6 +491,7 @@ The pipeline processes each job through four stages:
 - The relationship's domain-range constraint must be satisfied (see [Ontology](docs/ontology.md))
 - `Maintenance` requires the subject to have `role = maintainer`
 - Object name must exist in the curated module list
+- Subject and object names must not contain whitespace characters; whitespace in names would break console command argument parsing
 - Subject name must not be a reserved anonymous identifier (e.g., `Anonymous`); such names represent unidentifiable users and are rejected
 
 *Validation feedback correction:*
@@ -680,7 +681,7 @@ Content-Type: `application/json`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | Text (PK) | Unique node identifier |
+| `id` | Text (PK) | Unique node identifier in `type://name` format; must not contain whitespace characters |
 | `type` | Text (NOT NULL) | Node classification — constrained to ontology types: `Rubyist`, `CoreModule`, `Stdlib` |
 | `data` | Text (JSON) | Flexible metadata as JSON |
 | `created_at` | DateTime | Creation timestamp |
@@ -783,6 +784,7 @@ Content-Type: `application/json`
 | LLM output fails ontology validation | Attempt correction via LLM feedback (one attempt); if correction also fails, reject the triplet and log warning; valid triplets from the same response are still written |
 | Module name not in curated list | Attempt correction via LLM feedback; if corrected name is still not in curated list, reject the triplet and log warning |
 | LLM outputs `Maintenance` with non-maintainer role | Attempt correction via LLM feedback; if corrected triplet still has non-maintainer role with Maintenance, downgrade to `Contribute` and log info |
+| LLM outputs subject or object name containing whitespace | Attempt correction via LLM feedback; if corrected name still contains whitespace, reject the triplet and log warning |
 | LLM outputs reserved anonymous subject name | Reject triplet immediately (no correction attempt); log warning |
 | LLM correction attempt fails (timeout, API error) | Skip correction, apply original validation result (reject or downgrade); log warning |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
@@ -1074,7 +1076,7 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Validation feedback strategy | LLM correction with max 1 attempt; role constraint falls back to automatic downgrade | Balances extraction quality improvement with API cost; single attempt captures most correctable errors (name typos, case mismatches) without diminishing returns |
 | Ontology enumeration storage | `docs/ontology.md` | Keeps SPEC.md focused on decisions; detailed enumerations live in a dedicated document |
 | Entity normalization strategy | Job-context resolution (author fields) + passthrough for unknown Rubyists | Simple, deterministic, no external lookup required; leverages existing Job Arguments data |
-| Node ID generation strategy | URI format (`type://name`) | Human-readable, deterministic, avoids external ID generators |
+| Node ID generation strategy | URI format (`type://name`); names must not contain whitespace | Human-readable, deterministic, avoids external ID generators; whitespace-free IDs ensure console commands can parse arguments by whitespace splitting |
 | LLM provider | OpenAI | Widely available, sufficient for triplet extraction task |
 | Node metadata merge strategy | Field-level merge (latest non-nil wins) | Metadata accumulates naturally over time; no data loss from partial updates |
 | Graph API bounded context | New `graph` BC | Separates query concerns from analysis concerns; follows existing BC pattern |
