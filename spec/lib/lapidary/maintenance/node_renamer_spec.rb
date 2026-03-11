@@ -21,6 +21,14 @@ RSpec.describe Lapidary::Maintenance::NodeRenamer do
     )
   end
 
+  def insert_legacy_node(node_id, data: '{}')
+    db[:nodes].insert(id: node_id, type: 'rubyist', data: data)
+    db[:nodes].insert(id: 'core_module://Array', type: 'core_module', data: '{}')
+    db[:edges].insert(source: node_id, target: 'core_module://Array', relationship: 'Contribute')
+    db[:observations].insert(edge_source: node_id, edge_target: 'core_module://Array', edge_relationship: 'Contribute',
+                             observed_at: Time.now.iso8601, source_entity_type: 'issue', source_entity_id: 1)
+  end
+
   describe '#call' do
     it 'renames a node and updates edges and observations' do
       graph_repository.save_triplet(make_triplet(subject_name: 'old_user', object_name: 'Array'), observation)
@@ -39,10 +47,9 @@ RSpec.describe Lapidary::Maintenance::NodeRenamer do
     end
 
     it 'infers display_name from parenthetical annotation in old ID' do
-      triplet = make_triplet(subject_name: 'st0012 (Stan Lo)', object_name: 'Array')
-      graph_repository.save_triplet(triplet, observation)
-
       old_id = 'rubyist://st0012 (Stan Lo)'
+      insert_legacy_node(old_id)
+
       renamer.call(old_id, 'rubyist://st0012')
 
       node = db[:nodes].where(id: 'rubyist://st0012').first
@@ -51,14 +58,10 @@ RSpec.describe Lapidary::Maintenance::NodeRenamer do
     end
 
     it 'does not overwrite existing display_name when inferring' do
-      triplet = make_triplet(subject_name: 'st0012 (Stan Lo)', object_name: 'Array')
-      graph_repository.save_triplet(triplet, observation)
+      old_id = 'rubyist://st0012 (Stan Lo)'
+      insert_legacy_node(old_id, data: JSON.generate({ display_name: 'Original Name' }))
 
-      # Manually set display_name on the node
-      existing_data = JSON.generate({ display_name: 'Original Name' })
-      db[:nodes].where(id: 'rubyist://st0012 (Stan Lo)').update(data: existing_data)
-
-      renamer.call('rubyist://st0012 (Stan Lo)', 'rubyist://st0012')
+      renamer.call(old_id, 'rubyist://st0012')
 
       node = db[:nodes].where(id: 'rubyist://st0012').first
       data = JSON.parse(node[:data], symbolize_names: true)

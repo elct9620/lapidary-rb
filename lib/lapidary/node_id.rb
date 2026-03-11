@@ -4,7 +4,7 @@ module Lapidary
   # Shared infrastructure for building and validating knowledge graph node IDs.
   # Format: `type_slug://name` where type_slug is snake_case.
   module NodeId
-    FORMAT = %r{\A[a-z_]+://.+\z}
+    FORMAT = %r{\A[a-z_]+://\S+\z}
 
     def self.valid?(id)
       FORMAT.match?(id)

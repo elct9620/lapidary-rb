@@ -26,6 +26,7 @@ module Analysis
         validate_object_type
         validate_relationship
         validate_role_constraint
+        validate_object_name_whitespace
         validate_module_name
       ].freeze
 
@@ -88,6 +89,13 @@ module Analysis
         return unless triplet.subject.name.match?(/\s/)
 
         "subject name contains whitespace: #{triplet.subject.name}"
+      end
+
+      def validate_object_name_whitespace(triplet)
+        return unless VALID_OBJECT_TYPES.include?(triplet.object.type)
+        return unless triplet.object.name.match?(/\s/)
+
+        "object name contains whitespace: #{triplet.object.name}"
       end
 
       def validate_module_name(triplet)

@@ -148,6 +148,24 @@ RSpec.describe Analysis::Ontology::Validator do
       end
     end
 
+    context 'when object name contains whitespace' do
+      it 'returns an object name whitespace error' do
+        spaced_object = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::CORE_MODULE,
+          name: 'Some Module'
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: rubyist,
+          relationship: Analysis::Entities::RelationshipType::MAINTENANCE,
+          object: spaced_object
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to include('object name contains whitespace: Some Module')
+      end
+    end
+
     context 'when subject type is invalid' do
       it 'returns a subject type error' do
         invalid_subject = Analysis::Entities::Node.new(

@@ -12,8 +12,8 @@ RSpec.describe Lapidary::NodeId do
       expect(described_class.build('Rubyist', 'matz')).to eq('rubyist://matz')
     end
 
-    it 'preserves name as-is' do
-      expect(described_class.build('Feature', 'pattern matching')).to eq('feature://pattern matching')
+    it 'raises ArgumentError when name contains whitespace' do
+      expect { described_class.build('Feature', 'pattern matching') }.to raise_error(ArgumentError, /invalid node ID/)
     end
   end
 
@@ -27,6 +27,10 @@ RSpec.describe Lapidary::NodeId do
       expect(described_class.valid?('CoreModule://String')).to be false
       expect(described_class.valid?('://missing_type')).to be false
       expect(described_class.valid?('no_separator')).to be false
+    end
+
+    it 'returns false for node IDs with whitespace in name' do
+      expect(described_class.valid?('feature://pattern matching')).to be false
     end
   end
 
