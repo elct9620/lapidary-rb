@@ -12,17 +12,19 @@ module Webhooks
         @analysis_scheduler = analysis_scheduler
       end
 
-      def call(issue_id)
+      def call(issue_id, force: false)
         issue = @issue_repository.find(issue_id)
 
-        untracked = find_untracked(issue)
-        schedule(issue, untracked)
+        records = find_schedulable(issue, force: force)
+        schedule(issue, records)
       end
 
       private
 
-      def find_untracked(issue)
+      def find_schedulable(issue, force:)
         candidates = build_issue_records(issue) + build_journal_records(issue)
+        return candidates if force
+
         @analysis_record_repository.untracked(candidates)
       end
 
@@ -32,7 +34,7 @@ module Webhooks
           arguments = builder.call(record)
           @analysis_scheduler.schedule(**arguments)
         end
-        nil
+        records.size
       end
 
       def build_issue_records(issue)

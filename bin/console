@@ -11,6 +11,7 @@ Lapidary::Container.finalize!
 
 require_relative '../lib/lapidary/console/query_commands'
 require_relative '../lib/lapidary/console/maintenance_commands'
+require_relative '../lib/lapidary/console/analyze_command'
 
 def container
   Lapidary::Container

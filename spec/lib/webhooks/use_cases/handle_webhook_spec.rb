@@ -122,5 +122,25 @@ RSpec.describe Webhooks::UseCases::HandleWebhook do
 
       expect(db[:jobs].count).to eq(0)
     end
+
+    it 'returns the number of scheduled jobs' do
+      count = use_case.call(42)
+
+      expect(count).to eq(3)
+    end
+
+    context 'with force: true' do
+      it 'schedules all entities even when already tracked' do
+        db = Lapidary::Container['database']
+        [['issue', 42], ['journal', 101], ['journal', 102]].each do |type, id|
+          db[:analysis_records].insert(entity_type: type, entity_id: id, analyzed_at: Time.now)
+        end
+
+        count = use_case.call(42, force: true)
+
+        expect(count).to eq(3)
+        expect(db[:jobs].count).to eq(3)
+      end
+    end
   end
 end
