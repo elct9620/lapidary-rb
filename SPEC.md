@@ -432,6 +432,8 @@ Each analysis job carries a minimal set of fields extracted from the Redmine API
 1. For each non-archived edge (`archived_at IS NULL`), find its most recent observation (`MAX(observed_at)`). If the most recent `observed_at < cutoff`, archive the edge by setting `edges.archived_at` to the current timestamp, collecting the edge's observations' `(source_entity_type, source_entity_id)` pairs for use in step 2
 2. Perform Analysis Record Reset: clear analysis records whose `(entity_type, entity_id)` match the `(source_entity_type, source_entity_id)` pairs collected in step 1 — this allows the entity to be re-analyzed on the next webhook notification
 
+**Freshness semantics**: Because `observed_at` reflects the source event time (Redmine `created_on`), an edge created from an old Issue or Journal may be archived on the next cleanup cycle — even if it was just written to the graph. This is intentional: the knowledge graph prioritizes data accuracy over recency of processing. Old source data should not persist as active relationships, because the LLM extraction may be based on outdated context. The archive-then-re-analyze cycle ensures that only relationships confirmed by recent source activity remain active.
+
 **Unarchive rule**: When a new observation is inserted into an archived edge (i.e., the edge has `archived_at IS NOT NULL`), clear the edge's `archived_at` to restore it to active status. This happens naturally when re-analysis produces the same triplet.
 
 **Visibility**: Edges and nodes are not physically deleted. Query-time filtering determines visibility — archived edges (`archived_at IS NOT NULL`) and nodes with no active (non-archived) edges are excluded from default query results.
@@ -725,7 +727,7 @@ Content-Type: `application/json`
 | `edge_source` | Text (NOT NULL, FK) | Edge source node |
 | `edge_target` | Text (NOT NULL, FK) | Edge target node |
 | `edge_relationship` | Text (NOT NULL) | Edge relationship type |
-| `observed_at` | DateTime (NOT NULL) | Timestamp of the source Issue or Journal (`created_on`) |
+| `observed_at` | DateTime (NOT NULL) | Source event time — the `created_on` of the originating Issue or Journal on Redmine; determines edge freshness for archiving (not the time the system processed the data) |
 | `source_entity_type` | Text (NOT NULL) | `issue` or `journal` — provenance of this observation |
 | `source_entity_id` | Integer (NOT NULL) | ID of the source entity |
 | `evidence` | Text | Brief LLM-generated summary explaining why this relationship was identified from the source content |
@@ -996,6 +998,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | Domain-Range Constraint | A rule defining which node types a relationship may legally connect (domain = source type, range = target type) |
 | Entity Normalization | Resolving different textual representations to a single canonical entity using the node type's identity rule (e.g., resolving a display name to a username for Rubyist nodes) |
 | Ontology Entailment | The degree to which extracted triplets conform to the predefined ontology constraints |
+| Observation Time (`observed_at`) | The timestamp of the source event (Issue or Journal creation on Redmine), not the time the system processed it. Determines edge freshness for archiving. |
 | Qualifier | Contextual metadata attached to an Edge (e.g., observation time, provenance) |
 | Neighbor | A node directly connected to a given node by one or more edges |
 | Job Cleanup | The process of removing expired jobs from the database based on a configured retention period |
@@ -1092,6 +1095,7 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Graph visualization library | Cytoscape.js via CDN | Purpose-built for graph/network visualization; no bundler needed |
 | UI data fetching | Client-side fetch from existing Graph API endpoints | Reuses existing API; no server-side rendering of graph data |
 | Health check endpoint path | `GET /health` | Frees root path for UI; follows common health check conventions |
+| `observed_at` timestamp source | Redmine `created_on` (source event time) | The graph models when relationships were evidenced in Redmine, not when the system processed them. Using source time ensures that processing old issues does not inflate the apparent freshness of stale relationships. Combined with TTL-based archiving, this creates a self-correcting cycle: old edges are archived, analysis records are cleared, and re-analysis on the next webhook produces up-to-date extractions. |
 | Graph edge retention default | `180d` | bugs.ruby-lang.org issues evolve very slowly; 180 days (half a year) provides sufficient history while allowing periodic refresh |
 | Graph archiving strategy | TTL-based soft archive at edge level in Analysis Service | Mirrors job cleanup pattern; no additional process required; edge-level archiving ensures that when the most recent observation exceeds the retention period, the entire edge is archived and analysis records are cleared for re-analysis; if the LLM no longer produces the same triplet, the edge stays archived (self-correcting erroneous extractions) |
 | Edge archiving triggers re-analysis | Clear corresponding analysis records | Simplest approach — lets webhooks naturally trigger re-analysis without a dedicated re-analysis scheduler |
