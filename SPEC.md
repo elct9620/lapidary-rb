@@ -31,6 +31,7 @@ Lapidary builds a knowledge graph between Ruby core features and developers from
 - Expired graph edges are automatically archived when the most recent observation exceeds a configurable retention period
 - Archived edges and orphan nodes are excluded from default query results
 - A maintenance console (`bin/console`) loads the application container for manual data inspection and correction
+- `analyze` console command triggers the import flow for a given Issue ID; `--force` bypasses tracking record filtering
 
 ## Non-goals
 
@@ -174,6 +175,14 @@ The complete system encompasses four capabilities:
 - **Context**: An operator discovers incorrect data in the knowledge graph
 - **Action**: The operator runs `bin/console` to load the application container and uses repositories and database tools to inspect and correct data
 - **Outcome**: The operator can examine and fix graph data directly through the container API
+
+### Manual Issue Analysis
+
+- **Context**: An operator needs to trigger analysis for a specific Issue without waiting for a Webhook notification
+- **Action**: The operator runs `bin/console` and executes `analyze <issue_id>` to fetch the Issue from Redmine and schedule analysis jobs
+- **Outcome**: Entities discovered from the Issue are scheduled for analysis; only untracked entities are scheduled by default
+- **Action (force)**: The operator executes `analyze <issue_id> --force` to bypass tracking record filtering
+- **Outcome (force)**: All entities discovered from the Issue are scheduled for analysis, regardless of existing tracking records
 
 ---
 
@@ -811,6 +820,8 @@ Content-Type: `application/json`
 | `delete_node` called on non-existent node | Raise error |
 | `rename_node` called on non-existent source node | Raise error |
 | `archive_edge` called on non-existent edge | Raise error |
+| `analyze` called with non-existent Issue ID | Display error message indicating the Issue was not found on Redmine |
+| `analyze` called with invalid Issue ID format | Display usage message |
 
 **Knowledge Graph Explorer Errors**:
 
@@ -953,6 +964,7 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `archive_edge(source, target, relationship)` | Sets `archived_at` on the edge and deletes corresponding analysis records derived from the edge's observations |
 | `rename_node(old_id, new_id)` | Renames a node by migrating all edges and observations to the new ID; if the target node already exists, merges node data (field-level merge per Node upsert behavior) and deduplicates edge observations (per Edge upsert deduplication); deletes the old node after migration |
 | `delete_node(node_id)` | Deletes a node; automatically purges any archived edges and their observations; raises an error if the node has active (non-archived) edges |
+| `analyze(issue_id)` | Fetches the issue from Redmine, discovers entities, filters untracked ones, and schedules analysis jobs; supports `--force` flag to bypass tracking record filtering and schedule all entities |
 
 ---
 
