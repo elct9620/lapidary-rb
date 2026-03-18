@@ -34,8 +34,8 @@ module Graph
         with_error_wrapping do
           return {} if ids.empty?
 
-          dataset.where(id: ids).each_with_object({}) do |row, hash|
-            hash[row[:id]] = build_node(row)
+          dataset.where(id: ids).to_h do |row|
+            [row[:id], build_node(row)]
           end
         end
       end
@@ -82,7 +82,7 @@ module Graph
         conditions = edge_rows.map { |r| Lapidary::EdgeKey.from_edge_row(r).to_observation_where }
         observations_table.where(Sequel.|(*conditions))
                           .each_with_object(Hash.new { |h, k| h[k] = [] }) do |obs, map|
-                            map[Lapidary::EdgeKey.from_observation_row(obs)] << build_observation(obs)
+          map[Lapidary::EdgeKey.from_observation_row(obs)] << build_observation(obs)
         end
       end
 

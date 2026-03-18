@@ -7,10 +7,10 @@ module Analysis
     # Structured output schema for LLM triplet extraction.
     class TripletSchema < RubyLLM::Schema
       RELATIONSHIP_MAP = Entities::RelationshipType::ALL
-                         .each_with_object({}) { |r, h| h[r.to_s] = r }.freeze
+                         .to_h { |r| [r.to_s, r] }.freeze
 
       NODE_TYPE_MAP = Entities::NodeType::OBJECT_TYPES
-                      .each_with_object({}) { |t, h| h[t.to_s] = t }.freeze
+                      .to_h { |t| [t.to_s, t] }.freeze
 
       array :triplets do
         object do
