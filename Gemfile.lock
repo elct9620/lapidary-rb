@@ -4,20 +4,14 @@ GEM
     addressable (2.8.9)
       public_suffix (>= 2.0.2, < 8.0)
     ast (2.4.3)
-    async (2.36.0)
+    async (2.38.1)
       console (~> 1.29)
       fiber-annotation
       io-event (~> 1.11)
       metrics (~> 0.12)
       traces (~> 0.18)
-    async-container (0.34.2)
+    async-container (0.34.3)
       async (~> 2.22)
-    async-container-supervisor (0.9.3)
-      async-service
-      io-endpoint
-      memory (~> 0.7)
-      memory-leak (~> 0.5)
-      process-metrics
     async-http (0.94.2)
       async (>= 2.10.2)
       async-pool (~> 0.11)
@@ -34,15 +28,14 @@ GEM
     async-http-faraday (0.22.1)
       async-http (~> 0.42)
       faraday
-    async-pool (0.11.1)
+    async-pool (0.11.2)
       async (>= 2.0)
-    async-service (0.20.1)
+    async-service (0.21.0)
       async
       async-container (~> 0.34)
       string-format (~> 0.2)
-    bake (0.24.1)
-      bigdecimal
-      samovar (~> 2.1)
+    async-utilization (0.3.2)
+      console (~> 1.0)
     base64 (0.3.0)
     bigdecimal (4.0.1)
     concurrent-ruby (1.3.6)
@@ -105,13 +98,13 @@ GEM
       zeitwerk (~> 2.6)
     erb (6.0.2)
     event_stream_parser (1.0.0)
-    falcon (0.54.2)
+    falcon (0.55.2)
       async
       async-container (~> 0.20)
-      async-container-supervisor (~> 0.6)
       async-http (~> 0.75)
       async-http-cache (~> 0.4)
       async-service (~> 0.19)
+      async-utilization (~> 0.3)
       bundler
       localhost (~> 1.1)
       openssl (>= 3.0)
@@ -135,7 +128,7 @@ GEM
     hashdiff (1.2.1)
     io-console (0.8.2)
     io-endpoint (0.17.2)
-    io-event (1.14.2)
+    io-event (1.14.4)
     io-stream (0.11.1)
     irb (1.17.0)
       pp (>= 0.6.0)
@@ -154,14 +147,7 @@ GEM
     marcel (1.1.0)
     mcp (0.8.0)
       json-schema (>= 4.1)
-    memory (0.12.0)
-      bake (~> 0.15)
-      console
-      msgpack
-    memory-leak (0.9.1)
-      process-metrics (~> 0.9)
     metrics (0.15.0)
-    msgpack (1.8.0)
     multipart-post (2.4.1)
     mustermann (3.0.4)
       ruby2_keywords (~> 0.0.1)
@@ -176,12 +162,8 @@ GEM
       prettyprint
     prettyprint (0.2.0)
     prism (1.9.0)
-    process-metrics (0.9.0)
-      console (~> 1.8)
-      json (~> 2)
-      samovar (~> 2.1)
     protocol-hpack (1.5.1)
-    protocol-http (0.59.0)
+    protocol-http (0.60.0)
     protocol-http1 (0.37.0)
       protocol-http (~> 0.58)
     protocol-http2 (0.24.0)
@@ -334,15 +316,14 @@ DEPENDENCIES
 CHECKSUMS
   addressable (2.8.9) sha256=cc154fcbe689711808a43601dee7b980238ce54368d23e127421753e46895485
   ast (2.4.3) sha256=954615157c1d6a382bc27d690d973195e79db7f55e9765ac7c481c60bdb4d383
-  async (2.36.0) sha256=090623f4c65706664355c9efa6c7bfb86771a513e65cd681c51cb27747530550
-  async-container (0.34.2) sha256=83ac767e74a832c42e156110c14e10b1fb3fd7583fa1beb3dfe45269e3554746
-  async-container-supervisor (0.9.3) sha256=7bccbba92d84f6f19cbcea058a7f124511e828b39387b4bd257a0d12104f4a6d
+  async (2.38.1) sha256=72ba6b7de04d852355458bfe891221226bb7d29f055f5cb043ae3345497f8cec
+  async-container (0.34.3) sha256=60c9146861df0c294903be4b071b618d913c015569ae90e820f416cd3faf8fd3
   async-http (0.94.2) sha256=c5ca94b337976578904a373833abe5b8dfb466a2946af75c4ae38c409c5c78b2
   async-http-cache (0.4.6) sha256=2038d1f093182f16b50b4db271c25085e3938da10bfcfc2904cadb0530fddfd6
   async-http-faraday (0.22.1) sha256=414c3197f32157bc0a7a187b1fb4c669097a8ef71832613eff2371c9808e9923
-  async-pool (0.11.1) sha256=98e1583e199a75f7dc70f8e65fc8d0d3b28636c3f256595d43e206642ad8fbda
-  async-service (0.20.1) sha256=d77ca8912e31c729f6e62c783ae3f364385ccc91a34c97998b761d7bda72b01b
-  bake (0.24.1) sha256=8bfac7e61514b17720e3b13cf6a5e122243f43123c6802707b150904bec5f4c7
+  async-pool (0.11.2) sha256=0a43a17b02b04d9c451b7d12fafa9a50e55dc6dd00d4369aca00433f16a7e3ed
+  async-service (0.21.0) sha256=3bc9e0f8dc293ba8855bc790959db7f981ae22bbb731456d221d93b388e9706f
+  async-utilization (0.3.2) sha256=201a27e0948fe23fc14a01a0ecbe5e420e27cebae3a51f36e56fc45fb31df3b4
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   bigdecimal (4.0.1) sha256=8b07d3d065a9f921c80ceaea7c9d4ae596697295b584c296fe599dd0ad01c4a7
   concurrent-ruby (1.3.6) sha256=6b56837e1e7e5292f9864f34b69c5a2cbc75c0cf5338f1ce9903d10fa762d5ab
@@ -365,7 +346,7 @@ CHECKSUMS
   dry-validation (1.11.1) sha256=70900bb5a2d911c8aab566d3e360c6bff389b8bf92ea8e04885ce51c41ff8085
   erb (6.0.2) sha256=9fe6264d44f79422c87490a1558479bd0e7dad4dd0e317656e67ea3077b5242b
   event_stream_parser (1.0.0) sha256=a2683bab70126286f8184dc88f7968ffc4028f813161fb073ec90d171f7de3c8
-  falcon (0.54.2) sha256=ab35a702466f318d6b3189e638e4aee53290261a5404c9f681115f4a8aca153e
+  falcon (0.55.2) sha256=dfcdd8e4c3a18827a5ca7e346df67ebdaf873ac61a5f7d20ad4923c4d6b180cb
   faraday (2.14.1) sha256=a43cceedc1e39d188f4d2cdd360a8aaa6a11da0c407052e426ba8d3fb42ef61c
   faraday-multipart (1.2.0) sha256=7d89a949693714176f612323ca13746a2ded204031a6ba528adee788694ef757
   faraday-net_http (3.4.2) sha256=f147758260d3526939bf57ecf911682f94926a3666502e24c69992765875906c
@@ -376,7 +357,7 @@ CHECKSUMS
   hashdiff (1.2.1) sha256=9c079dbc513dfc8833ab59c0c2d8f230fa28499cc5efb4b8dd276cf931457cd1
   io-console (0.8.2) sha256=d6e3ae7a7cc7574f4b8893b4fca2162e57a825b223a177b7afa236c5ef9814cc
   io-endpoint (0.17.2) sha256=3feaf766c116b35839c11fac68b6aaadc47887bb488902a57bf8e1d288fb3338
-  io-event (1.14.2) sha256=b0a069190eafe86005c22f7464f744971b5bd82f153740d34e6ab49548d4f613
+  io-event (1.14.4) sha256=455a9e4fb4613d12867b90461c297af6993b400a521bf62046f83b27f9c6aa3d
   io-stream (0.11.1) sha256=fa5f551fcff99581c1757b9d1cee2c37b124f07d2ca4f40b756a05ab9bd21b87
   irb (1.17.0) sha256=168c4ddb93d8a361a045c41d92b2952c7a118fa73f23fe14e55609eb7a863aae
   json (2.19.1) sha256=dd94fdc59e48bff85913829a32350b3148156bc4fd2a95a2568a78b11344082d
@@ -388,10 +369,7 @@ CHECKSUMS
   mapping (1.1.3) sha256=2274931d20ecd46eaafdd1e00c58cc7472133b213bcac335cc7733d3c75f4da2
   marcel (1.1.0) sha256=fdcfcfa33cc52e93c4308d40e4090a5d4ea279e160a7f6af988260fa970e0bee
   mcp (0.8.0) sha256=ae8bd146bb8e168852866fd26f805f52744f6326afb3211e073f78a95e0c34fb
-  memory (0.12.0) sha256=786a14d84cec8e5667a491da02ebbf492b9ec3d19d35161131ac9d47abb684b4
-  memory-leak (0.9.1) sha256=fd6dac6967f1a89b4dfb0eebdb585e950342191fcbcba02fb160c75f6ba807c8
   metrics (0.15.0) sha256=61ded5bac95118e995b1bc9ed4a5f19bc9814928a312a85b200abbdac9039072
-  msgpack (1.8.0) sha256=e64ce0212000d016809f5048b48eb3a65ffb169db22238fb4b72472fecb2d732
   multipart-post (2.4.1) sha256=9872d03a8e552020ca096adadbf5e3cb1cd1cdd6acd3c161136b8a5737cdb4a8
   mustermann (3.0.4) sha256=85fadcb6b3c6493a8b511b42426f904b7f27b282835502233dd154daab13aa22
   net-http (0.9.1) sha256=25ba0b67c63e89df626ed8fac771d0ad24ad151a858af2cc8e6a716ca4336996
@@ -401,9 +379,8 @@ CHECKSUMS
   pp (0.6.3) sha256=2951d514450b93ccfeb1df7d021cae0da16e0a7f95ee1e2273719669d0ab9df6
   prettyprint (0.2.0) sha256=2bc9e15581a94742064a3cc8b0fb9d45aae3d03a1baa6ef80922627a0766f193
   prism (1.9.0) sha256=7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85
-  process-metrics (0.9.0) sha256=7d34508369e9f795a59f23a990203de2866b57662b6977b4ca13eb36f0a41292
   protocol-hpack (1.5.1) sha256=6feca238b8078da1cd295677d6f306c6001af92d75fe0643d33e6956cbc3ad91
-  protocol-http (0.59.0) sha256=90e20ad817cb3ffe947d4fd6194fe0651f385625dcce055386d1c356ee32547b
+  protocol-http (0.60.0) sha256=ca1354947676d663b6f23c49654aee464288774e7867c4a6e406fecce9691cec
   protocol-http1 (0.37.0) sha256=5bdd739e28792b341134596f6f5ab21a9d4b395f67bae69e153743eb0e69d123
   protocol-http2 (0.24.0) sha256=65327a019b7e36d2774e94050bf57a43bb60212775d2fcf02ae1d2ed4f01ef28
   protocol-rack (0.21.1) sha256=366ff16efbf4c2f8d2e3fad4e992effa2357610f70effbccfa2767d26fedc577
