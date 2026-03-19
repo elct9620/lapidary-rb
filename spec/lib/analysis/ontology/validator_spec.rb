@@ -94,6 +94,38 @@ RSpec.describe Analysis::Ontology::Validator do
 
         expect(result.errors).to include('subject name is a reserved anonymous identifier: Anonymous')
       end
+
+      it 'rejects lowercase anonymous' do
+        anonymous_subject = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'anonymous'
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: anonymous_subject,
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to include('subject name is a reserved anonymous identifier: anonymous')
+      end
+
+      it 'rejects mixed-case ANONYMOUS' do
+        anonymous_subject = Analysis::Entities::Node.new(
+          type: Analysis::Entities::NodeType::RUBYIST,
+          name: 'ANONYMOUS'
+        )
+        triplet = Analysis::Entities::Triplet.new(
+          subject: anonymous_subject,
+          relationship: Analysis::Entities::RelationshipType::CONTRIBUTE,
+          object: core_module
+        )
+
+        result = validator.call(triplet)
+
+        expect(result.errors).to include('subject name is a reserved anonymous identifier: ANONYMOUS')
+      end
     end
 
     context 'when subject name matches a known non-human agent' do
