@@ -28,7 +28,7 @@
       <step>Skip — do not extract</step>
     </condition>
     <step>Use validate_module tool to verify the module name exists in the curated list</step>
-    <step>Use search_node tool to check if the Rubyist username exists in the graph</step>
+    <step>Use search_node tool to check if the Rubyist username exists in the graph. If a matching node is found, use the exact username from the node ID as the subject name (e.g., if search returns `rubyist://matz`, use `matz`)</step>
     <step>Determine role from evidence</step>
     <condition if="assigned responsibility, regularly commits/merges, listed as maintainer">
       <step>role = maintainer</step>

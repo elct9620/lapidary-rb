@@ -10,7 +10,7 @@ module Analysis
       VALID_SUBJECT_TYPES = Entities::NodeType::SUBJECT_TYPES
       VALID_OBJECT_TYPES = Entities::NodeType::OBJECT_TYPES
       VALID_RELATIONSHIPS = Entities::RelationshipType::ALL
-      ANONYMOUS_NAMES = %w[Anonymous].freeze
+      ANONYMOUS_NAMES = %w[anonymous].freeze
       NON_HUMAN_PATTERNS = [
         /\bclaude\s+(opus|sonnet|haiku)\b/i,
         /\bgpt[-\s]*\d/i,
@@ -46,7 +46,7 @@ module Analysis
 
       def validate_anonymous_subject(triplet)
         return unless VALID_SUBJECT_TYPES.include?(triplet.subject.type)
-        return unless ANONYMOUS_NAMES.include?(triplet.subject.name)
+        return unless ANONYMOUS_NAMES.include?(triplet.subject.name.downcase)
 
         "subject name is a reserved anonymous identifier: #{triplet.subject.name}"
       end

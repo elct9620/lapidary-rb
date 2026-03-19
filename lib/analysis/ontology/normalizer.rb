@@ -23,7 +23,7 @@ module Analysis
         if matches_author?(subject.name, username, display_name)
           merge_display_name(subject.with(name: username || subject.name), display_name)
         else
-          subject
+          downcase_rubyist(subject)
         end
       end
 
@@ -41,6 +41,13 @@ module Analysis
         base = match[1].strip.downcase
         (username && base == username.downcase) ||
           (display_name && base == display_name.downcase)
+      end
+
+      def downcase_rubyist(subject)
+        downcased = subject.name.downcase
+        return subject if downcased == subject.name
+
+        subject.with(name: downcased)
       end
 
       def merge_display_name(subject, display_name)

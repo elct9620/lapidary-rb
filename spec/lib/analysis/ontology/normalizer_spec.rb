@@ -101,9 +101,18 @@ RSpec.describe Analysis::Ontology::Normalizer do
     end
 
     context 'when subject name does not match any author field' do
-      it 'passes through unchanged' do
+      it 'passes through unchanged when already lowercase' do
         triplet = build_triplet(subject_name: 'nobu')
         arguments = build_arguments(author_username: 'matz', author_display_name: 'Yukihiro Matsumoto')
+
+        result = normalizer.call(triplet, arguments)
+
+        expect(result.subject.name).to eq('nobu')
+      end
+
+      it 'downcases the subject name' do
+        triplet = build_triplet(subject_name: 'Nobu')
+        arguments = build_arguments(author_username: 'matz')
 
         result = normalizer.call(triplet, arguments)
 

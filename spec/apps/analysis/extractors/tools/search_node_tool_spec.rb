@@ -20,6 +20,12 @@ RSpec.describe Analysis::Extractors::Tools::SearchNodeTool do
       expect(results).to contain_exactly(a_hash_including('id' => 'rubyist://matz'))
     end
 
+    it 'finds nodes case-insensitively' do
+      results = JSON.parse(tool.execute(query: 'Matz'))
+
+      expect(results).to contain_exactly(a_hash_including('id' => 'rubyist://matz'))
+    end
+
     it 'returns multiple matches' do
       results = JSON.parse(tool.execute(query: 'rubyist'))
 
