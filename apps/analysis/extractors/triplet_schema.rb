@@ -21,7 +21,8 @@ module Analysis
                                           '(4) Is this person identified as a maintainer or submaintainer?'
           object :subject do
             string :name,
-                   description: 'Username on bugs.ruby-lang.org. If search_node finds an existing node, use the name from that node ID.'
+                   description: 'Username on bugs.ruby-lang.org. ' \
+                                'If search_node finds an existing node, use the name from that node ID.'
             string :role, enum: %w[maintainer submaintainer contributor],
                           description: 'Role in the Ruby community: maintainer, submaintainer, or contributor'
           end
