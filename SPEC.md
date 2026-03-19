@@ -464,6 +464,16 @@ The pipeline processes each job through four stages:
 - *Input*: `entity_type`, `content`, `author_username`, `author_display_name`, and for journals: `issue_id`, `issue_content`
 - *Output*: Zero or more triplets of the form `{ subject: Rubyist, relationship: Maintenance | Contribute, object: CoreModule | Stdlib, evidence: String }`
 - The LLM prompt includes the ontology schema (permitted types and constraints) to guide extraction
+- The LLM is configured with tool use (function calling) to query the existing knowledge graph during extraction:
+
+| Tool | Purpose |
+|------|---------|
+| `search_node` | Search existing nodes by name or display name to avoid creating duplicates |
+| `validate_module` | Validate module name against curated CoreModule and Stdlib lists |
+| `search_edge` | Check if a relationship between a Rubyist and a module already exists |
+| `search_observation` | Check if a relationship was already observed from the parent issue |
+
+- When `search_node` finds an existing Rubyist node, the LLM adopts the exact name from the node ID to avoid creating duplicates
 - The LLM may return zero triplets if the content does not describe a relevant relationship
 - Jobs with empty `content` (e.g., journals with no notes) are sent to the LLM normally; the expected result is zero triplets
 
@@ -473,10 +483,10 @@ The pipeline processes each job through four stages:
 
 - Matching uses case-insensitive string comparison (LLM output may vary in casing)
 - Canonical identity for a Rubyist is `username` (see [Ontology](docs/ontology.md) § Rubyist Identity)
-- If the extracted subject name matches the Job's `author_username`, use `author_username` as the canonical username
-- If the extracted subject name matches the Job's `author_display_name`, resolve to `author_username`
-- If neither matches, use the extracted name directly as the canonical username (represents a different Rubyist mentioned in the content)
-- When the subject resolves to the Job's author, `author_display_name` from Job Arguments is carried forward as the Rubyist's `display_name` for node data
+- If the extracted subject name matches the Job Arguments' `author_username`, use `author_username` as the canonical username
+- If the extracted subject name matches the Job Arguments' `author_display_name`, resolve to `author_username`
+- If neither matches, downcase the extracted name and use it as the canonical username (represents a different Rubyist mentioned in the content)
+- When the subject matches Job Arguments' `author_username` or `author_display_name`, `author_display_name` is carried forward as the Rubyist's `display_name` for node data
 
 *Module Normalization:*
 
@@ -494,7 +504,7 @@ The pipeline processes each job through four stages:
 - `Maintenance` requires the subject to have `role = maintainer`
 - Object name must exist in the curated module list
 - Subject and object names must not contain whitespace characters; whitespace in names would break console command argument parsing
-- Subject name must not be a reserved anonymous identifier (e.g., `Anonymous`); such names represent unidentifiable users and are rejected
+- Subject name must not be a reserved anonymous identifier (case-insensitive match, e.g., `Anonymous`, `anonymous`); such names represent unidentifiable users and are rejected
 
 *Validation feedback correction:*
 
@@ -1078,7 +1088,7 @@ See [Ontology](docs/ontology.md) for complete node/relationship enumerations, do
 | Ontology approach | Wikontic-inspired (static ontology + LLM extraction + validation) | Predefined types ensure consistent graph structure; LLM handles unstructured text |
 | Validation feedback strategy | LLM correction with max 1 attempt; role constraint falls back to automatic downgrade | Balances extraction quality improvement with API cost; single attempt captures most correctable errors (name typos, case mismatches) without diminishing returns |
 | Ontology enumeration storage | `docs/ontology.md` | Keeps SPEC.md focused on decisions; detailed enumerations live in a dedicated document |
-| Entity normalization strategy | Job-context resolution (author fields) + passthrough for unknown Rubyists | Simple, deterministic, no external lookup required; leverages existing Job Arguments data |
+| Entity normalization strategy | Job-context resolution (author fields) + downcase for unmatched Rubyist usernames | Simple, deterministic, no external lookup required; leverages existing Job Arguments data; downcasing matches Redmine's case-insensitive login semantics |
 | Node ID generation strategy | URI format (`type://name`); names must not contain whitespace | Human-readable, deterministic, avoids external ID generators; whitespace-free IDs ensure console commands can parse arguments by whitespace splitting |
 | LLM provider | OpenAI | Widely available, sufficient for triplet extraction task |
 | Node metadata merge strategy | Field-level merge (latest non-nil wins) | Metadata accumulates naturally over time; no data loss from partial updates |
