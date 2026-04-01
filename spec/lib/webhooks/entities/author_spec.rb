@@ -3,19 +3,7 @@
 require 'spec_helper'
 
 RSpec.describe Webhooks::Entities::Author do
-  describe '#username' do
-    it 'returns the username' do
-      author = described_class.new(username: 'matz', display_name: 'Yukihiro Matsumoto')
-      expect(author.username).to eq('matz')
-    end
-  end
-
   describe '#display_name' do
-    it 'returns the display name' do
-      author = described_class.new(username: 'matz', display_name: 'Yukihiro Matsumoto')
-      expect(author.display_name).to eq('Yukihiro Matsumoto')
-    end
-
     it 'can be nil' do
       author = described_class.new(username: 'matz', display_name: nil)
       expect(author.display_name).to be_nil

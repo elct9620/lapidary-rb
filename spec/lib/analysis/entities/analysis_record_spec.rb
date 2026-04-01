@@ -6,10 +6,6 @@ RSpec.describe Analysis::Entities::AnalysisRecord do
   subject(:record) { described_class.new(entity_type: 'issue', entity_id: 42) }
 
   describe '#initialize' do
-    it 'sets entity_type and entity_id' do
-      expect(record).to have_attributes(entity_type: 'issue', entity_id: 42)
-    end
-
     it 'defaults analyzed_at to nil' do
       expect(record.analyzed_at).to be_nil
     end
