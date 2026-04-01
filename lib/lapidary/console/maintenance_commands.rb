@@ -27,7 +27,8 @@ module Lapidary
         end
 
         old_id, new_id = parts
-        Lapidary::Container['maintenance.node_renamer'].call(old_id, new_id)
+        repo = Lapidary::Container['maintenance.repositories.node_rename_repository']
+        Maintenance::UseCases::RenameNode.new(repository: repo).call(old_id, new_id)
         puts "Renamed node: #{old_id} -> #{new_id}"
       end
     end
@@ -53,7 +54,8 @@ module Lapidary
           return
         end
 
-        Lapidary::Container['maintenance.node_deleter'].call(node_id)
+        repo = Lapidary::Container['maintenance.repositories.node_deletion_repository']
+        Maintenance::UseCases::DeleteNode.new(repository: repo).call(node_id)
         puts "Deleted node: #{node_id}"
       end
     end
@@ -75,9 +77,10 @@ module Lapidary
         source, target, relationship = parse_arguments(arg)
         return unless source
 
-        result = Lapidary::Container['maintenance.edge_archiver'].call(
-          source: source, target: target, relationship: relationship
-        )
+        result = Maintenance::UseCases::ArchiveEdge.new(
+          edge_archive_writer: Lapidary::Container['analysis.repositories.edge_archive_writer'],
+          analysis_record_repository: Lapidary::Container['analysis.repositories.analysis_record_repository']
+        ).call(source: source, target: target, relationship: relationship)
         puts "Archived edge: #{source} -> #{target} [#{relationship}]"
         puts "Cleared #{result[:analysis_records_cleared]} analysis record(s)"
       end

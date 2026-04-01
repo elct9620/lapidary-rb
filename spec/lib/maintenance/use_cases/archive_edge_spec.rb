@@ -2,8 +2,13 @@
 
 require 'spec_helper'
 
-RSpec.describe Lapidary::Maintenance::EdgeArchiver do
-  subject(:archiver) { Lapidary::Container['maintenance.edge_archiver'] }
+RSpec.describe Maintenance::UseCases::ArchiveEdge do
+  subject(:use_case) do
+    described_class.new(
+      edge_archive_writer: Lapidary::Container['analysis.repositories.edge_archive_writer'],
+      analysis_record_repository: Lapidary::Container['analysis.repositories.analysis_record_repository']
+    )
+  end
 
   let(:db) { Lapidary::Container['database'] }
   let(:graph_repository) { Lapidary::Container['analysis.repositories.graph_repository'] }
@@ -28,7 +33,7 @@ RSpec.describe Lapidary::Maintenance::EdgeArchiver do
     end
 
     it 'archives the edge and clears analysis records' do
-      result = archiver.call(source: 'rubyist://matz', target: 'core_module://Array', relationship: 'Contribute')
+      result = use_case.call(source: 'rubyist://matz', target: 'core_module://Array', relationship: 'Contribute')
 
       expect(result[:archived]).to eq(1)
       expect(result[:analysis_records_cleared]).to eq(1)

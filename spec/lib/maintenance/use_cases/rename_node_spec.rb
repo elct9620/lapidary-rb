@@ -2,8 +2,10 @@
 
 require 'spec_helper'
 
-RSpec.describe Lapidary::Maintenance::NodeRenamer do
-  subject(:renamer) { Lapidary::Container['maintenance.node_renamer'] }
+RSpec.describe Maintenance::UseCases::RenameNode do
+  subject(:use_case) do
+    described_class.new(repository: Lapidary::Container['maintenance.repositories.node_rename_repository'])
+  end
 
   let(:db) { Lapidary::Container['database'] }
   let(:graph_repository) { Lapidary::Container['analysis.repositories.graph_repository'] }
@@ -33,7 +35,7 @@ RSpec.describe Lapidary::Maintenance::NodeRenamer do
     it 'renames a node and updates edges and observations' do
       graph_repository.save_triplet(make_triplet(subject_name: 'old_user', object_name: 'Array'), observation)
 
-      renamer.call('rubyist://old_user', 'rubyist://new_user')
+      use_case.call('rubyist://old_user', 'rubyist://new_user')
 
       expect(db[:nodes].where(id: 'rubyist://old_user').count).to eq(0)
       expect(db[:nodes].where(id: 'rubyist://new_user').count).to eq(1)
@@ -50,7 +52,7 @@ RSpec.describe Lapidary::Maintenance::NodeRenamer do
       old_id = 'rubyist://st0012 (Stan Lo)'
       insert_legacy_node(old_id)
 
-      renamer.call(old_id, 'rubyist://st0012')
+      use_case.call(old_id, 'rubyist://st0012')
 
       node = db[:nodes].where(id: 'rubyist://st0012').first
       data = JSON.parse(node[:data], symbolize_names: true)
@@ -61,7 +63,7 @@ RSpec.describe Lapidary::Maintenance::NodeRenamer do
       old_id = 'rubyist://st0012 (Stan Lo)'
       insert_legacy_node(old_id, data: JSON.generate({ display_name: 'Original Name' }))
 
-      renamer.call(old_id, 'rubyist://st0012')
+      use_case.call(old_id, 'rubyist://st0012')
 
       node = db[:nodes].where(id: 'rubyist://st0012').first
       data = JSON.parse(node[:data], symbolize_names: true)
@@ -74,12 +76,10 @@ RSpec.describe Lapidary::Maintenance::NodeRenamer do
                                                       source_entity_id: 2)
       graph_repository.save_triplet(make_triplet(subject_name: 'new_user', object_name: 'String'), other_obs)
 
-      # Add data to old node
       db[:nodes].where(id: 'rubyist://old_user').update(data: JSON.generate({ role: 'contributor' }))
-      # Target node has different data
       db[:nodes].where(id: 'rubyist://new_user').update(data: JSON.generate({ team: 'core' }))
 
-      renamer.call('rubyist://old_user', 'rubyist://new_user')
+      use_case.call('rubyist://old_user', 'rubyist://new_user')
 
       expect(db[:nodes].where(id: 'rubyist://old_user').count).to eq(0)
       node = db[:nodes].where(id: 'rubyist://new_user').first
@@ -94,7 +94,7 @@ RSpec.describe Lapidary::Maintenance::NodeRenamer do
                                                       source_entity_id: 2)
       graph_repository.save_triplet(make_triplet(subject_name: 'new_user', object_name: 'Array'), other_obs)
 
-      renamer.call('rubyist://old_user', 'rubyist://new_user')
+      use_case.call('rubyist://old_user', 'rubyist://new_user')
 
       edges = db[:edges].where(source: 'rubyist://new_user', target: 'core_module://Array').all
       expect(edges.size).to eq(1)
@@ -105,46 +105,42 @@ RSpec.describe Lapidary::Maintenance::NodeRenamer do
 
     it 'skips duplicate observations when merging edges' do
       graph_repository.save_triplet(make_triplet(subject_name: 'old_user', object_name: 'Array'), observation)
-      # Same observation (same source_entity_type + source_entity_id) on target edge
       graph_repository.save_triplet(make_triplet(subject_name: 'new_user', object_name: 'Array'), observation)
 
-      renamer.call('rubyist://old_user', 'rubyist://new_user')
+      use_case.call('rubyist://old_user', 'rubyist://new_user')
 
       obs = db[:observations].where(edge_source: 'rubyist://new_user', edge_target: 'core_module://Array').all
       expect(obs.size).to eq(1)
     end
 
     it 'merges mixed duplicate and unique observations when edges overlap' do
-      # old_user -> Array with obs from issue 1 and issue 3
       graph_repository.save_triplet(make_triplet(subject_name: 'old_user', object_name: 'Array'), observation)
       unique_obs = Analysis::Entities::Observation.new(observed_at: Time.now.iso8601, source_entity_type: 'issue',
                                                        source_entity_id: 3)
       graph_repository.save_triplet(make_triplet(subject_name: 'old_user', object_name: 'Array'), unique_obs)
 
-      # new_user -> Array with obs from issue 1 (duplicate) and issue 2 (unique to target)
       graph_repository.save_triplet(make_triplet(subject_name: 'new_user', object_name: 'Array'), observation)
       other_obs = Analysis::Entities::Observation.new(observed_at: Time.now.iso8601, source_entity_type: 'issue',
                                                       source_entity_id: 2)
       graph_repository.save_triplet(make_triplet(subject_name: 'new_user', object_name: 'Array'), other_obs)
 
-      renamer.call('rubyist://old_user', 'rubyist://new_user')
+      use_case.call('rubyist://old_user', 'rubyist://new_user')
 
       obs = db[:observations].where(edge_source: 'rubyist://new_user', edge_target: 'core_module://Array').all
       entity_ids = obs.map { |o| o[:source_entity_id] }.sort
-      # issue 1 (kept from target), issue 2 (target-only), issue 3 (repointed from source)
       expect(entity_ids).to eq([1, 2, 3])
     end
 
     it 'raises NodeNotFoundError when old node does not exist' do
-      expect { renamer.call('rubyist://nonexistent', 'rubyist://target') }
-        .to raise_error(Lapidary::Maintenance::NodeRenamer::NodeNotFoundError,
+      expect { use_case.call('rubyist://nonexistent', 'rubyist://target') }
+        .to raise_error(Maintenance::Entities::NodeNotFoundError,
                         'node not found: rubyist://nonexistent')
     end
 
     it 'leaves foreign keys valid after rename' do
       graph_repository.save_triplet(make_triplet(subject_name: 'old_user', object_name: 'Array'), observation)
 
-      renamer.call('rubyist://old_user', 'rubyist://new_user')
+      use_case.call('rubyist://old_user', 'rubyist://new_user')
 
       fk_violations = db.fetch('PRAGMA foreign_key_check').all
       expect(fk_violations).to be_empty
