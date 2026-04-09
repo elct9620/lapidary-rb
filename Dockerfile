@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Build stage
-FROM ruby:3.4 AS builder
+FROM ruby:4.0 AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ RUN gem install bundler -v 4.0.1 && \
 COPY . .
 
 # Runtime stage
-FROM ruby:3.4-slim
+FROM ruby:4.0-slim
 
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y curl && \
