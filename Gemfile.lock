@@ -96,7 +96,7 @@ GEM
       dry-initializer (~> 3.2)
       dry-schema (~> 1.14)
       zeitwerk (~> 2.6)
-    erb (6.0.2)
+    erb (6.0.4)
     event_stream_parser (1.0.0)
     falcon (0.55.2)
       async
@@ -338,7 +338,7 @@ CHECKSUMS
   dry-system (1.2.5) sha256=a02f57c18cbcc6c9c4ea99a7eed0afc830263d2051c855a46a7229ea3708d143
   dry-types (1.9.1) sha256=baebeecdb9f8395d6c9d227b62011279440943e3ef2468fe8ccc1ba11467f178
   dry-validation (1.11.1) sha256=70900bb5a2d911c8aab566d3e360c6bff389b8bf92ea8e04885ce51c41ff8085
-  erb (6.0.2) sha256=9fe6264d44f79422c87490a1558479bd0e7dad4dd0e317656e67ea3077b5242b
+  erb (6.0.4) sha256=38e3803694be357fe2bfe312487c74beaf9fb4e5beb3e22498952fe1645b95d9
   event_stream_parser (1.0.0) sha256=a2683bab70126286f8184dc88f7968ffc4028f813161fb073ec90d171f7de3c8
   falcon (0.55.2) sha256=dfcdd8e4c3a18827a5ca7e346df67ebdaf873ac61a5f7d20ad4923c4d6b180cb
   faraday (2.14.1) sha256=a43cceedc1e39d188f4d2cdd360a8aaa6a11da0c407052e426ba8d3fb42ef61c
