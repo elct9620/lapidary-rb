@@ -96,6 +96,19 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end
     end
 
+    context 'when the LLM output is not valid JSON' do
+      before do
+        stub_request(:post, responses_url).to_return(
+          response_body([{ type: 'message', id: 'msg_1', role: 'assistant', status: 'completed',
+                           content: [{ type: 'output_text', text: '{"triplets": [', annotations: [] }] }])
+        )
+      end
+
+      it 'returns no triplets' do
+        expect(extractor.call(job_arguments)).to eq([])
+      end
+    end
+
     context 'when LLM API fails' do
       before do
         stub_request(:post, responses_url).to_return(
