@@ -19,19 +19,18 @@ RSpec.describe Analysis::Jobs::AnalysisJob do
     }
   end
 
-  let(:response_double) { double('Response', content: llm_response) }
-  let(:chat_double) { double('Chat') }
-
   before do
     @orig_llm = Lapidary::Container['llm']
-    llm_double = double('RubyLLM', chat: chat_double)
-    allow(chat_double).to receive_messages(
-      with_instructions: chat_double,
-      with_tools: chat_double,
-      with_schema: chat_double,
-      ask: response_double
+    Lapidary::Container.stub('llm', RubyLLM.context { |config| config.openai_api_key = 'test-key' })
+    stub_request(:post, 'https://api.openai.com/v1/responses').to_return(
+      status: 200, headers: { 'Content-Type' => 'application/json' },
+      body: JSON.generate(
+        id: 'resp_1', object: 'response', status: 'completed', model: 'gpt-6-luna',
+        output: [{ type: 'message', id: 'msg_1', role: 'assistant', status: 'completed',
+                   content: [{ type: 'output_text', text: JSON.generate(llm_response), annotations: [] }] }],
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }
+      )
     )
-    Lapidary::Container.stub('llm', llm_double)
   end
 
   after do

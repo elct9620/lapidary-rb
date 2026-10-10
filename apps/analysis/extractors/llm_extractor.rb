@@ -16,14 +16,14 @@ module Analysis
 
       def call(job_arguments)
         prompt = @prompt_builder.call(job_arguments)
-        parser.call(chat_with_schema(prompt).content)
+        parser.call(chat_with_schema(prompt).parsed)
       rescue RubyLLM::Error => e
         raise Entities::ExtractionError, e.message
       end
 
       def correct(triplet, errors, job_arguments)
         prompt = @prompt_builder.correction_prompt(triplet, errors, job_arguments)
-        parser.call(chat_with_schema(prompt).content).first
+        parser.call(chat_with_schema(prompt).parsed).first
       rescue RubyLLM::Error => e
         raise Entities::ExtractionError, e.message
       end

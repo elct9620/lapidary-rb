@@ -7,12 +7,14 @@ module Analysis
       # Searches for existing observations on an edge in the knowledge graph.
       # Lets the LLM check if a relationship was already observed from a parent issue.
       class SearchObservationTool < BaseSearchTool
+        def self.tool_name = 'search_observation'
+
         description 'Search for existing observations on an edge between a Rubyist and a module. ' \
                     'Use this to check if a relationship was already observed from the parent issue ' \
                     'before extracting it again from a journal.'
 
-        param :source_name, desc: 'Source node name or partial name (Rubyist) to search for'
-        param :target_name, desc: 'Target node name or partial name (Module) to search for'
+        parameter :source_name, description: 'Source node name or partial name (Rubyist) to search for'
+        parameter :target_name, description: 'Target node name or partial name (Module) to search for'
 
         EDGE_JOIN_KEYS = [
           %i[source edge_source],

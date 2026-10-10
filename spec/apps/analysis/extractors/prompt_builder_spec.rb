@@ -124,6 +124,14 @@ RSpec.describe Analysis::Extractors::PromptBuilder do
         expect(result.system).to include('Extraction Constraints')
       end
 
+      it 'refers to each extraction tool by the name the LLM calls it' do
+        tool_names = [Analysis::Extractors::Tools::SearchNodeTool, Analysis::Extractors::Tools::ValidateModuleTool,
+                      Analysis::Extractors::Tools::SearchEdgeTool, Analysis::Extractors::Tools::SearchObservationTool]
+                     .map(&:tool_name)
+
+        expect(tool_names).to all(satisfy { |name| result.system.include?("| #{name} |") })
+      end
+
       it 'includes do-not-extract guidance' do
         expect(result.system).to include('Do NOT extract when')
       end

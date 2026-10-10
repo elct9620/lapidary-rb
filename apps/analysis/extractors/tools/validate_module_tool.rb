@@ -7,10 +7,12 @@ module Analysis
       # Validates whether a module name exists in the curated module lists.
       # Returns the canonical name if found, or suggests similar names if not.
       class ValidateModuleTool < RubyLLM::Tool
+        def self.tool_name = 'validate_module'
+
         description 'Validate whether a module name exists in the curated module lists. ' \
                     'Returns the canonical name if found, or suggests similar names if not.'
 
-        param :name, desc: 'Module name to validate (case-sensitive)'
+        parameter :name, description: 'Module name to validate (case-sensitive)'
 
         def execute(name:)
           if Ontology::ModuleRegistry.valid?(name)

@@ -7,11 +7,13 @@ module Analysis
       # Searches for existing nodes in the knowledge graph by name.
       # Lets the LLM verify Rubyist usernames or module names.
       class SearchNodeTool < BaseSearchTool
+        def self.tool_name = 'search_node'
+
         description 'Search for existing nodes in the knowledge graph by name or display name. ' \
                     'Use this to verify if a Rubyist username, display name, or module name already exists.'
 
-        param :query, desc: 'Name or partial name to search for'
-        param :type, desc: 'Node type filter: Rubyist, CoreModule, or Stdlib', required: false
+        parameter :query, description: 'Name or partial name to search for'
+        parameter :type, description: 'Node type filter: Rubyist, CoreModule, or Stdlib', required: false
 
         def execute(query:, type: nil)
           dataset = @database[:nodes]

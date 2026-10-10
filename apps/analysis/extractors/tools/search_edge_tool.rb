@@ -7,11 +7,13 @@ module Analysis
       # Searches for existing edges (relationships) in the knowledge graph.
       # Lets the LLM check if a relationship between a Rubyist and a module already exists.
       class SearchEdgeTool < BaseSearchTool
+        def self.tool_name = 'search_edge'
+
         description 'Search for existing edges (relationships) in the knowledge graph. ' \
                     'Use this to check if a relationship between a Rubyist and a module already exists.'
 
-        param :source_name, desc: 'Source node name or partial name to search for'
-        param :target_name, desc: 'Target node name or partial name to search for'
+        parameter :source_name, description: 'Source node name or partial name to search for'
+        parameter :target_name, description: 'Target node name or partial name to search for'
 
         def execute(source_name:, target_name:)
           source_pattern = like_pattern(source_name)

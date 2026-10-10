@@ -3,44 +3,93 @@
 require 'spec_helper'
 
 RSpec.describe Analysis::Extractors::LlmExtractor do
-  subject(:extractor) { described_class.new(llm: llm, logger: logger, response_parser: response_parser) }
+  subject(:extractor) { described_class.new(llm: llm, logger: logger, tools: tools) }
 
-  let(:llm) { double('RubyLLM', chat: chat) }
-  let(:chat) { double('RubyLLM::Chat', with_instructions: nil, with_tools: nil, with_schema: nil, ask: response) }
-  let(:response) { double('RubyLLM::Message') }
+  let(:llm) { RubyLLM.context { |config| config.openai_api_key = 'test-key' } }
   let(:logger) { Lapidary::Container['logger'] }
-  let(:response_parser) { Analysis::Extractors::ResponseParser.new(logger: logger) }
-  let(:response_content) do
-    { 'triplets' => [{ 'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
+  let(:tools) { [] }
+  let(:responses_url) { 'https://api.openai.com/v1/responses' }
+  let(:extracted) do
+    { 'triplets' => [{ 'reasoning' => '(1) Y (2) Y',
+                       'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
                        'relationship' => 'Maintenance',
                        'object' => { 'type' => 'CoreModule', 'name' => 'String' },
                        'evidence' => 'matz committed to String' }] }
   end
 
-  before do
-    allow(chat).to receive(:with_instructions).and_return(chat)
-    allow(chat).to receive(:with_tools).and_return(chat)
-    allow(chat).to receive(:with_schema).and_return(chat)
-    allow(chat).to receive(:ask).and_return(response)
-    allow(response).to receive(:content).and_return(response_content)
+  def message_response(content)
+    response_body(
+      [{ type: 'message', id: 'msg_1', role: 'assistant', status: 'completed',
+         content: [{ type: 'output_text', text: JSON.generate(content), annotations: [] }] }]
+    )
+  end
+
+  def function_call_response(name, arguments)
+    response_body(
+      [{ type: 'function_call', id: 'fc_1', call_id: 'call_1', name: name,
+         arguments: JSON.generate(arguments), status: 'completed' }]
+    )
+  end
+
+  def response_body(output)
+    {
+      status: 200,
+      headers: { 'Content-Type' => 'application/json' },
+      body: JSON.generate(id: 'resp_1', object: 'response', status: 'completed', model: 'gpt-6-luna',
+                          output: output, usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 })
+    }
   end
 
   describe '#call' do
     let(:job_arguments) { Analysis::Entities::JobArguments.new(entity_type: 'issue', entity_id: 12_345) }
 
-    it 'returns parsed triplets from the LLM response' do
+    before { stub_request(:post, responses_url).to_return(message_response(extracted)) }
+
+    it 'returns parsed triplets from the LLM structured output' do
       result = extractor.call(job_arguments)
 
-      expect(result.size).to eq(1)
-      triplet = result.first
-      expect(triplet.subject.name).to eq('matz')
-      expect(triplet.relationship).to eq(Analysis::Entities::RelationshipType::MAINTENANCE)
-      expect(triplet.object.name).to eq('String')
+      expect(result.map { |t| [t.subject.name, t.relationship, t.object.name] })
+        .to eq([['matz', Analysis::Entities::RelationshipType::MAINTENANCE, 'String']])
+    end
+
+    it 'requests the triplet schema as structured output' do
+      extractor.call(job_arguments)
+
+      expect(a_request(:post, responses_url).with do |request|
+        JSON.parse(request.body).dig('text', 'format', 'type') == 'json_schema'
+      end).to have_been_made
+    end
+
+    context 'when the LLM calls a tool before answering' do
+      let(:tools) { [Analysis::Extractors::Tools::ValidateModuleTool.new] }
+
+      before do
+        stub_request(:post, responses_url)
+          .to_return(function_call_response('validate_module', { name: 'String' }))
+          .then.to_return(message_response(extracted))
+      end
+
+      it 'returns the triplets from the answer that follows the tool result' do
+        expect(extractor.call(job_arguments).map { |t| t.object.name }).to eq(['String'])
+      end
+
+      it 'sends the tool result back to the LLM' do
+        extractor.call(job_arguments)
+
+        expect(a_request(:post, responses_url).with do |request|
+          JSON.parse(request.body)['input'].any? do |item|
+            item['type'] == 'function_call_output' && JSON.parse(item['output'])['valid'] == true
+          end
+        end).to have_been_made
+      end
     end
 
     context 'when LLM API fails' do
       before do
-        allow(chat).to receive(:ask).and_raise(RubyLLM::Error.new(nil, 'API connection failed'))
+        stub_request(:post, responses_url).to_return(
+          status: 400, headers: { 'Content-Type' => 'application/json' },
+          body: JSON.generate(error: { message: 'API connection failed' })
+        )
       end
 
       it 'wraps the error as ExtractionError' do
@@ -63,26 +112,18 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       )
     end
     let(:errors) { ['unknown module name: InvalidModule'] }
-    let(:corrected_content) do
-      { 'triplets' => [{ 'subject' => { 'name' => 'matz', 'role' => 'maintainer' },
-                         'relationship' => 'Maintenance',
-                         'object' => { 'type' => 'CoreModule', 'name' => 'String' },
-                         'evidence' => 'matz committed to String' }] }
-    end
+    let(:corrected) { extracted }
 
-    before do
-      allow(response).to receive(:content).and_return(corrected_content)
-    end
+    before { stub_request(:post, responses_url).to_return(message_response(corrected)) }
 
     it 'returns the corrected triplet' do
       result = extractor.correct(triplet, errors, job_arguments)
 
-      expect(result.subject.name).to eq('matz')
-      expect(result.object.name).to eq('String')
+      expect([result.subject.name, result.object.name]).to eq(%w[matz String])
     end
 
-    context 'when ResponseParser returns empty array' do
-      let(:corrected_content) { { 'triplets' => [] } }
+    context 'when the LLM returns no triplets' do
+      let(:corrected) { { 'triplets' => [] } }
 
       it 'returns nil' do
         expect(extractor.correct(triplet, errors, job_arguments)).to be_nil
@@ -91,7 +132,10 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
 
     context 'when LLM API fails' do
       before do
-        allow(chat).to receive(:ask).and_raise(RubyLLM::Error.new(nil, 'API error'))
+        stub_request(:post, responses_url).to_return(
+          status: 400, headers: { 'Content-Type' => 'application/json' },
+          body: JSON.generate(error: { message: 'API error' })
+        )
       end
 
       it 'raises ExtractionError' do

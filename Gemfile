@@ -9,7 +9,7 @@ gem 'dry-validation'
 gem 'falcon', require: false
 gem 'irb', require: false
 gem 'rake', require: false
-gem 'ruby_llm'
+gem 'ruby_llm', '~> 2.1'
 gem 'sentry-ruby'
 gem 'sequel'
 gem 'sinatra'

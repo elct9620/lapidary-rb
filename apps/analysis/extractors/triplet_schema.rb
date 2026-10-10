@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require 'ruby_llm/schema'
+require 'schematist'
 
 module Analysis
   module Extractors
     # Structured output schema for LLM triplet extraction.
-    class TripletSchema < RubyLLM::Schema
+    class TripletSchema < Schematist::Schema
       RELATIONSHIP_MAP = Entities::RelationshipType::ALL
                          .to_h { |r| [r.to_s, r] }.freeze
 

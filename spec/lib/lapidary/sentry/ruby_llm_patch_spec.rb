@@ -10,9 +10,8 @@ RSpec.describe Lapidary::Sentry::RubyLlmPatch do
     double('Response',
            role: :assistant,
            content: 'Hello!',
-           model_id: 'gpt-5-mini',
-           input_tokens: 100,
-           output_tokens: 50,
+           model: 'gpt-5-mini',
+           tokens: RubyLLM::Tokens.new(input: 100, output: 50),
            tool_calls: nil,
            tool_call_id: nil)
   end

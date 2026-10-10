@@ -49,9 +49,9 @@ module Lapidary
       end
 
       def record_response_attributes(span, response)
-        span.set_data('gen_ai.response.model', response.model_id)
-        span.set_data('gen_ai.usage.input_tokens', response.input_tokens)
-        span.set_data('gen_ai.usage.output_tokens', response.output_tokens)
+        span.set_data('gen_ai.response.model', response.model)
+        span.set_data('gen_ai.usage.input_tokens', response.tokens&.input)
+        span.set_data('gen_ai.usage.output_tokens', response.tokens&.output)
       end
 
       def record_content(span, response)
@@ -76,8 +76,7 @@ module Lapidary
         span.set_data('gen_ai.tool.input', arguments_json)
         span.set_data('gen_ai.tool.call.arguments', arguments_json)
 
-        result_str = result.is_a?(::RubyLLM::Tool::Halt) ? result.content.to_s : result.to_s
-        truncated_result = result_str[0..500]
+        truncated_result = result.to_s[0..500]
         span.set_data('gen_ai.tool.output', truncated_result)
         span.set_data('gen_ai.tool.call.result', truncated_result)
       end
