@@ -271,7 +271,8 @@ Mock external boundaries, not internal collaborators. Use real repositories with
 | `PORT` | `9292` | HTTP listen port (Falcon only, configured in `falcon.rb`) |
 | `REDMINE_URL` | `https://bugs.ruby-lang.org` | Base URL for the Redmine JSON API |
 | `OPENAI_API_KEY` | `nil` | OpenAI API key for LLM extraction pipeline |
-| `OPENAI_MODEL` | `gpt-5-mini` | OpenAI model for triplet extraction |
+| `OPENAI_MODEL` | `gpt-6-luna` | OpenAI model for triplet extraction |
+| `OPENAI_REASONING_EFFORT` | `high` | Reasoning effort requested for triplet extraction; accepted values depend on the model |
 | `WEBHOOK_SECRET` | `nil` | When set, webhook requests must include `?token=<value>` matching this secret |
 | `JOB_RETENTION` | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
 | `GRAPH_RETENTION` | `180d` | Retention period for graph edges. An edge is archived when its most recent observation exceeds this period. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |

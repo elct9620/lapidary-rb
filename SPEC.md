@@ -936,7 +936,8 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `WEBHOOK_SECRET` | No | — | When set, webhook requests must include `?token=<value>` matching this secret; when unset, authentication is bypassed |
 | `REDMINE_URL` | No | `https://bugs.ruby-lang.org` | Base URL for the Redmine JSON API |
 | `OPENAI_API_KEY` | Yes | — | API key for OpenAI LLM used in triplet extraction |
-| `OPENAI_MODEL` | No | `gpt-5-mini` | OpenAI model used for triplet extraction |
+| `OPENAI_MODEL` | No | `gpt-6-luna` | OpenAI model used for triplet extraction |
+| `OPENAI_REASONING_EFFORT` | No | `high` | Reasoning effort for triplet extraction; accepted values depend on the model |
 | `JOB_RETENTION` | No | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `12h`, `1d`, `7d` |
 | `GRAPH_RETENTION` | No | `180d` | Retention period for graph edges. An edge is archived when its most recent observation exceeds this period. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `30d`, `180d`, `365d` |
 | `CLEANUP_INTERVAL` | No | `86400` | Interval in seconds between retention cleanup runs (expired jobs + archived edges). Default is 1 day |

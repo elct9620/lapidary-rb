@@ -143,7 +143,8 @@ bundle exec rubocop
 | `PORT` | `9292` | HTTP listen port (Falcon) |
 | `REDMINE_URL` | `https://bugs.ruby-lang.org` | Redmine JSON API base URL |
 | `OPENAI_API_KEY` | — | OpenAI API key for LLM extraction |
-| `OPENAI_MODEL` | `gpt-5-mini` | OpenAI model for triplet extraction |
+| `OPENAI_MODEL` | `gpt-6-luna` | OpenAI model for triplet extraction |
+| `OPENAI_REASONING_EFFORT` | `high` | Reasoning effort for triplet extraction |
 | `WEBHOOK_SECRET` | — | Optional token authentication for webhooks |
 | `JOB_RETENTION` | `7d` | TTL for completed/failed jobs (`<number><unit>`: `h`/`d`) |
 | `GRAPH_RETENTION` | `180d` | Retention period for graph edges (`<number><unit>`: `h`/`d`) |
