@@ -794,15 +794,17 @@ Content-Type: `application/json`
 | Unexpected error during processing | Retry or mark as failed depending on remaining attempts |
 | LLM extraction failure (timeout, API error) | Retry with exponential backoff (counts as a job attempt) |
 | LLM output is not valid structured output | Log warning and extract zero triplets; a correction attempt keeps the original validation result |
-| LLM output fails ontology validation | Correct once; reject the triplet and log warning; other valid triplets are still written |
-| Module name not in curated list | Correct once; reject the triplet and log warning |
-| LLM outputs `Maintenance` with non-maintainer role | Correct once; downgrade to `Contribute` and log info |
-| LLM outputs subject or object name containing whitespace | Correct once; reject the triplet and log warning |
+| LLM output fails ontology validation | Validation Feedback Correction; reject the triplet and log warning; other valid triplets are still written |
+| Module name not in curated list | Validation Feedback Correction; reject the triplet and log warning |
+| LLM outputs `Maintenance` with non-maintainer role | Validation Feedback Correction; downgrade to `Contribute` and log info |
+| LLM outputs subject or object name containing whitespace | Validation Feedback Correction; reject the triplet and log warning |
 | LLM outputs reserved anonymous subject name | Reject triplet immediately (no correction attempt); log warning |
 | LLM correction attempt fails (timeout, API error) | Skip correction, apply original validation result (reject or downgrade); log warning |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
 | Job cleanup database error | Log error, continue processing — cleanup failure must not block job processing |
 | Graph edge archiving database error | Log error, continue processing — archiving failure must not block job processing |
+
+Rows that apply Validation Feedback Correction show the outcome when the corrected triplet still violates the same rule.
 
 **Graph Neighbor Query Errors**:
 
@@ -838,7 +840,6 @@ Content-Type: `application/json`
 | `analyze` called with non-existent Issue ID | Display error message indicating the Issue was not found on Redmine |
 | `analyze` called with invalid Issue ID format | Display usage message |
 
-"Correct once" sends the validation errors back to the LLM for one correction attempt. The listed outcome applies when the corrected triplet still violates the same rule.
 
 **Knowledge Graph Explorer Errors**:
 
