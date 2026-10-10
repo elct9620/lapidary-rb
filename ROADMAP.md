@@ -6,7 +6,7 @@ LLM extraction, knowledge graph construction, and a browser-based visual explore
 
 | Feature | Entry Points | Notes |
 |---------|-------------|-------|
-| ✅ [Webhook endpoint](SPEC.md#webhook-endpoint) | [apps/webhooks/api.rb](apps/webhooks/api.rb), [apps/webhooks/contract.rb](apps/webhooks/contract.rb) | Constant-time token auth; 502 message says "upstream service error" (SPEC says "failed to fetch issue from Redmine") |
+| ✅ [Webhook endpoint](SPEC.md#webhook-endpoint) | [apps/webhooks/api.rb](apps/webhooks/api.rb), [apps/webhooks/contract.rb](apps/webhooks/contract.rb) | Constant-time token auth; 502 message differs from SPEC |
 | ✅ [Job queue](SPEC.md#job-queue) | [lib/analysis/entities/job.rb](lib/analysis/entities/job.rb), [apps/analysis/repositories/job_repository.rb](apps/analysis/repositories/job_repository.rb) | All status transitions tested; JobArguments carries full Redmine data |
 | ✅ [Analysis service](SPEC.md#analysis-service) | [lib/lapidary/analysis/worker.rb](lib/lapidary/analysis/worker.rb), [falcon.rb](falcon.rb) | Async::Service worker; graceful shutdown tested |
 | ✅ [Issue data fetching](SPEC.md#issue-data-fetching) | [lib/redmine/api.rb](lib/redmine/api.rb), [apps/webhooks/repositories/issue_repository.rb](apps/webhooks/repositories/issue_repository.rb) | Implementation adds `title` (subject) + `content` (description); SPEC maps `content` from subject only |
@@ -23,3 +23,5 @@ LLM extraction, knowledge graph construction, and a browser-based visual explore
 | ✅ [Knowledge graph explorer](SPEC.md#knowledge-graph-explorer-endpoint) | [public/index.html](public/index.html), [public/controllers/](public/controllers/), [config/web.rb](config/web.rb) | Cytoscape.js + Stimulus; no frontend tests (API backend fully tested) |
 | ✅ [Graph edge archiving](SPEC.md#graph-edge-archiving) | [lib/analysis/use_cases/archive_edges.rb](lib/analysis/use_cases/archive_edges.rb), [apps/analysis/repositories/edge_archive_writer.rb](apps/analysis/repositories/edge_archive_writer.rb) | Periodic via CLEANUP_INTERVAL; clears analysis records for re-analysis; auto-unarchive on new observation |
 | ✅ [Maintenance console](SPEC.md#maintenance-console) | [bin/console](bin/console), [lib/lapidary/console/](lib/lapidary/console/), [lib/lapidary/maintenance/](lib/lapidary/maintenance/) | Query, maintenance, analyze commands; domain layer tested, IRB command wrappers not tested |
+
+The webhook endpoint answers 502 with "upstream service error", while SPEC specifies "failed to fetch issue from Redmine".

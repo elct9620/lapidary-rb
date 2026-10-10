@@ -930,6 +930,8 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 
 #### Environment Variables
 
+The service reads its configuration from these environment variables.
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `PORT`   | No       | `9292`  | HTTP listen port |
@@ -938,11 +940,13 @@ Falcon manages both the web server and the Analysis Service as supervised proces
 | `OPENAI_API_KEY` | Yes | — | API key for OpenAI LLM used in triplet extraction |
 | `OPENAI_MODEL` | No | `gpt-6-luna` | OpenAI model used for triplet extraction |
 | `OPENAI_REASONING_EFFORT` | No | `high` | Reasoning effort for triplet extraction; accepted values depend on the model |
-| `JOB_RETENTION` | No | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `12h`, `1d`, `7d` |
-| `GRAPH_RETENTION` | No | `180d` | Retention period for graph edges. An edge is archived when its most recent observation exceeds this period. Format: `<number><unit>` where unit is `h` (hours) or `d` (days). Examples: `30d`, `180d`, `365d` |
+| `JOB_RETENTION` | No | `7d` | Retention period for completed/failed/stale jobs |
+| `GRAPH_RETENTION` | No | `180d` | Retention period for graph edges |
 | `CLEANUP_INTERVAL` | No | `86400` | Interval in seconds between retention cleanup runs (expired jobs + archived edges). Default is 1 day |
 | `SENTRY_DSN` | No | — | Sentry DSN for error tracking and performance monitoring. When unset, Sentry is a no-op |
-| `TRUSTED_PROXIES` | No | — | Comma-separated CIDR ranges of trusted reverse proxies. When set, Sentry and Rack resolve the real client IP from `X-Forwarded-For` headers |
+| `TRUSTED_PROXIES` | No | — | Comma-separated CIDR ranges of trusted reverse proxies |
+
+Retention values use the format `<number><unit>`, where unit is `h` (hours) or `d` (days), such as `12h`, `1d`, `7d`, `30d`, `180d`, or `365d`. An edge is archived when its most recent observation exceeds `GRAPH_RETENTION`. When `TRUSTED_PROXIES` is set, Sentry and Rack resolve the real client IP from `X-Forwarded-For` headers.
 
 #### Port
 

@@ -265,6 +265,8 @@ Mock external boundaries, not internal collaborators. Use real repositories with
 
 ## Environment Variables
 
+The application reads its configuration from these environment variables.
+
 | Variable | Default | Description |
 |---|---|---|
 | `RACK_ENV` | `development` | Affects database path and Sinatra environment |
@@ -272,10 +274,12 @@ Mock external boundaries, not internal collaborators. Use real repositories with
 | `REDMINE_URL` | `https://bugs.ruby-lang.org` | Base URL for the Redmine JSON API |
 | `OPENAI_API_KEY` | `nil` | OpenAI API key for LLM extraction pipeline |
 | `OPENAI_MODEL` | `gpt-6-luna` | OpenAI model for triplet extraction |
-| `OPENAI_REASONING_EFFORT` | `high` | Reasoning effort requested for triplet extraction; accepted values depend on the model |
+| `OPENAI_REASONING_EFFORT` | `high` | Reasoning effort for triplet extraction; accepted values depend on the model |
 | `WEBHOOK_SECRET` | `nil` | When set, webhook requests must include `?token=<value>` matching this secret |
-| `JOB_RETENTION` | `7d` | Retention period for completed/failed/stale jobs. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
-| `GRAPH_RETENTION` | `180d` | Retention period for graph edges. An edge is archived when its most recent observation exceeds this period. Format: `<number><unit>` where unit is `h` (hours) or `d` (days) |
+| `JOB_RETENTION` | `7d` | Retention period for completed/failed/stale jobs |
+| `GRAPH_RETENTION` | `180d` | Retention period for graph edges |
 | `CLEANUP_INTERVAL` | `86400` | Interval in seconds between retention cleanup runs (expired jobs + archived edges). Default is 1 day |
-| `TRUSTED_PROXIES` | `nil` | Comma-separated CIDR ranges of trusted reverse proxies (e.g. Cloudflare). When set, both Sentry and `Rack::Request#ip` will resolve the real client IP from `X-Forwarded-For` headers |
+| `TRUSTED_PROXIES` | `nil` | Comma-separated CIDR ranges of trusted reverse proxies (e.g. Cloudflare) |
 | `SENTRY_DSN` | `nil` | Sentry DSN for error tracking and performance monitoring. When unset, Sentry is a no-op |
+
+Retention values use the format `<number><unit>`, where unit is `h` (hours) or `d` (days). An edge is archived when its most recent observation exceeds `GRAPH_RETENTION`. When `TRUSTED_PROXIES` is set, both Sentry and `Rack::Request#ip` resolve the real client IP from `X-Forwarded-For` headers.

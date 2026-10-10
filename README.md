@@ -137,6 +137,8 @@ bundle exec rubocop
 
 ## Configuration
 
+Lapidary reads its configuration from these environment variables.
+
 | Variable | Default | Description |
 |---|---|---|
 | `RACK_ENV` | `development` | Environment (affects database path) |
