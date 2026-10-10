@@ -107,6 +107,14 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       it 'returns no triplets' do
         expect(extractor.call(job_arguments)).to eq([])
       end
+
+      it 'logs the response as malformed' do
+        allow(logger).to receive(:warn)
+
+        extractor.call(job_arguments)
+
+        expect(logger).to have_received(:warn).with(anything, /LLM response malformed/, any_args)
+      end
     end
 
     context 'when LLM API fails' do
