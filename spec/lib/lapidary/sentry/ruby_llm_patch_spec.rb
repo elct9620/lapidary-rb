@@ -4,13 +4,13 @@ require 'spec_helper'
 require_relative '../../../../lib/lapidary/sentry/ruby_llm_patch'
 
 RSpec.describe Lapidary::Sentry::RubyLlmPatch do
-  let(:model) { double('Model', id: 'gpt-5-mini', provider: 'openai') }
+  let(:model) { double('Model', id: 'gpt-6-luna', provider: 'openai') }
 
   let(:response) do
     double('Response',
            role: :assistant,
            content: 'Hello!',
-           model: 'gpt-5-mini',
+           model: 'gpt-6-luna',
            tokens: RubyLLM::Tokens.new(input: 100, output: 50),
            tool_calls: nil,
            tool_call_id: nil)
@@ -89,7 +89,7 @@ RSpec.describe Lapidary::Sentry::RubyLlmPatch do
 
       expect(Sentry).to have_received(:with_child_span).with(
         op: 'gen_ai.chat',
-        description: 'chat gpt-5-mini',
+        description: 'chat gpt-6-luna',
         origin: 'auto.ai.ruby_llm'
       )
     end
@@ -99,13 +99,13 @@ RSpec.describe Lapidary::Sentry::RubyLlmPatch do
 
       expect(span).to have_received(:set_data).with('gen_ai.operation.name', 'chat')
       expect(span).to have_received(:set_data).with('gen_ai.system', 'openai')
-      expect(span).to have_received(:set_data).with('gen_ai.request.model', 'gpt-5-mini')
+      expect(span).to have_received(:set_data).with('gen_ai.request.model', 'gpt-6-luna')
     end
 
     it 'records response attributes' do
       instance.ask('hello')
 
-      expect(span).to have_received(:set_data).with('gen_ai.response.model', 'gpt-5-mini')
+      expect(span).to have_received(:set_data).with('gen_ai.response.model', 'gpt-6-luna')
       expect(span).to have_received(:set_data).with('gen_ai.usage.input_tokens', 100)
       expect(span).to have_received(:set_data).with('gen_ai.usage.output_tokens', 50)
     end
