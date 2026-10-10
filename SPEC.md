@@ -793,10 +793,11 @@ Content-Type: `application/json`
 | Maximum retry attempts exceeded | Mark job as permanently failed, log error |
 | Unexpected error during processing | Retry or mark as failed depending on remaining attempts |
 | LLM extraction failure (timeout, API error) | Retry with exponential backoff (counts as a job attempt) |
-| LLM output fails ontology validation | Attempt correction via LLM feedback (one attempt); if correction also fails, reject the triplet and log warning; valid triplets from the same response are still written |
-| Module name not in curated list | Attempt correction via LLM feedback; if corrected name is still not in curated list, reject the triplet and log warning |
-| LLM outputs `Maintenance` with non-maintainer role | Attempt correction via LLM feedback; if corrected triplet still has non-maintainer role with Maintenance, downgrade to `Contribute` and log info |
-| LLM outputs subject or object name containing whitespace | Attempt correction via LLM feedback; if corrected name still contains whitespace, reject the triplet and log warning |
+| LLM output is not valid structured output | Log warning and extract zero triplets; a correction attempt keeps the original validation result |
+| LLM output fails ontology validation | Correct once; reject the triplet and log warning; other valid triplets are still written |
+| Module name not in curated list | Correct once; reject the triplet and log warning |
+| LLM outputs `Maintenance` with non-maintainer role | Correct once; downgrade to `Contribute` and log info |
+| LLM outputs subject or object name containing whitespace | Correct once; reject the triplet and log warning |
 | LLM outputs reserved anonymous subject name | Reject triplet immediately (no correction attempt); log warning |
 | LLM correction attempt fails (timeout, API error) | Skip correction, apply original validation result (reject or downgrade); log warning |
 | Normalization produces a duplicate edge observation | Skip duplicate observation, continue processing remaining triplets |
@@ -837,11 +838,13 @@ Content-Type: `application/json`
 | `analyze` called with non-existent Issue ID | Display error message indicating the Issue was not found on Redmine |
 | `analyze` called with invalid Issue ID format | Display usage message |
 
+"Correct once" sends the validation errors back to the LLM for one correction attempt. The listed outcome applies when the corrected triplet still violates the same rule.
+
 **Knowledge Graph Explorer Errors**:
 
 | Scenario | Behavior |
 |----------|----------|
-| Graph API returns error during client-side fetch | UI displays an inline error message describing the failure; graph visualization remains interactive and does not crash |
+| Graph API returns error during client-side fetch | UI shows an inline error describing the failure; graph stays interactive and does not crash |
 | Graph API returns zero results (empty graph) | UI displays an informational message indicating no matching data is available |
 | Cytoscape.js CDN unavailable | Page loads but graph visualization is non-functional; search and filters remain visible |
 
