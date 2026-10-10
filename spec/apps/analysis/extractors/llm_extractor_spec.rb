@@ -60,6 +60,18 @@ RSpec.describe Analysis::Extractors::LlmExtractor do
       end).to have_been_made
     end
 
+    context 'with a reasoning effort' do
+      subject(:extractor) { described_class.new(llm: llm, logger: logger, reasoning_effort: 'high') }
+
+      it 'requests that reasoning effort' do
+        extractor.call(job_arguments)
+
+        expect(a_request(:post, responses_url).with do |request|
+          JSON.parse(request.body)['reasoning'] == { 'effort' => 'high' }
+        end).to have_been_made
+      end
+    end
+
     context 'when the LLM calls a tool before answering' do
       let(:tools) { [Analysis::Extractors::Tools::ValidateModuleTool.new] }
 

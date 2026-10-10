@@ -35,7 +35,8 @@ module Lapidary
 
     setting :openai do
       setting :api_key, default: ENV.fetch('OPENAI_API_KEY', nil)
-      setting :model, default: ENV.fetch('OPENAI_MODEL', 'gpt-5-mini')
+      setting :model, default: ENV.fetch('OPENAI_MODEL', 'gpt-6-luna')
+      setting :reasoning_effort, default: ENV.fetch('OPENAI_REASONING_EFFORT', 'high')
     end
   end
 end

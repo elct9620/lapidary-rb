@@ -7,11 +7,12 @@ module Analysis
     class LlmExtractor
       include Lapidary::Dependency['llm', 'logger']
 
-      def initialize(prompt_builder: PromptBuilder.new, response_parser: nil, tools: [], **deps)
+      def initialize(prompt_builder: PromptBuilder.new, response_parser: nil, tools: [], reasoning_effort: nil, **deps)
         super(**deps)
         @prompt_builder = prompt_builder
         @parser = response_parser
         @tools = tools
+        @reasoning_effort = reasoning_effort
       end
 
       def call(job_arguments)
@@ -36,6 +37,7 @@ module Analysis
 
       def chat_with_schema(prompt)
         chat = llm.chat.with_instructions(prompt.system).with_tools(*@tools).with_schema(TripletSchema)
+        chat = chat.with_thinking(effort: @reasoning_effort) if @reasoning_effort
         chat.ask(prompt.user)
       end
     end

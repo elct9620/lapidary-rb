@@ -43,7 +43,8 @@ module Analysis
         ::Analysis::Extractors::LlmExtractor.new(
           llm: llm,
           logger: logger,
-          tools: build_tools
+          tools: build_tools,
+          reasoning_effort: Lapidary.config.openai.reasoning_effort
         )
       end
 

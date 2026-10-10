@@ -71,4 +71,12 @@ RSpec.describe Analysis::Jobs::AnalysisJob do
     expect(record).not_to be_nil
     expect(record[:analyzed_at]).not_to be_nil
   end
+
+  it 'asks the LLM to reason at the configured effort' do
+    analysis_job.call(enqueue_and_claim_job)
+
+    expect(a_request(:post, 'https://api.openai.com/v1/responses').with do |request|
+      JSON.parse(request.body).dig('reasoning', 'effort') == Lapidary.config.openai.reasoning_effort
+    end).to have_been_made
+  end
 end

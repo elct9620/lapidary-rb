@@ -64,8 +64,12 @@ RSpec.describe Lapidary::Config do
       expect(Lapidary.config.openai).to respond_to(:api_key)
     end
 
-    it 'has a model defaulting to gpt-5-mini' do
-      expect(Lapidary.config.openai.model).to eq('gpt-5-mini')
+    it 'has a model defaulting to gpt-6-luna' do
+      expect(Lapidary.config.openai.model).to eq('gpt-6-luna')
+    end
+
+    it 'has a reasoning effort defaulting to high' do
+      expect(Lapidary.config.openai.reasoning_effort).to eq('high')
     end
   end
 end

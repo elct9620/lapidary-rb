@@ -9,6 +9,6 @@ RSpec.describe 'LLM provider' do
 
   it 'configures the default model' do
     Lapidary::Container['llm']
-    expect(RubyLLM.config.default_model).to eq('gpt-5-mini')
+    expect(RubyLLM.config.default_model).to eq('gpt-6-luna')
   end
 end
