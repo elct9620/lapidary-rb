@@ -19,8 +19,9 @@ COPY . .
 # Runtime stage
 FROM ruby:3.4-slim
 
+# ca-certificates is listed so the trust store comes from Debian security updates
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y curl && \
+    apt-get install --no-install-recommends -y ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system --gid 1000 app && \
